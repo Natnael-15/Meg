@@ -96,7 +96,32 @@ const TOOLS = [
 function executeTool(name, args, threadId) {
   return new Promise(async resolve => {
     if (name === 'run_command') {
-...
+      exec(args.command, { cwd: args.cwd || process.cwd(), timeout: 30000, shell: true }, (err, stdout, stderr) => {
+        resolve({ stdout: stdout || '', stderr: stderr || '', exitCode: err ? (err.code ?? 1) : 0 });
+      });
+    } else if (name === 'read_file') {
+      try {
+        resolve({ content: fs.readFileSync(args.path, 'utf8') });
+      } catch (e) {
+        resolve({ error: e.message });
+      }
+    } else if (name === 'write_file') {
+      try {
+        fs.mkdirSync(path.dirname(path.resolve(args.path)), { recursive: true });
+        fs.writeFileSync(args.path, args.content, 'utf8');
+        resolve({ ok: true });
+      } catch (e) {
+        resolve({ error: e.message });
+      }
+    } else if (name === 'list_directory') {
+      try {
+        const entries = fs.readdirSync(args.path, { withFileTypes: true });
+        resolve({
+          entries: entries.map(e => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })),
+        });
+      } catch (e) {
+        resolve({ error: e.message });
+      }
     } else if (name === 'search_files') {
       // Use findstr on Windows for recursive search
       const cmd = `findstr /s /i /n /c:"${args.pattern}" *`;
