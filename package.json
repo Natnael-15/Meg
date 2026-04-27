@@ -1,0 +1,38 @@
+{
+  "name": "meg",
+  "version": "0.1.0",
+  "description": "Meg — Local AI System",
+  "author": "Natnael-15",
+  "main": "src/main/index.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --enable-logging",
+    "build": "electron-builder build --win --publish never",
+    "release": "electron-builder build --win --publish always"
+  },
+  "build": {
+    "appId": "com.meg.ai",
+    "productName": "Meg",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Natnael-15",
+        "repo": "Meg"
+      }
+    ]
+  },
+  "dependencies": {
+    "openai": "^4.91.1",
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^35.1.0",
+    "electron-builder": "^24.13.3"
+  }
+}
