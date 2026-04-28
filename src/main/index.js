@@ -2,14 +2,17 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { autoUpdater } = require('electron-updater');
 const { setupIPC } = require('./ipc');
+const settings = require('./settings');
 
 // Configure auto-updater
 autoUpdater.autoDownload = false;
 autoUpdater.allowPrerelease = true;
 
-// Support private repositories if GH_TOKEN is available at runtime
-if (process.env.GH_TOKEN) {
-  autoUpdater.addAuthHeader(`token ${process.env.GH_TOKEN}`);
+function updateAuthHeader() {
+  const token = settings.get('githubToken');
+  if (token) {
+    autoUpdater.addAuthHeader(`token ${token}`);
+  }
 }
 
 function createWindow() {
@@ -38,6 +41,7 @@ function createWindow() {
   win.loadFile(path.join(__dirname, '../../Meg.html'));
 
   setupIPC(win);
+  updateAuthHeader();
 
   // ── Auto Updater Events ──
   autoUpdater.on('update-available', (info) => {

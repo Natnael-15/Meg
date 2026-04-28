@@ -1848,10 +1848,13 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.1.4');
+  const [version, setVersion] = useState('0.1.5');
+  const [githubToken, setGithubToken] = useState(()=>localStorage.getItem('meg:githubToken')||'');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
+
+  const saveGithubToken = t => { setGithubToken(t); localStorage.setItem('meg:githubToken',t); window.electronAPI?.setSetting('githubToken',t); };
 
   const saveLmUrl = async (url) => {
     setLmUrl(url);
@@ -2084,6 +2087,13 @@ const SettingsView = () => {
             <button onClick={()=>window.electronAPI?.checkForUpdates()} style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:'var(--text-2)',background:'var(--bg)',cursor:'pointer'}}>Check now</button>
           </div>
 
+          <div style={{padding:'16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)',marginBottom:16}}>
+            <label style={{fontSize:12,fontWeight:600,color:'var(--text)',display:'block',marginBottom:8}}>Private Repo Access</label>
+            <p style={{fontSize:11.5,color:'var(--text-3)',marginBottom:12}}>Provide a GitHub Personal Access Token (classic) with `repo` scope to enable auto-updates for this private repository.</p>
+            <input type="password" value={githubToken} onChange={e=>saveGithubToken(e.target.value)} placeholder="ghp_…" style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'8px 10px',fontSize:12,fontFamily:'"JetBrains Mono",monospace',outline:'none',background:'var(--bg-input)',color:'var(--text)',transition:'border-color 0.15s'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+            {githubToken && <div style={{marginTop:8,fontSize:10.5,color:'var(--green)',display:'flex',alignItems:'center',gap:4}}><Icon name="check" size={10}/> Token saved locally</div>}
+          </div>
+
           <div style={{fontSize:11,color:'var(--text-3)',fontStyle:'italic'}}>Channel: stable-pre-release</div>
         </div>}
       </div>
@@ -2155,14 +2165,16 @@ const CodeBlock = ({lang,code}) => {
 
 const renderInline = (text) => {
   if(!text) return null;
+  const hash = text.length;
   return text.split(/(`[^`\n]+`)/g).flatMap((seg,i)=>{
     if(seg.startsWith('`')&&seg.endsWith('`'))
-      return [<code key={i} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:'0.88em',background:'rgba(128,128,128,0.12)',padding:'1px 5px',borderRadius:3,color:'var(--orange)'}}>{seg.slice(1,-1)}</code>];
+      return [<code key={`code-${hash}-${i}`} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:'0.88em',background:'rgba(128,128,128,0.12)',padding:'1px 5px',borderRadius:3,color:'var(--orange)'}}>{seg.slice(1,-1)}</code>];
     return seg.split(/(\*\*\*[^*\n]+\*\*\*|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g).map((p,j)=>{
-      if(/^\*\*\*/.test(p)) return <strong key={j}><em>{p.slice(3,-3)}</em></strong>;
-      if(/^\*\*/.test(p)||/^__/.test(p)) return <strong key={j} style={{fontWeight:600}}>{p.slice(2,-2)}</strong>;
-      if(/^\*/.test(p)||/^_/.test(p)) return <em key={j}>{p.slice(1,-1)}</em>;
-      return <React.Fragment key={j}>{p.split('\n').map((l,k,a)=><React.Fragment key={k}>{l}{k<a.length-1&&<br/>}</React.Fragment>)}</React.Fragment>;
+      const kj = `p-${hash}-${i}-${j}`;
+      if(/^\*\*\*/.test(p)) return <strong key={kj}><em>{p.slice(3,-3)}</em></strong>;
+      if(/^\*\*/.test(p)||/^__/.test(p)) return <strong key={kj} style={{fontWeight:600}}>{p.slice(2,-2)}</strong>;
+      if(/^\*/.test(p)||/^_/.test(p)) return <em key={kj}>{p.slice(1,-1)}</em>;
+      return <React.Fragment key={kj}>{p.split('\n').map((l,k,a)=><React.Fragment key={`${kj}-${k}`}>{l}{k<a.length-1&&<br/>}</React.Fragment>)}</React.Fragment>;
     });
   });
 };
@@ -2206,24 +2218,24 @@ const renderMarkdown = (raw) => {
     // blockquote
     if(/^>\s?/.test(line)){
       const qls=[]; while(i<lines.length&&/^>\s?/.test(lines[i])){ qls.push(lines[i].replace(/^>\s?/,'')); i++; }
-      out.push(<div key={`bq${i}`} style={{borderLeft:'3px solid var(--accent)',paddingLeft:12,margin:'6px 0',color:'var(--text-2)'}}>{qls.map((l,j)=><div key={j} style={{fontSize:13,lineHeight:1.5}}>{renderInline(l)}</div>)}</div>);
+      out.push(<div key={`bq-${i}`} style={{borderLeft:'3px solid var(--accent)',paddingLeft:12,margin:'6px 0',color:'var(--text-2)'}}>{qls.map((l,j)=><div key={`ql-${i}-${j}`} style={{fontSize:13,lineHeight:1.5}}>{renderInline(l)}</div>)}</div>);
       continue;
     }
     // hr
     if(/^[-*_]{3,}$/.test(line.trim())){
-      out.push(<hr key={i} style={{border:'none',borderTop:'1px solid var(--border)',margin:'10px 0'}}/>);
+      out.push(<hr key={`hr-${i}`} style={{border:'none',borderTop:'1px solid var(--border)',margin:'10px 0'}}/>);
       i++; continue;
     }
     // unordered list
     if(/^[\-*+] /.test(line)){
       const items=[]; while(i<lines.length&&/^[\-*+] /.test(lines[i])){ items.push(lines[i].replace(/^[\-*+] /,'')); i++; }
-      out.push(<ul key={`ul${i}`} style={{margin:'4px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:2}}>{items.map((it,j)=><li key={j} style={{fontSize:13.5,lineHeight:1.55,color:'var(--text)'}}>{renderInline(it)}</li>)}</ul>);
+      out.push(<ul key={`ul-${i}`} style={{margin:'4px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:2}}>{items.map((it,j)=><li key={`li-${i}-${j}`} style={{fontSize:13.5,lineHeight:1.55,color:'var(--text)'}}>{renderInline(it)}</li>)}</ul>);
       continue;
     }
     // ordered list
     if(/^\d+\. /.test(line)){
       const items=[]; while(i<lines.length&&/^\d+\. /.test(lines[i])){ items.push(lines[i].replace(/^\d+\. /,'')); i++; }
-      out.push(<ol key={`ol${i}`} style={{margin:'4px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:2}}>{items.map((it,j)=><li key={j} style={{fontSize:13.5,lineHeight:1.55,color:'var(--text)'}}>{renderInline(it)}</li>)}</ol>);
+      out.push(<ol key={`ol-${i}`} style={{margin:'4px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:2}}>{items.map((it,j)=><li key={`li-${i}-${j}`} style={{fontSize:13.5,lineHeight:1.55,color:'var(--text)'}}>{renderInline(it)}</li>)}</ol>);
       continue;
     }
     // blank
