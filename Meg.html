@@ -1848,7 +1848,7 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.1.2');
+  const [version, setVersion] = useState('0.1.3');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -2600,6 +2600,7 @@ const App = () => {
   const [threads, setThreads] = useState(INIT_THREADS);
   const [notifs, setNotifs] = useState(INIT_NOTIFS);
   const [events, setEvents] = useState(ALL_EVENTS);
+  const [workspaces, setWorkspaces] = useState(WORKSPACES);
   const [activeAgents, setActiveAgents] = useState([]);
   const [typing, setTyping] = useState(false);
   const [lmStatus, setLmStatus] = useState(undefined);
