@@ -1,11 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-
-  // ── Chat ──────────────────────────────────────────────────
-  sendChat(messages, threadId, model, thinking) {
-    ipcRenderer.send('chat:send', { messages, threadId, model, thinking });
-  },
+// ── Chat ──────────────────────────────────────────────────
+sendChat(messages, threadId, model, thinking) {
+  ipcRenderer.send('chat:send', { messages, threadId, model, thinking });
+},
+abortChat(threadId) {
+  ipcRenderer.send('chat:abort', { threadId });
+},
+onChunk(cb) {
   abortChat(threadId) {
     ipcRenderer.send('chat:abort', { threadId });
   },

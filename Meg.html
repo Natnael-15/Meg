@@ -1844,7 +1844,7 @@ const SettingsView = ({isCheckingUpdate}) => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.2.5');
+  const [version, setVersion] = useState('0.2.6');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -2318,11 +2318,15 @@ const Message = ({msg,isUser,accent}) => {
   );
 };
 
-const InputBar = ({onSend,placeholder,thinking,onToggleThinking}) => {
+const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThinking}) => {
   const [val,setVal] = useState('');
   const [hint,setHint] = useState(null);
   const handleKey = e => {
-    if (e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(val.trim()){onSend(val.trim());setVal('');setHint(null);}}
+    if (e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      if(typing) return; // Prevent double send
+      if(val.trim()){onSend(val.trim());setVal('');setHint(null);}
+    }
     if (e.key==='@') setHint('@');
     else if (e.key==='/') setHint('/');
     else if (e.key==='Escape') setHint(null);
@@ -2353,9 +2357,12 @@ const InputBar = ({onSend,placeholder,thinking,onToggleThinking}) => {
         <textarea value={val} onChange={e=>setVal(e.target.value)} onKeyDown={handleKey} placeholder={placeholder||'Ask Meg anything… (⌘K for commands)'} rows={1}
           style={{flex:1,resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)'}}
           onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
-        <button onClick={()=>{if(val.trim()){onSend(val.trim());setVal('');setHint(null);}}} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:val.trim()?'var(--accent)':'var(--bg-active)',display:'flex',alignItems:'center',justifyContent:'center'}}
+        <button onClick={()=>{
+          if(typing) onAbort?.();
+          else if(val.trim()){onSend(val.trim());setVal('');setHint(null);}
+        }} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':(val.trim()?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s'}}
           onMouseDown={e=>e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-          <Icon name="send" size={15} color={val.trim()?'#fff':'var(--text-3)'}/>
+          <Icon name={typing?'close':'send'} size={typing?12:15} color={typing||val.trim()?'#fff':'var(--text-3)'}/>
         </button>
       </div>
     </div>
@@ -2947,6 +2954,7 @@ OPERATIONAL GUIDELINES:
 3. TOOL USE: When performing complex tasks, prefer specialized tools (search_files, list_directory) over raw shell commands where possible.
 4. ERROR RECOVERY: If a command or tool returns an error, analyze the stderr, understand the failure, and try an alternative approach. DO NOT repeat the same failed command.
 5. PATHS: Use backslashes '\\' for Windows paths in commands, but ensure strings are escaped correctly.
+6. FINAL RESPONSE: ALWAYS provide a final, clear answer to the user's question after you have obtained the necessary information via tools. Do not just stop after the tool result.
 
 ${memoryPrompt}` 
       };
@@ -3178,7 +3186,13 @@ ${memoryPrompt}`
             </div>
             {splitOpen && <SplitPane activeFile={activeFile}/>}
           </div>
-          <InputBar onSend={addMessage} thinking={thinking} onToggleThinking={isThinkingModel(activeModel)?()=>setThinking(t=>!t):null}/>
+          <InputBar 
+            onSend={addMessage} 
+            onAbort={()=>window.electronAPI?.abortChat(activeId)}
+            typing={typing}
+            thinking={thinking} 
+            onToggleThinking={isThinkingModel(activeModel)?()=>setThinking(t=>!t):null}
+          />
           {smsOpen && <SmsFloat onClose={()=>setSmsOpen(false)}/>}
           
           {updateInfo && (
