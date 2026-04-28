@@ -1848,7 +1848,7 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.1.3');
+  const [version, setVersion] = useState('0.1.4');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -2287,8 +2287,8 @@ const ThinkBlock = ({text}) => {
 const Message = ({msg,isUser,accent}) => {
   const renderBody = (text) => (text||'').split(/(<think>[\s\S]*?<\/think>)/g).map((p,i)=>
     p.startsWith('<think>')&&p.endsWith('<\/think>')
-      ?<ThinkBlock key={i} text={p.slice(7,-8)}/>
-      :<React.Fragment key={i}>{renderMarkdown(p)}</React.Fragment>
+      ?<ThinkBlock key={`think-${i}`} text={p.slice(7,-8)}/>
+      :<React.Fragment key={`text-${i}`}>{renderMarkdown(p)}</React.Fragment>
   );
   if(isUser) return (
     <div className="msg-enter" style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>

@@ -7,6 +7,11 @@ const { setupIPC } = require('./ipc');
 autoUpdater.autoDownload = false;
 autoUpdater.allowPrerelease = true;
 
+// Support private repositories if GH_TOKEN is available at runtime
+if (process.env.GH_TOKEN) {
+  autoUpdater.addAuthHeader(`token ${process.env.GH_TOKEN}`);
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
