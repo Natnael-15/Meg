@@ -25,7 +25,11 @@ function createWindow() {
     show: false,
   });
 
-  win.once('ready-to-show', () => win.show());
+  win.once('ready-to-show', () => {
+    win.show();
+    win.webContents.openDevTools();
+  });
+
   win.loadFile(path.join(__dirname, '../../Meg.html'));
 
   setupIPC(win);
