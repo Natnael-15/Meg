@@ -264,15 +264,18 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       finishReason = chunk.choices[0]?.finish_reason || finishReason;
     }
 
-    const pendingCalls = Object.values(toolCallBuffers);
+    const pendingCalls = Object.values(toolCallBuffers).filter(tc => {
+      return tc.name && tc.arguments && tc.arguments.trim() !== '' && tc.arguments.trim() !== '{}';
+    });
 
     if (pendingCalls.length === 0) {
-      // Normal text response, nothing more to do
-      return;
+      if (finishReason === 'stop' || textBuffer) return;
+      // If we got here with no calls and no text, break to avoid infinite loop
+      break; 
     }
 
     // Build assistant message with tool calls for history
-    const assistantMsg = {
+    history.push({
       role: 'assistant',
       content: textBuffer || null,
       tool_calls: pendingCalls.map(tc => ({
@@ -280,22 +283,14 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         type: 'function',
         function: { name: tc.name, arguments: tc.arguments },
       })),
-    };
-    history.push(assistantMsg);
+    });
 
     // Execute each tool call sequentially
     for (const tc of pendingCalls) {
-      // ── Safeguard: Ignore tool calls with empty/invalid arguments ──
-      if (!tc.arguments || tc.arguments.trim() === '{}' || tc.arguments.trim() === '') {
-        console.warn(`[LMStudio] Ignoring empty tool call: ${tc.name}`);
-        continue; 
-      }
-
       let parsedArgs = {};
       try { 
         parsedArgs = JSON.parse(tc.arguments); 
       } catch (e) {
-        console.error(`[LMStudio] Failed to parse tool arguments for ${tc.name}:`, tc.arguments);
         yield { type: 'tool_result', id: tc.id, name: tc.name, result: { error: 'Invalid JSON arguments' } };
         continue;
       }
