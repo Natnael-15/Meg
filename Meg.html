@@ -1922,13 +1922,21 @@ const SettingsView = ({isCheckingUpdate}) => {
 
     // 2. Poll for the Chat ID (user must send a message to the bot)
     let found = false;
-    for (let i=0; i<20; i++) { // Try for ~20 seconds
+    for (let i=0; i<60; i++) { // Try for ~60 seconds
       const cr = await window.electronAPI?.findTelegramChatId(telegramToken);
       if (cr?.ok) {
         saveTgChatId(cr.chatId);
         setTgStatus({ ok: true, username: r.username, name: cr.from });
         setIntegrations(s=>({...s,Telegram:true}));
         window.electronAPI?.startTelegramPolling(telegramToken);
+        
+        // 3. Send automated confirmation message
+        await window.electronAPI?.sendTelegram({
+          token: telegramToken,
+          chatId: cr.chatId,
+          text: "✦ Meg: Connection Established! ✦\nI am now linked to your local system and ready to assist."
+        });
+
         found = true;
         break;
       }
@@ -2739,7 +2747,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.3.3'); // Fallback
+  const [version, setVersion] = useState('0.3.5'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
