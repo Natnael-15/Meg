@@ -93,6 +93,20 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'send_telegram',
+      description: 'Send a message to the user via Telegram.',
+      parameters: {
+        type: 'object',
+        properties: {
+          text: { type: 'string', description: 'The message text to send' },
+        },
+        required: ['text'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'spawn_subagent',
       description: 'Delegate a specific, isolated sub-task to a specialized sub-agent. The sub-agent will work in the background and report back its findings.',
       parameters: {
@@ -149,6 +163,22 @@ function executeTool(name, args, threadId) {
         const json = await res.json();
         const results = json.AbstractText || (json.RelatedTopics?.slice(0, 3).map(t => t.Text).join('\n')) || 'No specific results found. Try a different query.';
         resolve({ results });
+      } catch (e) {
+        resolve({ error: e.message });
+      }
+    } else if (name === 'send_telegram') {
+      try {
+        const s = require('./settings');
+        const token = s.get('telegramToken');
+        const chatId = s.get('telegramChatId');
+        if (!token || !chatId) {
+          resolve({ error: 'Telegram not connected. Ask user to connect it in Settings.' });
+          return;
+        }
+        const { getBot } = require('./telegram');
+        const bot = getBot(token);
+        const r = await bot.sendMessage(chatId, args.text);
+        resolve({ ok: r.ok, result: r.ok ? 'Message sent successfully.' : 'Failed to send message.' });
       } catch (e) {
         resolve({ error: e.message });
       }

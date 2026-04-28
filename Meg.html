@@ -2055,17 +2055,20 @@ const SettingsView = ({isCheckingUpdate}) => {
                 <label style={{fontSize:11.5,fontWeight:500,color:'var(--text-3)',display:'block',marginBottom:4}}>Bot Token <span style={{fontWeight:400}}>— from @BotFather</span></label>
                 <input type="password" value={telegramToken} onChange={e=>saveTgToken(e.target.value)} placeholder="123456789:ABCdef…" style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'7px 10px',fontSize:12,fontFamily:'"JetBrains Mono",monospace',outline:'none',background:'var(--bg-input)',color:'var(--text)',transition:'border-color 0.15s'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
               </div>
-              <div>
-                <label style={{fontSize:11.5,fontWeight:500,color:'var(--text-3)',display:'block',marginBottom:4}}>Your Chat ID <span style={{fontWeight:400}}>— from @userinfobot</span></label>
-                <input type="text" value={telegramChatId} onChange={e=>saveTgChatId(e.target.value)} placeholder="123456789" style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'7px 10px',fontSize:12,fontFamily:'"JetBrains Mono",monospace',outline:'none',background:'var(--bg-input)',color:'var(--text)',transition:'border-color 0.15s'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <button onClick={validateTg} disabled={!telegramToken.trim()||tgStatus==='checking'} style={{padding:'7px 16px',borderRadius:6,background:'var(--accent)',color:'#fff',fontSize:12.5,fontWeight:500,border:'none',cursor:telegramToken.trim()?'pointer':'not-allowed',opacity:telegramToken.trim()?1:0.5,transition:'opacity 0.15s'}}>
-                  {tgStatus==='checking'?'Verifying…':'Verify & Connect'}
+              <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
+                <button onClick={validateTg} disabled={!telegramToken.trim()||(tgStatus==='checking'||tgStatus?.waiting)} style={{padding:'7px 16px',borderRadius:6,background:tgStatus?.waiting?'var(--orange)':'var(--accent)',color:'#fff',fontSize:12.5,fontWeight:500,border:'none',cursor:telegramToken.trim()?'pointer':'not-allowed',opacity:telegramToken.trim()?1:0.5,transition:'all 0.15s'}}>
+                  {tgStatus==='checking'?'Validating…':tgStatus?.waiting?'Waiting for message…':'Verify & Connect'}
                 </button>
-                {tgStatus&&tgStatus!=='checking'&&(
+
+                {tgStatus?.waiting && (
+                  <div style={{fontSize:11.5,color:'var(--orange)',background:'var(--orange)11',padding:'8px 10px',borderRadius:6,border:'1px solid var(--orange)33',animation:'pulse 2s infinite'}}>
+                    <b>Action Required:</b> Send any message to your bot <b>@{tgStatus.username}</b> on Telegram now to complete the connection.
+                  </div>
+                )}
+
+                {tgStatus&&tgStatus!=='checking'&&!tgStatus.waiting&&(
                   <span style={{fontSize:12,color:tgStatus.ok?'var(--green)':'var(--red)',fontWeight:500}}>
-                    {tgStatus.ok?<span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="check" size={12} color="var(--green)"/>Connected as @{tgStatus.username}</span>:<span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="close" size={12} color="var(--red,#e05252)"/>{tgStatus.error}</span>}
+                    {tgStatus.ok?<span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="check" size={12} color="var(--green)"/>Connected to @{tgStatus.username} {tgStatus.name?`(${tgStatus.name})`:''}</span>:<span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="close" size={12} color="var(--red,#e05252)"/>{tgStatus.error}</span>}
                   </span>
                 )}
               </div>
@@ -3018,7 +3021,7 @@ CURRENT CONTEXT:
 OPERATIONAL GUIDELINES:
 1. CONCISETY: Be brief, technical, and direct. Avoid conversational filler.
 2. WINDOWS AWARENESS: You are running on Windows. Use Windows-native commands. (e.g., use 'systeminfo' or 'wmic' instead of 'uname', 'dir' instead of 'ls', 'type' instead of 'cat').
-3. TOOL USE: When performing complex tasks, prefer specialized tools (web_search, search_files, list_directory) over raw shell commands where possible.
+3. TOOL USE: When performing complex tasks, prefer specialized tools (web_search, send_telegram, search_files, list_directory) over raw shell commands where possible.
 4. ERROR RECOVERY: If a command or tool returns an error, analyze the stderr, understand the failure, and try an alternative approach. DO NOT repeat the same failed command.
 5. PATHS: Use backslashes '\\' for Windows paths in commands, but ensure strings are escaped correctly.
 6. FINAL RESPONSE: ALWAYS provide a final, clear answer to the user's question after you have obtained the necessary information via tools. Do not just stop after the tool result.
