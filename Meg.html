@@ -1829,7 +1829,7 @@ const AgentBuilder = () => {
 /* ══════════════════════════════════════════════════════
    SETTINGS
 ══════════════════════════════════════════════════════ */
-const SettingsView = () => {
+const SettingsView = ({isCheckingUpdate}) => {
   const [section,setSection] = useState('model');
   const [model,setModel] = useState(()=>localStorage.getItem('meg:model')||'qwen/qwen3.5-9b');
   const [memOn,setMemOn] = useState(()=>localStorage.getItem('meg:memOn')!=='false');
@@ -1844,7 +1844,7 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.2.3');
+  const [version, setVersion] = useState('0.2.5');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -2075,9 +2075,16 @@ const SettingsView = () => {
           <div style={{padding:'16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)',display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
             <div>
               <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Version {version}</div>
-              <div style={{fontSize:11.5,color:'var(--text-3)'}}>Meg Local AI is up to date.</div>
+              <div style={{fontSize:11.5,color:'var(--text-3)'}}>{isCheckingUpdate ? 'Checking for updates…' : 'Meg Local AI is up to date.'}</div>
             </div>
-            <button onClick={()=>window.electronAPI?.checkForUpdates()} style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:'var(--text-2)',background:'var(--bg)',cursor:'pointer'}}>Check now</button>
+            <button 
+              disabled={isCheckingUpdate}
+              onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'checkForUpdates'}}))} 
+              style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:isCheckingUpdate?'var(--text-3)':'var(--text-2)',background:isCheckingUpdate?'var(--bg-active)':'var(--bg)',cursor:isCheckingUpdate?'default':'pointer',display:'flex',alignItems:'center',gap:6,transition:'border-color 0.12s'}}
+            >
+              {isCheckingUpdate && <span style={{display:'inline-flex',animation:'spin 1s linear infinite'}}><Icon name="spinner" size={12}/></span>}
+              {isCheckingUpdate ? 'Checking…' : 'Check now'}
+            </button>
           </div>
 
           <div style={{fontSize:11,color:'var(--text-3)',fontStyle:'italic'}}>Channel: stable-pre-release</div>
@@ -2608,6 +2615,7 @@ const App = () => {
   const [hoveredThread, setHoveredThread] = useState(null);
   const [thinking, setThinking] = useState(true);
   const [updateInfo, setUpdateInfo] = useState(null); // {version, progress, status: 'available'|'downloading'|'ready'}
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
   const dbLoaded = useRef(false);
   const messagesEndRef = useRef(null);
@@ -2622,10 +2630,20 @@ const App = () => {
   useEffect(()=>{
     if(!window.electronAPI) return;
     const api = window.electronAPI;
-    api.onUpdateAvailable(info => setUpdateInfo({ version: info.version, status: 'available', progress: 0 }));
+    api.onUpdateAvailable(info => {
+      setIsCheckingUpdate(false);
+      setUpdateInfo({ version: info.version, status: 'available', progress: 0 });
+    });
+    api.onUpdateNotAvailable(() => {
+      setIsCheckingUpdate(false);
+    });
     api.onUpdateProgress(prog => setUpdateInfo(prev => ({ ...prev, status: 'downloading', progress: Math.round(prog.percent) })));
     api.onUpdateDownloaded(() => setUpdateInfo(prev => ({ ...prev, status: 'ready' })));
-    api.onUpdateError(err => { console.error('Update error:', err); setUpdateInfo(null); });
+    api.onUpdateError(err => { 
+      setIsCheckingUpdate(false);
+      console.error('Update error:', err); 
+      setUpdateInfo(null); 
+    });
   }, []);
 
   // Dark mode
@@ -2745,6 +2763,10 @@ const App = () => {
         steps: value.steps.length,
         liveSteps: value.steps.map(s => ({label: s, status: 'waiting'}))
       }]);
+      if(action==='checkForUpdates') {
+        setIsCheckingUpdate(true);
+        window.electronAPI?.checkForUpdates();
+      }
     };
     window.addEventListener('meg:action', handle);
     return ()=>window.removeEventListener('meg:action', handle);
@@ -2907,12 +2929,26 @@ const App = () => {
       try { memories = JSON.parse(localStorage.getItem('meg:memories') || '[]'); } catch(e){}
       
       const memoryPrompt = (memOn && memories.length) 
-        ? `\n\nSystem Memory (Facts you know about the user/project):\n- ${memories.join('\n- ')}`
+        ? `\n\nUSER PREFERENCES & MEMORIES:\n- ${memories.join('\n- ')}`
         : '';
 
       const systemPrompt = { 
         role: 'system', 
-        content: `You are Meg, a helpful and efficient local AI assistant. You have access to the user's terminal and file system. Always be concise and technical.${memoryPrompt}` 
+        content: `You are Meg, a highly capable local AI assistant. 
+
+ENVIRONMENT SETTINGS:
+- Operating System: Windows
+- Terminal/Shell: PowerShell (Primary) / CMD
+- Local Capabilities: Full access to File System, Terminal, and Git.
+
+OPERATIONAL GUIDELINES:
+1. CONCISETY: Be brief, technical, and direct. Avoid conversational filler.
+2. WINDOWS AWARENESS: You are running on Windows. Use Windows-native commands. (e.g., use 'systeminfo' or 'wmic' instead of 'uname', 'dir' instead of 'ls', 'type' instead of 'cat').
+3. TOOL USE: When performing complex tasks, prefer specialized tools (search_files, list_directory) over raw shell commands where possible.
+4. ERROR RECOVERY: If a command or tool returns an error, analyze the stderr, understand the failure, and try an alternative approach. DO NOT repeat the same failed command.
+5. PATHS: Use backslashes '\\' for Windows paths in commands, but ensure strings are escaped correctly.
+
+${memoryPrompt}` 
       };
 
       // ── Auto-Context ──
@@ -3107,7 +3143,7 @@ const App = () => {
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion/></NavSection>}
-      {nav==='settings' && <NavSection id="settings"><SettingsView/></NavSection>}
+      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate}/></NavSection>}
 
       {nav==='chat' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative'}}>

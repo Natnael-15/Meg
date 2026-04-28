@@ -70,6 +70,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   downloadUpdate()   { ipcRenderer.send('update:download'); },
   installUpdate()    { ipcRenderer.send('update:install'); },
   onUpdateAvailable(cb)   { ipcRenderer.on('update:available', (_, d) => cb(d)); },
+  onUpdateNotAvailable(cb) { ipcRenderer.on('update:not-available', (_, d) => cb(d)); },
   onUpdateProgress(cb)    { ipcRenderer.on('update:progress', (_, d) => cb(d)); },
   onUpdateDownloaded(cb)  { ipcRenderer.on('update:downloaded', (_, d) => cb(d)); },
   onUpdateError(cb)       { ipcRenderer.on('update:error', (_, d) => cb(d)); },
