@@ -1,14 +1,10 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-// ── Chat ──────────────────────────────────────────────────
-sendChat(messages, threadId, model, thinking) {
-  ipcRenderer.send('chat:send', { messages, threadId, model, thinking });
-},
-abortChat(threadId) {
-  ipcRenderer.send('chat:abort', { threadId });
-},
-onChunk(cb) {
+  // ── Chat ──────────────────────────────────────────────────
+  sendChat(messages, threadId, model, thinking) {
+    ipcRenderer.send('chat:send', { messages, threadId, model, thinking });
+  },
   abortChat(threadId) {
     ipcRenderer.send('chat:abort', { threadId });
   },
@@ -18,6 +14,7 @@ onChunk(cb) {
   onToolCall(cb)   { ipcRenderer.on('chat:tool_call',   (_, d) => cb(d)); },
   onToolResult(cb) { ipcRenderer.on('chat:tool_result', (_, d) => cb(d)); },
   onResume(cb)     { ipcRenderer.on('chat:resume',      (_, d) => cb(d)); },
+  
   removeListeners(...channels) {
     channels.forEach(ch => ipcRenderer.removeAllListeners(ch));
   },
@@ -70,7 +67,7 @@ onChunk(cb) {
   },
 
   // ── System ────────────────────────────────────────────────
-  getVersion: () => ipcRenderer.invoke('app:version'),
+  getVersion() { return ipcRenderer.invoke('app:version'); },
 
   // ── Updates ──────────────────────────────────────────────
   checkForUpdates() { ipcRenderer.send('update:check'); },

@@ -79,6 +79,20 @@ const TOOLS = [
   {
     type: 'function',
     function: {
+      name: 'web_search',
+      description: 'Search the web for real-time information using DuckDuckGo.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The search query' },
+        },
+        required: ['query'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'spawn_subagent',
       description: 'Delegate a specific, isolated sub-task to a specialized sub-agent. The sub-agent will work in the background and report back its findings.',
       parameters: {
@@ -129,6 +143,15 @@ function executeTool(name, args, threadId) {
         // findstr returns exit code 1 if no matches found, which is fine
         resolve({ results: stdout || 'No matches found.' });
       });
+    } else if (name === 'web_search') {
+      try {
+        const res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(args.query)}&format=json`);
+        const json = await res.json();
+        const results = json.AbstractText || (json.RelatedTopics?.slice(0, 3).map(t => t.Text).join('\n')) || 'No specific results found. Try a different query.';
+        resolve({ results });
+      } catch (e) {
+        resolve({ error: e.message });
+      }
     } else if (name === 'spawn_subagent') {
       // This tool simulates a background task that reports back.
       // In a full implementation, this would trigger a new streamChat call.
