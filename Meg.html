@@ -1856,7 +1856,7 @@ const AgentBuilder = () => {
 /* ══════════════════════════════════════════════════════
    SETTINGS
 ══════════════════════════════════════════════════════ */
-const SettingsView = ({isCheckingUpdate}) => {
+const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
   const [section,setSection] = useState('model');
   const [model,setModel] = useState(()=>localStorage.getItem('meg:model')||'qwen/qwen3.5-9b');
   const [memOn,setMemOn] = useState(()=>localStorage.getItem('meg:memOn')!=='false');
@@ -1866,12 +1866,10 @@ const SettingsView = ({isCheckingUpdate}) => {
   const [integrations,setIntegrations] = useState({Telegram:false,GitHub:false});
   const [telegramToken,setTelegramToken] = useState(()=>localStorage.getItem('meg:telegramToken')||'');
   const [telegramChatId,setTelegramChatId] = useState(()=>localStorage.getItem('meg:telegramChatId')||'');
-  const [tgStatus,setTgStatus] = useState(null); // null | {ok,username} | {ok:false,error}
   const [apiKeys,setApiKeys] = useState(()=>{try{return JSON.parse(localStorage.getItem('meg:apiKeys')||'{}')}catch{return {}}});
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.2.8');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -2686,6 +2684,7 @@ const App = () => {
   const [thinking, setThinking] = useState(true);
   const [updateInfo, setUpdateInfo] = useState(null); // {version, progress, status: 'available'|'downloading'|'ready'}
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [tgStatus, setTgStatus] = useState(null); // null | 'checking' | {ok,username,waiting,name}
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
   const dbLoaded = useRef(false);
   const messagesEndRef = useRef(null);
@@ -2747,7 +2746,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.3.5'); // Fallback
+  const [version, setVersion] = useState('0.3.6'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
@@ -3238,7 +3237,7 @@ ${memoryPrompt}`
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion/></NavSection>}
-      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} version={version}/></NavSection>}
+      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} version={version} tgStatus={tgStatus} setTgStatus={setTgStatus}/></NavSection>}
 
       {nav==='chat' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative'}}>
