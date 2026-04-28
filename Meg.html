@@ -1858,6 +1858,7 @@ const AgentBuilder = () => {
 ══════════════════════════════════════════════════════ */
 const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
   const [section,setSection] = useState('model');
+  const [showTgInfo, setShowTgInfo] = useState(false);
   const [model,setModel] = useState(()=>localStorage.getItem('meg:model')||'qwen/qwen3.5-9b');
   const [memOn,setMemOn] = useState(()=>localStorage.getItem('meg:memOn')!=='false');
   const [memories,setMemories] = useState(()=>{try{return JSON.parse(localStorage.getItem('meg:memories')||'null')||['Prefers Tailwind + Vite','Team lead is Sarah','Report: eng@company.com Fridays','JWT token TTL: 7 days'];}catch{return ['Prefers Tailwind + Vite','Team lead is Sarah'];}});
@@ -2746,7 +2747,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.4.0'); // Fallback
+  const [version, setVersion] = useState('0.4.1'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
