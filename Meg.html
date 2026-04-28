@@ -2702,7 +2702,6 @@ const App = () => {
   const [thinking, setThinking] = useState(true);
   const [updateInfo, setUpdateInfo] = useState(null); // {version, progress, status: 'available'|'downloading'|'ready'}
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [tgStatus, setTgStatus] = useState(null); // null | 'checking' | {ok,username,waiting,name}
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
   const dbLoaded = useRef(false);
   const messagesEndRef = useRef(null);
@@ -2764,7 +2763,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.4.3'); // Fallback
+  const [version, setVersion] = useState('0.4.4'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
