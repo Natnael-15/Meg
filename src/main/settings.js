@@ -9,6 +9,7 @@ const DEFAULTS = {
   lmStudioUrl: 'http://127.0.0.1:1234',
   telegramToken: '',
   telegramChatId: '',
+  githubToken: '',
   apiKeys: { Anthropic: '', OpenAI: '', Google: '' },
   integrations: { Telegram: false, GitHub: false },
   memoryEnabled: true,

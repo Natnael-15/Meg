@@ -23,7 +23,15 @@ function setupIPC(win) {
   // ── Settings ──────────────────────────────────────────────
   ipcMain.handle('settings:load', () => settings.load());
   ipcMain.handle('settings:save', (_, data) => { settings.save(data); return true; });
-  ipcMain.handle('settings:set',  (_, key, value) => { settings.set(key, value); return true; });
+  ipcMain.handle('settings:set',  (_, key, value) => {
+    settings.set(key, value);
+    if (key === 'githubToken') {
+      // Refresh auth header in main process
+      const main = require('./index');
+      if (main.updateAuthHeader) main.updateAuthHeader();
+    }
+    return true;
+  });
   ipcMain.handle('settings:get',  (_, key) => settings.get(key));
 
   // ── LM Studio models ──────────────────────────────────────

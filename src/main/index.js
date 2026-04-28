@@ -15,6 +15,8 @@ function updateAuthHeader() {
   }
 }
 
+module.exports = { updateAuthHeader };
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
