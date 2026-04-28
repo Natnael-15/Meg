@@ -124,19 +124,23 @@ const TOOLS = [
 function executeTool(name, args, threadId) {
   return new Promise(async resolve => {
     if (name === 'run_command') {
+      if (!args.command) return resolve({ error: 'No command provided' });
       exec(args.command, { cwd: args.cwd || process.cwd(), timeout: 30000, shell: true }, (err, stdout, stderr) => {
         resolve({ stdout: stdout || '', stderr: stderr || '', exitCode: err ? (err.code ?? 1) : 0 });
       });
     } else if (name === 'read_file') {
+      if (!args.path) return resolve({ error: 'No path provided' });
       try {
         resolve({ content: fs.readFileSync(args.path, 'utf8') });
       } catch (e) {
         resolve({ error: e.message });
       }
     } else if (name === 'write_file') {
+      if (!args.path) return resolve({ error: 'No path provided' });
       try {
-        fs.mkdirSync(path.dirname(path.resolve(args.path)), { recursive: true });
-        fs.writeFileSync(args.path, args.content, 'utf8');
+        const fullPath = path.resolve(args.path);
+        fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+        fs.writeFileSync(fullPath, args.content || '', 'utf8');
         resolve({ ok: true });
       } catch (e) {
         resolve({ error: e.message });
