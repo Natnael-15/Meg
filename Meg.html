@@ -1844,13 +1844,10 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.1.9');
-  const [githubToken, setGithubToken] = useState(()=>localStorage.getItem('meg:githubToken')||'');
+  const [version, setVersion] = useState('0.2.0');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
-
-  const saveGithubToken = t => { setGithubToken(t); localStorage.setItem('meg:githubToken',t); window.electronAPI?.setSetting('githubToken',t); };
 
   const saveLmUrl = async (url) => {
     setLmUrl(url);
@@ -2081,13 +2078,6 @@ const SettingsView = () => {
               <div style={{fontSize:11.5,color:'var(--text-3)'}}>Meg Local AI is up to date.</div>
             </div>
             <button onClick={()=>window.electronAPI?.checkForUpdates()} style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:'var(--text-2)',background:'var(--bg)',cursor:'pointer'}}>Check now</button>
-          </div>
-
-          <div style={{padding:'16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)',marginBottom:16}}>
-            <label style={{fontSize:12,fontWeight:600,color:'var(--text)',display:'block',marginBottom:8}}>Private Repo Access</label>
-            <p style={{fontSize:11.5,color:'var(--text-3)',marginBottom:12}}>Provide a GitHub Personal Access Token (classic) with `repo` scope to enable auto-updates for this private repository.</p>
-            <input type="password" value={githubToken} onChange={e=>saveGithubToken(e.target.value)} placeholder="ghp_…" style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'8px 10px',fontSize:12,fontFamily:'"JetBrains Mono",monospace',outline:'none',background:'var(--bg-input)',color:'var(--text)',transition:'border-color 0.15s'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
-            {githubToken && <div style={{marginTop:8,fontSize:10.5,color:'var(--green)',display:'flex',alignItems:'center',gap:4}}><Icon name="check" size={10}/> Token saved locally</div>}
           </div>
 
           <div style={{fontSize:11,color:'var(--text-3)',fontStyle:'italic'}}>Channel: stable-pre-release</div>
@@ -2617,6 +2607,7 @@ const App = () => {
   const [hoveredThread, setHoveredThread] = useState(null);
   const [thinking, setThinking] = useState(true);
   const [updateInfo, setUpdateInfo] = useState(null); // {version, progress, status: 'available'|'downloading'|'ready'}
+...
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
   const dbLoaded = useRef(false);
   const messagesEndRef = useRef(null);

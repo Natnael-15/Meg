@@ -8,26 +8,12 @@ const settings = require('./settings');
 autoUpdater.autoDownload = false;
 autoUpdater.allowPrerelease = true;
 
-function updateAuthHeader() {
-  const token = settings.get('githubToken');
-  if (token) {
-    // For GitHub provider, electron-updater uses these headers
-    autoUpdater.requestHeaders = { 
-      'Authorization': `token ${token}`,
-      'Accept': 'application/vnd.github.v3+json'
-    };
-  }
-}
-
-module.exports = { updateAuthHeader };
-
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 600,
-    frame: false,
+...
+  setupIPC(win);
+
+  // ── Auto Updater Events ──
     backgroundColor: '#faf9f7',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),

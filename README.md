@@ -2,28 +2,30 @@
 <p align="center"><b>The Local-First AI Operating System</b></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-0.1.9-blue?style=for-the-badge&logo=electron" alt="Version">
+  <img src="https://img.shields.io/badge/Status-BETA-orange?style=for-the-badge" alt="Status">
+  <img src="https://img.shields.io/badge/Version-0.2.0-blue?style=for-the-badge&logo=electron" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
-  <img src="https://img.shields.io/badge/Engine-LM_Studio-10a37f?style=for-the-badge&logo=openai" alt="LM Studio">
 </p>
+
+> [!WARNING]
+> **Meg is currently in Beta mode.** This is an early-stage project and is **not yet fully functional**. Expect bugs, breaking changes, and incomplete features as we move toward a stable release.
 
 ---
 
 <p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.1.9/Meg-Setup-0.1.9.exe">
+  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.2.0/Meg-Setup-0.2.0.exe">
     <img src="https://img.shields.io/badge/DOWNLOAD_FOR_WINDOWS-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
   </a>
 </p>
 
 ---
 
-## ✦ Core Capabilities
+## ✦ Core Capabilities (Development in Progress)
 
 - **🧠 Local Intelligence:** Powered by LM Studio (`qwen/qwen3.5-9b`). Everything stays on your machine.
 - **🛠 System Integration:** Full access to your terminal, file system, and git workflow.
 - **🤖 Multi-Agent Orchestration:** Spawn specialized sub-agents to handle complex background tasks.
 - **📂 Smart Context:** Meg automatically understands the files you are looking at or editing.
-- **📱 Telegram Companion:** Control your AI and receive updates via a real-time Telegram bridge.
 - **⚡ Hot-Reloadable:** Self-improving architecture designed for rapid local evolution.
 
 ## ✦ Built-in Tools
@@ -43,6 +45,10 @@
 3. Windows 10/11.
 
 ---
+
+## ✦ License
+
+Distributed under the MIT License. See `LICENSE` for more information.
 
 <p align="center">
   <i>Developed by Natnael-15</i>
