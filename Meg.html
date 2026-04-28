@@ -1856,7 +1856,7 @@ const AgentBuilder = () => {
 /* ══════════════════════════════════════════════════════
    SETTINGS
 ══════════════════════════════════════════════════════ */
-const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
+const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus, integrations, setIntegrations, validateTg}) => {
   const [section,setSection] = useState('model');
   const [showTgInfo, setShowTgInfo] = useState(false);
   const [model,setModel] = useState(()=>localStorage.getItem('meg:model')||'qwen/qwen3.5-9b');
@@ -1864,7 +1864,6 @@ const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
   const [memories,setMemories] = useState(()=>{try{return JSON.parse(localStorage.getItem('meg:memories')||'null')||['Prefers Tailwind + Vite','Team lead is Sarah','Report: eng@company.com Fridays','JWT token TTL: 7 days'];}catch{return ['Prefers Tailwind + Vite','Team lead is Sarah'];}});
   const deleteMemory = i => { const next=memories.filter((_,j)=>j!==i); setMemories(next); localStorage.setItem('meg:memories',JSON.stringify(next)); };
   const [themeChoice,setThemeChoice] = useState(()=>localStorage.getItem('meg:theme')||'light');
-  const [integrations,setIntegrations] = useState({Telegram:false,GitHub:false});
   const [telegramToken,setTelegramToken] = useState(()=>localStorage.getItem('meg:telegramToken')||'');
   const [telegramChatId,setTelegramChatId] = useState(()=>localStorage.getItem('meg:telegramChatId')||'');
   const [apiKeys,setApiKeys] = useState(()=>{try{return JSON.parse(localStorage.getItem('meg:apiKeys')||'{}')}catch{return {}}});
@@ -1906,46 +1905,6 @@ const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
   const saveTgChatId = id => { setTelegramChatId(id); localStorage.setItem('meg:telegramChatId',id); window.electronAPI?.setSetting('telegramChatId',id); };
   const saveApiKey = (provider,val) => { const next={...apiKeys,[provider]:val}; setApiKeys(next); localStorage.setItem('meg:apiKeys',JSON.stringify(next)); window.electronAPI?.setSetting('apiKeys',next); };
 
-  const validateTg = async () => {
-    if(!telegramToken.trim()) return;
-    setTgStatus('checking');
-    
-    // 1. Validate the token first
-    const r = await window.electronAPI?.validateTelegramToken(telegramToken);
-    if (!r?.ok) {
-      setTgStatus(r || {ok:false,error:'Invalid token'});
-      return;
-    }
-    
-    setTgStatus({ ok: true, username: r.username, waiting: true });
-
-    // 2. Poll for the Chat ID (user must send a message to the bot)
-    let found = false;
-    for (let i=0; i<60; i++) { // Try for ~60 seconds
-      const cr = await window.electronAPI?.findTelegramChatId(telegramToken);
-      if (cr?.ok) {
-        saveTgChatId(cr.chatId);
-        setTgStatus({ ok: true, username: r.username, name: cr.from });
-        setIntegrations(s=>({...s,Telegram:true}));
-        window.electronAPI?.startTelegramPolling(telegramToken);
-        
-        // 3. Send automated confirmation message
-        await window.electronAPI?.sendTelegram({
-          token: telegramToken,
-          chatId: cr.chatId,
-          text: "✦ Meg: Connection Established! ✦\nI am now linked to your local system and ready to assist."
-        });
-
-        found = true;
-        break;
-      }
-      await new Promise(res => setTimeout(res, 1000));
-    }
-
-    if (!found) {
-      setTgStatus({ ok: false, error: 'Timed out waiting for message. Try again.' });
-    }
-  };
   return (
     <div style={{flex:1,display:'flex',minWidth:0,overflow:'hidden'}}>
       <div style={{width:200,borderRight:'1px solid var(--border)',background:'var(--bg-panel)',flexShrink:0,padding:'12px 8px'}}>
@@ -2092,10 +2051,9 @@ const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
                 </div>
                 
                 <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
-                  <button onClick={validateTg} disabled={!telegramToken.trim()||(tgStatus==='checking'||tgStatus?.waiting)} style={{padding:'7px 16px',borderRadius:6,background:tgStatus?.waiting?'var(--orange)':'var(--accent)',color:'#fff',fontSize:12.5,fontWeight:500,border:'none',cursor:telegramToken.trim()?'pointer':'not-allowed',opacity:telegramToken.trim()?1:0.5,transition:'all 0.15s'}}>
+                  <button onClick={()=>validateTg(telegramToken)} disabled={!telegramToken.trim()||(tgStatus==='checking'||tgStatus?.waiting)} style={{padding:'7px 16px',borderRadius:6,background:tgStatus?.waiting?'var(--orange)':'var(--accent)',color:'#fff',fontSize:12.5,fontWeight:500,border:'none',cursor:telegramToken.trim()?'pointer':'not-allowed',opacity:telegramToken.trim()?1:0.5,transition:'all 0.15s'}}>
                     {tgStatus==='checking'?'Validating…':tgStatus?.waiting?'Waiting for message…':'Verify & Connect'}
                   </button>
-
                   {tgStatus?.waiting && (
                     <div style={{fontSize:11.5,color:'var(--orange)',background:'var(--orange)11',padding:'8px 10px',borderRadius:6,border:'1px solid var(--orange)33',animation:'pulse 2s infinite'}}>
                       <b>Action Required:</b> Send any message to your bot <b>@{tgStatus.username}</b> on Telegram now to complete the connection.
@@ -2710,6 +2668,35 @@ const App = () => {
   const [typing, setTyping] = useState(false);
   const [lmStatus, setLmStatus] = useState(undefined);
   const [activeModel, setActiveModel] = useState(()=>localStorage.getItem('meg:model')||'qwen/qwen3.5-9b');
+  const [integrations, setIntegrations] = useState({Telegram:false, GitHub:false});
+  const [tgStatus, setTgStatus] = useState(null);
+
+  const validateTg = async (token) => {
+    if(!token.trim()) return;
+    setTgStatus('checking');
+    const r = await window.electronAPI?.validateTelegramToken(token);
+    if (!r?.ok) { setTgStatus(r || {ok:false,error:'Invalid token'}); return; }
+    setTgStatus({ ok: true, username: r.username, waiting: true });
+    
+    let found = false;
+    for (let i=0; i<60; i++) {
+      const cr = await window.electronAPI?.findTelegramChatId(token);
+      if (cr?.ok) {
+        setTgStatus({ ok: true, username: r.username, name: cr.from });
+        setIntegrations(s=>({...s,Telegram:true}));
+        window.electronAPI?.setSetting('telegramChatId', cr.chatId);
+        window.electronAPI?.startTelegramPolling(token);
+        await window.electronAPI?.sendTelegram({
+          token, chatId: cr.chatId,
+          text: "✦ Meg: Connection Established! ✦\nI am now linked to your local system."
+        });
+        found = true; break;
+      }
+      await new Promise(res => setTimeout(res, 1000));
+    }
+    if (!found) setTgStatus({ ok: false, error: 'Timed out. Try again.' });
+  };
+
   const [activeFile, setActiveFile] = useState(null); // {name, path, content, ext}
   const [hoveredThread, setHoveredThread] = useState(null);
   const [thinking, setThinking] = useState(true);
@@ -2777,7 +2764,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.4.2'); // Fallback
+  const [version, setVersion] = useState('0.4.3'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
@@ -3270,7 +3257,7 @@ ${memoryPrompt}`
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion/></NavSection>}
-      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} version={version} tgStatus={tgStatus} setTgStatus={setTgStatus}/></NavSection>}
+      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} version={version} tgStatus={tgStatus} setTgStatus={setTgStatus} integrations={integrations} setIntegrations={setIntegrations} validateTg={validateTg}/></NavSection>}
 
       {nav==='chat' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative'}}>
