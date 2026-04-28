@@ -10,10 +10,11 @@ autoUpdater.allowPrerelease = true;
 
 function createWindow() {
   const win = new BrowserWindow({
-...
-  setupIPC(win);
-
-  // ── Auto Updater Events ──
+    width: 1280,
+    height: 820,
+    minWidth: 960,
+    minHeight: 600,
+    frame: false,
     backgroundColor: '#faf9f7',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
@@ -27,8 +28,7 @@ function createWindow() {
 
   win.once('ready-to-show', () => {
     win.show();
-    // Default to open for now, F12 will toggle
-    win.webContents.openDevTools();
+    // In production, you might want to hide this, but for beta we'll keep F12 active
   });
 
   // Toggle DevTools with F12
@@ -39,11 +39,10 @@ function createWindow() {
   });
 
   win.loadFile(path.join(__dirname, '../../Meg.html')).catch(e => {
-    console.error('CRASH: Failed to load index.html', e);
+    console.error('CRASH: Failed to load Meg.html', e);
   });
 
   setupIPC(win);
-  updateAuthHeader();
 
   // ── Auto Updater Events ──
   autoUpdater.on('update-available', (info) => {
