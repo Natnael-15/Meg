@@ -160,8 +160,9 @@ const Icon = ({name,size=16,color='currentColor'}) => IC[name] ? IC[name](size,c
 /* ══════════════════════════════════════════════════════
    WINDOWS TITLE BAR
 ══════════════════════════════════════════════════════ */
-const WinTitleBar = ({dark, onTray, unreadCount, lmStatus}) => {
+const WinTitleBar = ({dark, onTray, unreadCount, lmStatus, updateInfo, onDownload, onInstall}) => {
   const [maximized, setMaximized] = useState(false);
+  const [showUpdateMenu, setShowUpdateMenu] = useState(false);
   const api = window.electronAPI;
 
   const handleWinBtn = key => {
@@ -178,6 +179,32 @@ const WinTitleBar = ({dark, onTray, unreadCount, lmStatus}) => {
         </div>
       </div>
       <span style={{fontSize:12,color:'var(--text-3)',flex:1,fontWeight:400,letterSpacing:'0.01em'}}>Meg</span>
+
+      {/* Update Status Button */}
+      {updateInfo && (
+        <div style={{position:'relative',marginRight:12}} className="titlebar-nodrag">
+          <button onClick={()=>setShowUpdateMenu(!showUpdateMenu)} style={{height:22,padding:'0 8px',borderRadius:4,background:updateInfo.status==='ready'?'var(--green-bg)':'var(--bg-active)',border:`1px solid ${updateInfo.status==='ready'?'var(--green-border)':'var(--border)'}`,display:'flex',alignItems:'center',gap:6,cursor:'pointer',transition:'all 0.2s'}}>
+            <Icon name={updateInfo.status==='downloading'?'spinner':'bolt'} size={11} color={updateInfo.status==='ready'?'var(--green)':'var(--accent)'}/>
+            <span style={{fontSize:10.5,fontWeight:600,color:updateInfo.status==='ready'?'var(--green)':'var(--text)'}}>
+              {updateInfo.status==='available' ? 'Update' : updateInfo.status==='downloading' ? `${updateInfo.progress}%` : 'Ready'}
+            </span>
+          </button>
+          {showUpdateMenu && (
+            <div style={{position:'absolute',top:28,right:0,width:200,background:'var(--bg-panel)',border:'1px solid var(--border)',borderRadius:8,boxShadow:'0 8px 24px var(--shadow-lg)',padding:'8px',zIndex:2000}}>
+              <div style={{fontSize:11,fontWeight:600,marginBottom:8,padding:'0 4px',color:'var(--text)'}}>Version {updateInfo.version}</div>
+              {updateInfo.status === 'available' && <button onClick={()=>{onDownload();setShowUpdateMenu(false);}} style={{width:'100%',padding:'6px',borderRadius:4,background:'var(--accent)',color:'#fff',border:'none',fontSize:11,fontWeight:600,cursor:'pointer'}}>Download Now</button>}
+              {updateInfo.status === 'downloading' && (
+                <div style={{padding:'4px'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:9,marginBottom:4,color:'var(--text-3)'}}><span>Downloading…</span><span>{updateInfo.progress}%</span></div>
+                  <div style={{height:4,background:'var(--border)',borderRadius:2,overflow:'hidden'}}><div style={{height:'100%',width:`${updateInfo.progress}%`,background:'var(--accent)',transition:'width 0.2s linear'}}/></div>
+                </div>
+              )}
+              {updateInfo.status === 'ready' && <button onClick={onInstall} style={{width:'100%',padding:'6px',borderRadius:4,background:'var(--green)',color:'#fff',border:'none',fontSize:11,fontWeight:600,cursor:'pointer'}}>Restart & Install</button>}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* LM Studio connection dot */}
       {lmStatus !== undefined && (
         <div style={{display:'flex',alignItems:'center',gap:4,marginRight:8}} title={lmStatus ? 'LM Studio connected' : 'LM Studio offline'}>
@@ -2709,7 +2736,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.3.2'); // Fallback
+  const [version, setVersion] = useState('0.3.3'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
@@ -3088,7 +3115,15 @@ ${memoryPrompt}`
       {trayOpen && <TrayFlyout notifs={notifs} onClose={()=>setTrayOpen(false)} onMarkAllRead={()=>setNotifs(n=>n.map(x=>({...x,read:true})))}/>}
 
       {/* Windows title bar */}
-      <WinTitleBar dark={dark} onTray={()=>setTrayOpen(o=>!o)} unreadCount={unreadNotifs} lmStatus={lmStatus}/>
+      <WinTitleBar 
+        dark={dark} 
+        onTray={()=>setTrayOpen(o=>!o)} 
+        unreadCount={unreadNotifs} 
+        lmStatus={lmStatus}
+        updateInfo={updateInfo}
+        onDownload={()=>window.electronAPI?.downloadUpdate()}
+        onInstall={()=>window.electronAPI?.installUpdate()}
+      />
 
       {/* Main body */}
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
@@ -3236,15 +3271,6 @@ ${memoryPrompt}`
           />
           {smsOpen && <SmsFloat onClose={()=>setSmsOpen(false)}/>}
           
-          {updateInfo && (
-            <UpdateNotification 
-              info={updateInfo} 
-              onDownload={()=>window.electronAPI?.downloadUpdate()} 
-              onInstall={()=>window.electronAPI?.installUpdate()} 
-              onClose={()=>setUpdateInfo(null)}
-            />
-          )}
-
           {notifOpen && (
             <div style={{position:'absolute',top:44,right:0,zIndex:200}}>
               <NotifPanel notifs={notifs} onClose={()=>setNotifOpen(false)} onMarkAllRead={()=>setNotifs(n=>n.map(x=>({...x,read:true})))} onDismiss={id=>setNotifs(n=>n.filter(x=>x.id!==id))}/>

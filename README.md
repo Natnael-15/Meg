@@ -3,20 +3,20 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Status-BETA-orange?style=for-the-badge" alt="Status">
-  <img src="https://img.shields.io/badge/Version-0.3.2-blue?style=for-the-badge&logo=electron" alt="Version">
+  <img src="https://img.shields.io/badge/Version-0.3.3-blue?style=for-the-badge&logo=electron" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
-</p>
+  </p>
 
-> [!WARNING]
-> **Meg is currently in Beta mode.** This is an early-stage project and is **not yet fully functional**. Expect bugs, breaking changes, and incomplete features as we move toward a stable release.
+  > [!WARNING]
+  > **Meg is currently in Beta mode.** This is an early-stage project and is **not yet fully functional**. Expect bugs, breaking changes, and incomplete features as we move toward a stable release.
 
----
+  ---
 
-<p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.3.2/Meg-Setup-0.3.2.exe">
+  <p align="center">
+  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.3.3/Meg-Setup-0.3.3.exe">
     <img src="https://img.shields.io/badge/DOWNLOAD_FOR_WINDOWS-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
   </a>
-</p>
+  </p>
 
 ---
 
