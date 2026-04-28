@@ -37,10 +37,20 @@ function createWindow() {
 
   win.once('ready-to-show', () => {
     win.show();
+    // Default to open for now, F12 will toggle
     win.webContents.openDevTools();
   });
 
-  win.loadFile(path.join(__dirname, '../../Meg.html'));
+  // Toggle DevTools with F12
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' && input.type === 'keyDown') {
+      win.webContents.toggleDevTools();
+    }
+  });
+
+  win.loadFile(path.join(__dirname, '../../Meg.html')).catch(e => {
+    console.error('CRASH: Failed to load index.html', e);
+  });
 
   setupIPC(win);
   updateAuthHeader();
