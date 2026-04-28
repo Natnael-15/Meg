@@ -299,7 +299,9 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
 
       try {
         const result = await executeTool(tc.name, parsedArgs, threadId);
-        yield { type: 'tool_result', id: tc.id, name: tc.name, result };
+        // Only return a small summary for the UI to keep it clean
+        const summary = result?.ok ? { ok: true, path: parsedArgs.path || parsedArgs.command } : result;
+        yield { type: 'tool_result', id: tc.id, name: tc.name, result: summary };
 
         history.push({
           role: 'tool',
@@ -311,8 +313,9 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       }
     }
 
-    // Signal frontend to prepare for next model response
-    yield { type: 'resume' };
+    // After tools are executed, we MUST continue the loop to let the model see the results
+    // and decide what to do next. We don't yield 'resume' if there's more to do.
+    continue;
   }
 }
 
