@@ -177,8 +177,8 @@ function executeTool(name, args, threadId) {
         }
         const { getBot } = require('./telegram');
         const bot = getBot(token);
-        const r = await bot.sendMessage(chatId, args.text);
-        resolve({ ok: r.ok, result: r.ok ? 'Message sent successfully.' : 'Failed to send message.' });
+        await bot.sendMessage(chatId, args.text);
+        resolve({ ok: true, result: 'Message sent successfully.' });
       } catch (e) {
         resolve({ error: e.message });
       }
