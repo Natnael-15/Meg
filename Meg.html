@@ -97,6 +97,12 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 /* Automation flow */
 .auto-card { transition: border-color 0.15s, background 0.15s, transform 0.15s; }
 .auto-card:hover { transform: translateY(-1px); }
+
+/* Thinking animation */
+@keyframes bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-5px); } }
+.typing-dots span { animation: bounce 1.4s infinite; display: inline-block; font-weight: bold; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
 </style>
 </head>
 <body>
@@ -2778,7 +2784,7 @@ const App = () => {
     }
   },[activeId, threads, typing, nav]);
 
-  const [version, setVersion] = useState('0.4.6'); // Fallback
+  const [version, setVersion] = useState('0.4.7'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {

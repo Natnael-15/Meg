@@ -284,20 +284,35 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
 
     // Execute each tool call sequentially
     for (const tc of pendingCalls) {
+      // ── Safeguard: Ignore tool calls with empty/invalid arguments ──
+      if (!tc.arguments || tc.arguments.trim() === '{}' || tc.arguments.trim() === '') {
+        console.warn(`[LMStudio] Ignoring empty tool call: ${tc.name}`);
+        continue; 
+      }
+
       let parsedArgs = {};
-      try { parsedArgs = JSON.parse(tc.arguments || '{}'); } catch {}
+      try { 
+        parsedArgs = JSON.parse(tc.arguments); 
+      } catch (e) {
+        console.error(`[LMStudio] Failed to parse tool arguments for ${tc.name}:`, tc.arguments);
+        yield { type: 'tool_result', id: tc.id, name: tc.name, result: { error: 'Invalid JSON arguments' } };
+        continue;
+      }
 
       yield { type: 'tool_call', id: tc.id, name: tc.name, args: parsedArgs };
 
-      const result = await executeTool(tc.name, parsedArgs, threadId);
+      try {
+        const result = await executeTool(tc.name, parsedArgs, threadId);
+        yield { type: 'tool_result', id: tc.id, name: tc.name, result };
 
-      yield { type: 'tool_result', id: tc.id, name: tc.name, result };
-
-      history.push({
-        role: 'tool',
-        tool_call_id: tc.id,
-        content: JSON.stringify(result),
-      });
+        history.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: JSON.stringify(result || { status: 'ok' }),
+        });
+      } catch (err) {
+        yield { type: 'tool_result', id: tc.id, name: tc.name, result: { error: err.message } };
+      }
     }
 
     // Signal frontend to prepare for next model response
