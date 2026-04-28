@@ -272,7 +272,7 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
     }
 
     // Build assistant message with tool calls for history
-    history.push({
+    const assistantMsg = {
       role: 'assistant',
       content: textBuffer || null,
       tool_calls: pendingCalls.map(tc => ({
@@ -280,7 +280,8 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         type: 'function',
         function: { name: tc.name, arguments: tc.arguments },
       })),
-    });
+    };
+    history.push(assistantMsg);
 
     // Execute each tool call sequentially
     for (const tc of pendingCalls) {
@@ -308,7 +309,7 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         history.push({
           role: 'tool',
           tool_call_id: tc.id,
-          content: JSON.stringify(result || { status: 'ok' }),
+          content: typeof result === 'string' ? result : JSON.stringify(result || { status: 'ok' }),
         });
       } catch (err) {
         yield { type: 'tool_result', id: tc.id, name: tc.name, result: { error: err.message } };
