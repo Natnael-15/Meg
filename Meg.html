@@ -2746,7 +2746,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.3.6'); // Fallback
+  const [version, setVersion] = useState('0.3.7'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
