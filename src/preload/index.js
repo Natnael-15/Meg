@@ -69,6 +69,9 @@ onChunk(cb) {
     ipcRenderer.on('telegram:message', (_, d) => cb(d));
   },
 
+  // ── System ────────────────────────────────────────────────
+  getVersion: () => ipcRenderer.invoke('app:version'),
+
   // ── Updates ──────────────────────────────────────────────
   checkForUpdates() { ipcRenderer.send('update:check'); },
   downloadUpdate()   { ipcRenderer.send('update:download'); },

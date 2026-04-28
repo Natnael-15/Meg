@@ -13,6 +13,9 @@ const activeStreams = new Map();
 
 function setupIPC(win) {
 
+  // ── System ────────────────────────────────────────────────
+  ipcMain.handle('app:version', () => app.getVersion());
+
   // ── Git ───────────────────────────────────────────────────
   ipcMain.handle('git:status', (_, dirPath) => getStatus(dirPath));
 

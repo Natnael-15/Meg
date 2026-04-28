@@ -2709,6 +2709,14 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
+  const [version, setVersion] = useState('0.2.9'); // Fallback
+
+  useEffect(() => {
+    if(window.electronAPI) {
+      window.electronAPI.getVersion().then(v => setVersion(v));
+    }
+  }, []);
+
   // ── Load threads, events, and workspaces from DB on mount ────────────────────────
   useEffect(()=>{
     if(!window.electronAPI) return;
@@ -3112,6 +3120,7 @@ ${memoryPrompt}`
           onMouseEnter={e=>{if(!smsOpen){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
           onMouseLeave={e=>{if(!smsOpen){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
         ><Icon name="sms" size={16}/></button>
+        <div style={{fontSize:9,fontWeight:700,color:'var(--text-3)',opacity:0.5,fontFamily:'"JetBrains Mono",monospace',marginBottom:4}}>v{version}</div>
         <div style={{width:28,height:28,borderRadius:'50%',background:'var(--bg-active)',border:'1.5px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:6,cursor:'pointer',flexShrink:0}}>
           <span style={{fontSize:11,color:'var(--text-2)',fontWeight:600}}>U</span>
         </div>
@@ -3176,7 +3185,7 @@ ${memoryPrompt}`
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion/></NavSection>}
-      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate}/></NavSection>}
+      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} version={version}/></NavSection>}
 
       {nav==='chat' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative'}}>
