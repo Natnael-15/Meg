@@ -3,7 +3,7 @@ const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { getModels, ping, streamChat } = require('./lmstudio');
-const { getBot, validate: validateTelegram } = require('./telegram');
+const { getBot, validate: validateTelegram, findChatId } = require('./telegram');
 const { getStatus } = require('./git');
 const settings = require('./settings');
 const db = require('./db');
@@ -169,6 +169,10 @@ function setupIPC(win) {
   // ── Telegram ──────────────────────────────────────────────
   ipcMain.handle('telegram:validate', async (_, token) => {
     return validateTelegram(token);
+  });
+
+  ipcMain.handle('telegram:findChatId', async (_, token) => {
+    return findChatId(token);
   });
 
   ipcMain.handle('telegram:send', async (_, { token, chatId, text }) => {

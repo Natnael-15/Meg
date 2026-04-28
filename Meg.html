@@ -1844,7 +1844,7 @@ const SettingsView = ({isCheckingUpdate}) => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.2.6');
+  const [version, setVersion] = useState('0.2.7');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -1883,9 +1883,34 @@ const SettingsView = ({isCheckingUpdate}) => {
   const validateTg = async () => {
     if(!telegramToken.trim()) return;
     setTgStatus('checking');
+    
+    // 1. Validate the token first
     const r = await window.electronAPI?.validateTelegramToken(telegramToken);
-    setTgStatus(r||{ok:false,error:'No response'});
-    if(r?.ok) { setIntegrations(s=>({...s,Telegram:true})); window.electronAPI?.startTelegramPolling(telegramToken); }
+    if (!r?.ok) {
+      setTgStatus(r || {ok:false,error:'Invalid token'});
+      return;
+    }
+    
+    setTgStatus({ ok: true, username: r.username, waiting: true });
+
+    // 2. Poll for the Chat ID (user must send a message to the bot)
+    let found = false;
+    for (let i=0; i<20; i++) { // Try for ~20 seconds
+      const cr = await window.electronAPI?.findTelegramChatId(telegramToken);
+      if (cr?.ok) {
+        saveTgChatId(cr.chatId);
+        setTgStatus({ ok: true, username: r.username, name: cr.from });
+        setIntegrations(s=>({...s,Telegram:true}));
+        window.electronAPI?.startTelegramPolling(telegramToken);
+        found = true;
+        break;
+      }
+      await new Promise(res => setTimeout(res, 1000));
+    }
+
+    if (!found) {
+      setTgStatus({ ok: false, error: 'Timed out waiting for message. Try again.' });
+    }
   };
   return (
     <div style={{flex:1,display:'flex',minWidth:0,overflow:'hidden'}}>

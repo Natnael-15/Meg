@@ -1,6 +1,6 @@
 {
   "name": "meg",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Meg — Local AI System",
   "author": "Natnael-15",
   "main": "src/main/index.js",

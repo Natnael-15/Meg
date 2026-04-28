@@ -55,6 +55,7 @@ onChunk(cb) {
 
   // ── Telegram ──────────────────────────────────────────────
   validateTelegramToken(token) { return ipcRenderer.invoke('telegram:validate', token); },
+  findTelegramChatId(token)    { return ipcRenderer.invoke('telegram:findChatId', token); },
   sendTelegram({ token, chatId, text }) {
     return ipcRenderer.invoke('telegram:send', { token, chatId, text });
   },

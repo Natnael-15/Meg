@@ -89,4 +89,20 @@ async function validate(token) {
   }
 }
 
-module.exports = { getBot, validate };
+async function findChatId(token) {
+  try {
+    const b = new TelegramBot(token);
+    // Offset -1 and limit 1 to get only the very latest message
+    const res = await fetch(`https://api.telegram.org/bot${token}/getUpdates?limit=1&offset=-1`, { method:'POST' });
+    const json = await res.json();
+    if (json.ok && json.result.length > 0) {
+      const last = json.result[0].message;
+      if (last) return { ok: true, chatId: last.chat.id, from: last.from?.first_name };
+    }
+    return { ok: false, error: 'No messages found. Send a message to your bot first!' };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+module.exports = { getBot, validate, findChatId };
