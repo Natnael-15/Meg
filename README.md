@@ -3,7 +3,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Status-BETA-orange?style=for-the-badge" alt="Status">
-  <img src="https://img.shields.io/badge/Version-0.3.9-blue?style=for-the-badge&logo=electron" alt="Version">
+  <img src="https://img.shields.io/badge/Version-0.4.0-blue?style=for-the-badge&logo=electron" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
   </p>
 
@@ -13,11 +13,10 @@
   ---
 
   <p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.3.9/Meg-Setup-0.3.9.exe">
+  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.4.0/Meg-Setup-0.4.0.exe">
     <img src="https://img.shields.io/badge/DOWNLOAD_FOR_WINDOWS-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
   </a>
   </p>
-
 ## ✦ Core Capabilities (Development in Progress)
 
 - **🧠 Local Intelligence:** Powered by LM Studio (`qwen/qwen3.5-9b`). Everything stays on your machine.
