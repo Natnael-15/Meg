@@ -1635,8 +1635,8 @@ const AgentDashboard = ({activeAgents}) => {
                 <div key={i} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:10,color:i===4?(agent.status==='done'?'var(--code-green)':'#555'):'var(--code-blue)',lineHeight:1.8,transition:'color 0.4s'}}>{l}</div>
               ))}
             </div>
-            <div style={{fontSize:11,fontWeight:600,color:'var(--text-3)',letterSpacing:'0.05em',textTransform:'uppercase',marginBottom:6}}>Tools</div>
-            {agent.tools.map(t=>(
+            <div style={{fontSize:11,fontWeight:600,color:'var(--text-3)',letterSpacing:'0.06em',textTransform:'uppercase',marginBottom:6}}>Tools</div>
+            {(agent.tools || []).map(t=>(
               <span key={t} style={{display:'inline-flex',alignItems:'center',gap:4,fontSize:11,padding:'2px 7px',background:'var(--bg-panel)',border:'1px solid var(--border)',borderRadius:99,color:'var(--text-2)',marginRight:4,marginBottom:4}}>
                 <Icon name={t==='fs'?'files':t==='terminal'?'terminal':'integration'} size={11} color="var(--text-3)"/>
                 {t==='fs'?'File system':t==='terminal'?'Terminal':'Browser'}
@@ -2746,7 +2746,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.3.8'); // Fallback
+  const [version, setVersion] = useState('0.3.9'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
@@ -2948,7 +2948,8 @@ const App = () => {
               duration: 'just now',
               doneSteps: 0,
               steps: 2,
-              liveSteps: [{label: args.instruction, status: 'active'}]
+              liveSteps: [{label: args.instruction, status: 'active'}],
+              tools: ['terminal','fs']
             }];
           }
           return prev.map(a => a.threadId === threadId ? {
@@ -2970,7 +2971,8 @@ const App = () => {
             duration: 'just now',
             doneSteps: 1,
             steps: 2,
-            liveSteps: [step, { label: 'Thinking…', status: 'active' }]
+            liveSteps: [step, { label: 'Thinking…', status: 'active' }],
+            tools: ['terminal','fs']
           }];
         }
       });
