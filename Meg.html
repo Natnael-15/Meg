@@ -1541,12 +1541,8 @@ const AgentDashboard = ({activeAgents}) => {
             </span>
             <span style={{fontFamily:'"JetBrains Mono",monospace',fontSize:14,fontWeight:600,color:'var(--text)'}}>{agent.task}</span>
             <StatusBadge status={agent.status}/>
-            {newlyDone && selected==='a2' && (
-              <span style={{fontSize:11,padding:'2px 8px',borderRadius:99,background:'var(--green-bg)',color:'var(--green)',border:'1px solid var(--green-border)',animation:'fadeUp 0.3s ease'}}>just completed</span>
-            )}
-          </div>
-          <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
-            {[{label:'Model',val:agent.model},{label:'Duration',val:agent.duration},{label:'Steps',val:`${agent.doneSteps}/${agent.steps}`},{label:'Thread',val:agent.thread}].map(m=>(
+            </div>
+            <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>            {[{label:'Model',val:agent.model},{label:'Duration',val:agent.duration},{label:'Steps',val:`${agent.doneSteps}/${agent.steps}`},{label:'Thread',val:agent.thread}].map(m=>(
               <div key={m.label}>
                 <div style={{fontSize:10,color:'var(--text-3)',fontWeight:600,textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:2}}>{m.label}</div>
                 <div style={{fontSize:12,color:'var(--text-2)',fontFamily:['Model','Duration','Steps'].includes(m.label)?'"JetBrains Mono",monospace':'inherit'}}>{m.val}</div>
@@ -1848,7 +1844,7 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.1.7');
+  const [version, setVersion] = useState('0.1.9');
   const [githubToken, setGithubToken] = useState(()=>localStorage.getItem('meg:githubToken')||'');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
@@ -2179,7 +2175,7 @@ const renderInline = (text) => {
   });
 };
 
-const renderMarkdown = (raw) => {
+const renderMarkdown = (raw, prefix = 'md') => {
   if(!raw) return null;
   const lines = raw.split('\n');
   const out = []; let i = 0;
@@ -2190,14 +2186,14 @@ const renderMarkdown = (raw) => {
       const lang = line.slice(3).trim().toLowerCase();
       const codeLines = []; i++;
       while(i<lines.length && !/^```/.test(lines[i])){ codeLines.push(lines[i]); i++; }
-      out.push(<CodeBlock key={`cb${i}`} lang={lang} code={codeLines.join('\n')}/>);
+      out.push(<CodeBlock key={`${prefix}-cb-${i}`} lang={lang} code={codeLines.join('\n')}/>);
       i++; continue;
     }
     // heading
     const hm = line.match(/^(#{1,3})\s+(.+)/);
     if(hm){
       const lvl=hm[1].length; const sz=[0,17,14,13][lvl]; const mt=[0,14,10,8][lvl];
-      out.push(<div key={i} style={{fontSize:sz,fontWeight:700,color:'var(--text)',marginTop:mt,marginBottom:3}}>{renderInline(hm[2])}</div>);
+      out.push(<div key={`${prefix}-h-${i}`} style={{fontSize:sz,fontWeight:700,color:'var(--text)',marginTop:mt,marginBottom:3}}>{renderInline(hm[2])}</div>);
       i++; continue;
     }
     // table
@@ -2208,7 +2204,7 @@ const renderMarkdown = (raw) => {
       const parseRow = l => l.split('|').filter((_,x,a)=>x>0&&x<a.length-1).map(c=>c.trim());
       if(data.length){
         const [hdr,...body] = data;
-        out.push(<div key={`tbl${i}`} style={{overflowX:'auto',margin:'8px 0'}}><table style={{borderCollapse:'collapse',fontSize:12.5,width:'100%'}}>
+        out.push(<div key={`${prefix}-tbl-${i}`} style={{overflowX:'auto',margin:'8px 0'}}><table style={{borderCollapse:'collapse',fontSize:12.5,width:'100%'}}>
           <thead><tr>{parseRow(hdr).map((c,j)=><th key={j} style={{padding:'6px 12px',textAlign:'left',borderBottom:'2px solid var(--border)',fontWeight:600,color:'var(--text)',whiteSpace:'nowrap'}}>{renderInline(c)}</th>)}</tr></thead>
           <tbody>{body.map((row,ri)=><tr key={ri}>{parseRow(row).map((c,j)=><td key={j} style={{padding:'5px 12px',borderBottom:'1px solid var(--border-light)',color:'var(--text-2)'}}>{renderInline(c)}</td>)}</tr>)}</tbody>
         </table></div>);
@@ -2218,7 +2214,7 @@ const renderMarkdown = (raw) => {
     // blockquote
     if(/^>\s?/.test(line)){
       const qls=[]; while(i<lines.length&&/^>\s?/.test(lines[i])){ qls.push(lines[i].replace(/^>\s?/,'')); i++; }
-      out.push(<div key={`bq-${i}`} style={{borderLeft:'3px solid var(--accent)',paddingLeft:12,margin:'6px 0',color:'var(--text-2)'}}>{qls.map((l,j)=><div key={`ql-${i}-${j}`} style={{fontSize:13,lineHeight:1.5}}>{renderInline(l)}</div>)}</div>);
+      out.push(<div key={`${prefix}-bq-${i}`} style={{borderLeft:'3px solid var(--accent)',paddingLeft:12,margin:'6px 0',color:'var(--text-2)'}}>{qls.map((l,j)=><div key={`${prefix}-ql-${i}-${j}`} style={{fontSize:13,lineHeight:1.5}}>{renderInline(l)}</div>)}</div>);
       continue;
     }
     // hr

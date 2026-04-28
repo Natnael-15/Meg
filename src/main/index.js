@@ -11,7 +11,11 @@ autoUpdater.allowPrerelease = true;
 function updateAuthHeader() {
   const token = settings.get('githubToken');
   if (token) {
-    autoUpdater.addAuthHeader(`token ${token}`);
+    // For GitHub provider, electron-updater uses these headers
+    autoUpdater.requestHeaders = { 
+      'Authorization': `token ${token}`,
+      'Accept': 'application/vnd.github.v3+json'
+    };
   }
 }
 
