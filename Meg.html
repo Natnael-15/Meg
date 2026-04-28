@@ -2045,7 +2045,7 @@ const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
 
           {/* Telegram */}
           <div style={{padding:'16px',borderRadius:10,border:`1.5px solid ${integrations.Telegram?'var(--accent-border)':'var(--border)'}`,background:integrations.Telegram?'var(--accent-bg)':'var(--bg-2)',marginBottom:16,transition:'all 0.2s'}}>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:integrations.Telegram?0:12}}>
               <div style={{width:32,height:32,borderRadius:8,background:'#229ed9',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
                 <Icon name="sms" size={16} color="#fff"/>
               </div>
@@ -2055,31 +2055,61 @@ const SettingsView = ({isCheckingUpdate, version, tgStatus, setTgStatus}) => {
                   {integrations.Telegram ? `Connected · @${tgStatus?.username||'bot'}` : 'Not connected'}
                 </div>
               </div>
-              {integrations.Telegram && <Toggle on={true} onToggle={()=>{setIntegrations(s=>({...s,Telegram:false}));setTgStatus(null);window.electronAPI?.stopTelegramPolling(telegramToken);}}/>}
+              <Toggle on={integrations.Telegram} onToggle={()=>{
+                if(integrations.Telegram) {
+                  setIntegrations(s=>({...s,Telegram:false}));
+                  setTgStatus(null);
+                  window.electronAPI?.stopTelegramPolling(telegramToken);
+                } else {
+                  // If clicking toggle while off, just show the form
+                }
+              }}/>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
-              <div>
-                <label style={{fontSize:11.5,fontWeight:500,color:'var(--text-3)',display:'block',marginBottom:4}}>Bot Token <span style={{fontWeight:400}}>— from @BotFather</span></label>
-                <input type="password" value={telegramToken} onChange={e=>saveTgToken(e.target.value)} placeholder="123456789:ABCdef…" style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'7px 10px',fontSize:12,fontFamily:'"JetBrains Mono",monospace',outline:'none',background:'var(--bg-input)',color:'var(--text)',transition:'border-color 0.15s'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
-              </div>
-              <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
-                <button onClick={validateTg} disabled={!telegramToken.trim()||(tgStatus==='checking'||tgStatus?.waiting)} style={{padding:'7px 16px',borderRadius:6,background:tgStatus?.waiting?'var(--orange)':'var(--accent)',color:'#fff',fontSize:12.5,fontWeight:500,border:'none',cursor:telegramToken.trim()?'pointer':'not-allowed',opacity:telegramToken.trim()?1:0.5,transition:'all 0.15s'}}>
-                  {tgStatus==='checking'?'Validating…':tgStatus?.waiting?'Waiting for message…':'Verify & Connect'}
-                </button>
+            
+            {!integrations.Telegram && (
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <div style={{marginTop:4}}>
+                  <label style={{fontSize:11.5,fontWeight:500,color:'var(--text-3)',display:'block',marginBottom:4}}>Bot Token <span style={{fontWeight:400}}>— from @BotFather</span></label>
+                  <input type="password" value={telegramToken} onChange={e=>saveTgToken(e.target.value)} placeholder="123456789:ABCdef…" style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'8px 10px',fontSize:12,fontFamily:'"JetBrains Mono",monospace',outline:'none',background:'var(--bg-input)',color:'var(--text)',transition:'border-color 0.15s'}} onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+                </div>
 
-                {tgStatus?.waiting && (
-                  <div style={{fontSize:11.5,color:'var(--orange)',background:'var(--orange)11',padding:'8px 10px',borderRadius:6,border:'1px solid var(--orange)33',animation:'pulse 2s infinite'}}>
-                    <b>Action Required:</b> Send any message to your bot <b>@{tgStatus.username}</b> on Telegram now to complete the connection.
-                  </div>
-                )}
+                <div style={{border:'1px solid var(--border)',borderRadius:8,overflow:'hidden',background:'rgba(0,0,0,0.02)'}}>
+                  <button onClick={()=>setShowTgInfo(!showTgInfo)} style={{width:'100%',padding:'8px 12px',background:'none',border:'none',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',color:'var(--text-2)',fontSize:11.5,fontWeight:500}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}><Icon name="info" size={12} color="var(--accent)"/> How it works</div>
+                    <Icon name={showTgInfo?'up':'down'} size={12} color="var(--text-3)"/>
+                  </button>
+                  {showTgInfo && (
+                    <div style={{padding:'0 12px 12px',fontSize:11.5,color:'var(--text-3)',lineHeight:1.5,animation:'fadeUp 0.2s ease'}}>
+                      <p style={{marginBottom:8}}>Telegram has a security rule: <b>Bots cannot message humans first.</b></p>
+                      <ol style={{paddingLeft:16,display:'flex',flexDirection:'column',gap:4}}>
+                        <li>Paste your bot token above.</li>
+                        <li>Click <b>Verify & Connect</b>.</li>
+                        <li>Open Telegram and send <b>any message</b> to your bot.</li>
+                      </ol>
+                      <p style={{marginTop:8}}>Meg will see your message, grab your ID, and reply instantly to confirm the link.</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4}}>
+                  <button onClick={validateTg} disabled={!telegramToken.trim()||(tgStatus==='checking'||tgStatus?.waiting)} style={{padding:'7px 16px',borderRadius:6,background:tgStatus?.waiting?'var(--orange)':'var(--accent)',color:'#fff',fontSize:12.5,fontWeight:500,border:'none',cursor:telegramToken.trim()?'pointer':'not-allowed',opacity:telegramToken.trim()?1:0.5,transition:'all 0.15s'}}>
+                    {tgStatus==='checking'?'Validating…':tgStatus?.waiting?'Waiting for message…':'Verify & Connect'}
+                  </button>
 
-                {tgStatus&&tgStatus!=='checking'&&!tgStatus.waiting&&(
-                  <span style={{fontSize:12,color:tgStatus.ok?'var(--green)':'var(--red)',fontWeight:500}}>
-                    {tgStatus.ok?<span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="check" size={12} color="var(--green)"/>Connected to @{tgStatus.username} {tgStatus.name?`(${tgStatus.name})`:''}</span>:<span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="close" size={12} color="var(--red,#e05252)"/>{tgStatus.error}</span>}
-                  </span>
-                )}
+                  {tgStatus?.waiting && (
+                    <div style={{fontSize:11.5,color:'var(--orange)',background:'var(--orange)11',padding:'8px 10px',borderRadius:6,border:'1px solid var(--orange)33',animation:'pulse 2s infinite'}}>
+                      <b>Action Required:</b> Send any message to your bot <b>@{tgStatus.username}</b> on Telegram now to complete the connection.
+                    </div>
+                  )}
+
+                  {tgStatus&&tgStatus!=='checking'&&!tgStatus.waiting&&(
+                    <span style={{fontSize:12,color:tgStatus.ok?'var(--green)':'var(--red)',fontWeight:500}}>
+                      {!tgStatus.ok && <span style={{display:'flex',alignItems:'center',gap:4}}><Icon name="close" size={12} color="var(--red,#e05252)"/>{tgStatus.error}</span>}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* GitHub */}
@@ -2747,7 +2777,7 @@ const App = () => {
     if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
   },[activeId,threads,typing]);
 
-  const [version, setVersion] = useState('0.4.1'); // Fallback
+  const [version, setVersion] = useState('0.4.2'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
