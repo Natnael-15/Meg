@@ -1844,7 +1844,7 @@ const SettingsView = () => {
   const [lmUrl,setLmUrl] = useState(()=>localStorage.getItem('meg:lmUrl')||'http://127.0.0.1:1234');
   const [localModels,setLocalModels] = useState([]);
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
-  const [version, setVersion] = useState('0.2.2');
+  const [version, setVersion] = useState('0.2.3');
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
@@ -2295,14 +2295,15 @@ const Message = ({msg,isUser,accent}) => {
       </div>
     </div>
   );
+  if(!msg.text && !isUser) return null; // Don't render empty meg messages
   return (
     <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
       <div style={{width:26,height:26,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
         <span style={{fontSize:12,color:'#fff',fontWeight:700,letterSpacing:'-0.02em'}}>M</span>
       </div>
-      <div style={{flex:1,minWidth:0}}>
+      <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
         <div style={{fontSize:11,color:'var(--text-3)',marginBottom:4,fontWeight:500}}>Meg</div>
-        <div style={{padding:'10px 14px',background:'var(--bg-2)',color:'var(--text)',borderRadius:'3px 10px 10px 10px',border:'1px solid var(--border-light)',boxShadow:'0 1px 3px var(--shadow)',maxWidth:'88%'}}>
+        <div style={{padding:'10px 14px',background:'var(--bg-2)',color:'var(--text)',borderRadius:'3px 10px 10px 10px',border:'1px solid var(--border-light)',boxShadow:'0 1px 2px var(--shadow)',maxWidth:'90%',width:'fit-content',display:'inline-block',minHeight:36,overflowWrap:'anywhere'}}>
           {renderBody(msg.text)}
         </div>
       </div>
@@ -2793,7 +2794,7 @@ const App = () => {
         if(t.id!==threadId) return t;
         return {...t,messages:t.messages
           .map(m=>m.streaming?{...m,streaming:false}:m)
-          .filter(m=>!(m.role==='meg'&&!m.text))
+          .filter(m=>!(m.role==='meg' && (!m.text || m.text.trim()==='')))
         };
       }));
       setActiveAgents(prev => prev.map(a => a.threadId === threadId ? {
@@ -2823,7 +2824,7 @@ const App = () => {
         // Finalize any streaming meg message (drop if empty)
         const msgs=t.messages
           .map(m=>m.streaming&&m.role==='meg'?(m.text?{...m,streaming:false}:null):m)
-          .filter(Boolean);
+          .filter(m => m !== null && !(m.role==='meg' && (!m.text || m.text.trim()==='')));
         return {...t,messages:[...msgs,{id:`tc-${id}`,role:'tool_call',name,args,pending:true}]};
       }));
       setActiveAgents(prev => {
