@@ -2292,8 +2292,15 @@ const renderMarkdown = (raw, prefix = 'md') => {
 
 const ToolCallCard = ({msg}) => {
   const [open,setOpen] = useState(false);
-  const TOOL_ICONS = {run_command:'terminal',read_file:'files',write_file:'files',list_directory:'files'};
-  const TOOL_LABELS = {run_command:'Run command',read_file:'Read file',write_file:'Write file',list_directory:'List directory'};
+  const TOOL_ICONS = {run_command:'terminal',read_file:'files',write_file:'save',list_directory:'folder',search_files:'search',web_search:'web',send_telegram:'sms',spawn_subagent:'agent'};
+  
+  const actionLabel = msg.name === 'write_file' ? `Writing ${msg.args.path?.split(/[\/\\]/).pop() || 'file'}` 
+                  : msg.name === 'run_command' ? `Running command`
+                  : msg.name === 'read_file' ? `Reading ${msg.args.path?.split(/[\/\\]/).pop() || 'file'}`
+                  : msg.name === 'web_search' ? `Searching web: ${msg.args.query}`
+                  : msg.name === 'spawn_subagent' ? `Spawning agent: ${msg.args.name}`
+                  : msg.name.replace(/_/g,' ');
+
   return (
     <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
       <div style={{width:26,height:26,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
@@ -2301,23 +2308,28 @@ const ToolCallCard = ({msg}) => {
       </div>
       <div style={{flex:1,minWidth:0}}>
         <div style={{fontSize:11,color:'var(--text-3)',marginBottom:4,fontWeight:500}}>Meg</div>
-        <div style={{background:'var(--bg-2)',border:'1px solid var(--border-light)',borderRadius:'3px 10px 10px 10px',overflow:'hidden',maxWidth:'88%',boxShadow:'0 1px 3px var(--shadow)'}}>
-          <button onClick={()=>!msg.pending&&setOpen(o=>!o)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'none',border:'none',cursor:msg.pending?'default':'pointer',textAlign:'left'}}>
-            <div style={{width:20,height:20,borderRadius:5,background:msg.pending?'var(--bg-active)':'var(--accent-bg)',border:`1px solid ${msg.pending?'var(--border)':'var(--accent-border)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        <div style={{background:'var(--bg-2)',border:'1px solid var(--border-light)',borderRadius:'3px 10px 10px 10px',overflow:'hidden',maxWidth:'90%',boxShadow:'0 1px 3px var(--shadow)'}}>
+          <button onClick={()=>setOpen(o=>!o)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'none',border:'none',cursor:'pointer',textAlign:'left'}}>
+            <div style={{width:20,height:20,borderRadius:5,background:msg.pending?'var(--accent-bg)':'var(--bg-active)',border:`1px solid ${msg.pending?'var(--accent-border)':'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               {msg.pending
-                ? <div style={{width:10,height:10,borderRadius:'50%',border:'2px solid var(--text-3)',borderTopColor:'transparent',animation:'spin 0.7s linear infinite'}}/>
-                : <Icon name={TOOL_ICONS[msg.name]||'terminal'} size={10} color="var(--accent)"/>
+                ? <div style={{width:10,height:10,borderRadius:'50%',border:'2px solid var(--accent)',borderTopColor:'transparent',animation:'spin 0.7s linear infinite'}}/>
+                : <Icon name={TOOL_ICONS[msg.name]||'terminal'} size={10} color="var(--text-3)"/>
               }
             </div>
-            <span style={{fontSize:12,color:'var(--text)',fontWeight:500,flex:1}}>{TOOL_LABELS[msg.name]||msg.name}</span>
-            {msg.args?.command && <code style={{fontSize:11,color:'var(--text-3)',fontFamily:'"JetBrains Mono",monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160}}>{msg.args.command}</code>}
-            {msg.args?.path && <code style={{fontSize:11,color:'var(--text-3)',fontFamily:'"JetBrains Mono",monospace',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:160}}>{msg.args.path}</code>}
-            {!msg.pending && <Icon name={open?'chevronDown':'chevronRight'} size={10} color="var(--text-3)"/>}
+            <span style={{fontSize:12,color:'var(--text)',fontWeight:500,flex:1}}>{actionLabel}</span>
+            {msg.pending && <div style={{fontSize:10,color:'var(--accent)',background:'var(--accent-bg)',padding:'1px 6px',borderRadius:4,fontWeight:600}}>RUNNING</div>}
+            <Icon name={open?'chevronDown':'chevronRight'} size={10} color="var(--text-3)"/>
           </button>
           {open && (
-            <div style={{borderTop:'1px solid var(--border-light)',padding:'8px 12px',display:'flex',flexDirection:'column',gap:6}}>
-              <div style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--text-2)',background:'var(--code-bg)',padding:'6px 8px',borderRadius:6,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{JSON.stringify(msg.args,null,2)}</div>
-              {msg.result && <div style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-text)',background:'var(--code-bg)',padding:'6px 8px',borderRadius:6,whiteSpace:'pre-wrap',wordBreak:'break-all',maxHeight:200,overflowY:'auto'}}>{JSON.stringify(msg.result,null,2)}</div>}
+            <div style={{borderTop:'1px solid var(--border-light)',padding:'8px 12px',display:'flex',flexDirection:'column',gap:6,background:'var(--code-bg)'}}>
+              <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase'}}>Input</div>
+              <pre style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-blue)',margin:0,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{JSON.stringify(msg.args,null,2)}</pre>
+              {msg.result && (
+                <>
+                  <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',marginTop:4}}>Output</div>
+                  <div style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-text)',whiteSpace:'pre-wrap',wordBreak:'break-all',maxHeight:200,overflowY:'auto'}}>{typeof msg.result==='string'?msg.result:JSON.stringify(msg.result,null,2)}</div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -2759,11 +2771,14 @@ const App = () => {
     return ()=>window.removeEventListener('keydown',h);
   },[]);
 
+  // ── Auto-scroll to bottom ──
   useEffect(()=>{
-    if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({block:'end'});
-  },[activeId,threads,typing]);
+    if(nav === 'chat' && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  },[activeId, threads, typing, nav]);
 
-  const [version, setVersion] = useState('0.4.4'); // Fallback
+  const [version, setVersion] = useState('0.4.5'); // Fallback
 
   useEffect(() => {
     if(window.electronAPI) {
