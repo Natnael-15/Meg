@@ -447,13 +447,25 @@ async function executeTool(name, args = {}, context = {}) {
         parentThreadId: threadId,
         parentRunId: context.agentRunId || null,
       });
-      result = {
-        ok: true,
-        status: 'spawned',
-        runId: run.id,
-        agentName: run.name,
-        message: `Sub-agent "${run.name}" is queued for: ${run.instruction}`,
-      };
+      if (args.wait) {
+        const completedRun = await agentRunner.waitForRun(run.id);
+        result = {
+          ok: true,
+          status: completedRun.status,
+          runId: completedRun.id,
+          agentName: completedRun.name,
+          message: completedRun.status === 'done' ? 'Sub-agent completed successfully.' : `Sub-agent ended with status: ${completedRun.status}`,
+          output: completedRun.output?.text || completedRun.error || 'No output.',
+        };
+      } else {
+        result = {
+          ok: true,
+          status: 'spawned',
+          runId: run.id,
+          agentName: run.name,
+          message: `Sub-agent "${run.name}" is queued for: ${run.instruction}`,
+        };
+      }
     } else {
       throw new Error(`Unknown tool: ${name}`);
     }

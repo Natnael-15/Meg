@@ -146,6 +146,28 @@ function getRun(id) {
   return listRuns().find(run => run.id === id) || null;
 }
 
+function waitForRun(id) {
+  return new Promise((resolve) => {
+    const check = (run) => {
+      if (run.id === id && (run.status === 'done' || run.status === 'error' || run.status === 'cancelled')) {
+        events.removeListener('agent:completed', check);
+        events.removeListener('agent:error', check);
+        events.removeListener('agent:cancelled', check);
+        resolve(run);
+      }
+    };
+    events.on('agent:completed', check);
+    events.on('agent:error', check);
+    events.on('agent:cancelled', check);
+    
+    // Safety check in case it's already done
+    const current = getRun(id);
+    if (current && (current.status === 'done' || current.status === 'error' || current.status === 'cancelled')) {
+      check(current);
+    }
+  });
+}
+
 function clearRunTimer(id) {
   const timer = timers.get(id);
   if (timer) clearTimeout(timer);
@@ -203,9 +225,18 @@ ${run.instruction || 'No instruction provided.'}`
       }
     } else if (item.type === 'tool_call') {
       appendLog(run.id, `Tool call: ${item.name}`);
+      updateRun(run.id, current => {
+        const toolLabel = `${item.name}: ${item.args.path || item.args.command || ''}`;
+        return {
+          steps: [...current.steps.map(s => s.status === 'active' ? { ...s, status: 'done' } : s), { label: toolLabel, status: 'active', at: now() }]
+        };
+      });
     } else if (item.type === 'tool_result') {
       const status = item.result?.error ? `failed: ${item.result.error}` : 'completed';
       appendLog(run.id, `Tool result: ${item.name} ${status}`, item.result?.error ? 'warn' : 'info');
+      updateRun(run.id, current => ({
+        steps: current.steps.map(s => s.status === 'active' ? { ...s, status: item.result?.error ? 'error' : 'done', at: now() } : s)
+      }));
     }
   }
 
@@ -224,4 +255,5 @@ module.exports = {
   appendLog,
   completeRun,
   failRun,
+  waitForRun,
 };

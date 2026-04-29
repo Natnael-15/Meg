@@ -672,7 +672,7 @@ const App = () => {
     }
   },[activeId, threads, typing, nav]);
 
-  const [version, setVersion] = useState('1.0.0-beta.2'); // Fallback
+  const [version, setVersion] = useState('1.0.0-beta.3'); // Fallback
   const isPreviewMode = !window.electronAPI;
 
   useEffect(() => {
@@ -1062,7 +1062,7 @@ CURRENT CONTEXT:
 OPERATIONAL GUIDELINES:
 1. CONCISETY: Be brief, technical, and direct. Avoid conversational filler.
 2. WINDOWS AWARENESS: You are running on Windows. Use Windows-native commands. (e.g., use 'systeminfo' or 'wmic' instead of 'uname', 'dir' instead of 'ls', 'type' instead of 'cat').
-3. TOOL USE: When performing complex tasks, prefer specialized tools (web_search for instant-answer lookups, send_telegram, search_files, list_directory) over raw shell commands where possible.
+3. TOOL USE: When performing complex tasks, prefer specialized tools (web_search for instant-answer lookups, send_telegram, search_files, list_directory) over raw shell commands where possible. Use spawn_subagent with 'wait: true' to delegate sub-tasks and block until they report back.
 4. ERROR RECOVERY: If a command or tool returns an error, analyze the stderr, understand the failure, and try an alternative approach. DO NOT repeat the same failed command.
 5. PATHS: Use backslashes '\\' for Windows paths in commands, but ensure strings are escaped correctly.
 6. FINAL RESPONSE: ALWAYS provide a final, clear answer to the user's question after you have obtained the necessary information via tools. Do not just stop after the tool result.
