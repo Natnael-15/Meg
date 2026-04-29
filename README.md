@@ -2,47 +2,62 @@
 <p align="center"><b>The Local-First AI Operating System</b></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Status-BETA-orange?style=for-the-badge" alt="Status">
-  <img src="https://img.shields.io/badge/Version-0.4.6-blue?style=for-the-badge&logo=electron" alt="Version">
+  <img src="https://img.shields.io/badge/Status-BETA_1.0-orange?style=for-the-badge" alt="Status">
+  <img src="https://img.shields.io/badge/Version-1.0.0--beta.1-blue?style=for-the-badge&logo=electron" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
 </p>
 
-> [!WARNING]
-> **Meg is currently in Beta mode.** This is an early-stage project and is **not yet fully functional**. Expect bugs, breaking changes, and incomplete features as we move toward a stable release.
+> [!IMPORTANT]
+> **Meg has evolved.** We have transitioned to a modular, platform-grade architecture (v1.0.0-beta). This release introduces background agents, structured automations, and a robust safety-gated tool layer.
 
 ---
 
 <p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v0.4.6/Meg-Setup-0.4.6.exe">
-    <img src="https://img.shields.io/badge/DOWNLOAD_FOR_WINDOWS-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
+  <a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.1/Meg-Setup-1.0.0-beta.1.exe">
+    <img src="https://img.shields.io/badge/DOWNLOAD_PLATFORM_V1-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
   </a>
 </p>
 
 ---
 
-## ✦ Core Capabilities (Development in Progress)
+## ✦ Core Architecture
 
-- **🧠 Local Intelligence:** Powered by LM Studio (`qwen/qwen3.5-9b`). Everything stays on your machine.
-- **🛠 System Integration:** Full access to your terminal, file system, and git workflow.
-- **🤖 Multi-Agent Orchestration:** Spawn specialized sub-agents to handle complex background tasks.
-- **📂 Smart Context:** Meg automatically understands the files you are looking at or editing.
-- **⚡ Hot-Reloadable:** Self-improving architecture designed for rapid local evolution.
+- **🧠 Local Intelligence:** Full integration with LM Studio. Your data never leaves your machine.
+- **🛡️ Safety Gated:** A new approval queue ensures you maintain control over destructive or sensitive AI actions.
+- **🤖 Background Agents:** specialized sub-agents can now be spawned to handle complex, long-running tasks in the background.
+- **⚡ Automation Engine:** Author complex workflows triggered by schedules, git events, or Telegram keywords.
+- **📂 Workspace Aware:** Meg now understands your folder structure and enforces security boundaries.
 
-## ✦ Built-in Tools
+## ✦ The V1 Feature Set
 
-| Tool | Capability |
+| Surface | Capability |
 | :--- | :--- |
-| **Terminal** | Execute shell commands and manage local processes. |
-| **File Browser** | Real-time file management (Rename, Delete, Create). |
-| **Code Editor** | Edit and save code directly within the split-pane. |
-| **Search** | Recursive project-wide pattern scanning using specialized find tools. |
-| **Git Sync** | Live tracking of branches, dirty files, and ahead-counts. |
+| **Chat** | Dynamic multi-turn reasoning with real-time tool execution and rich formatting. |
+| **Workspace** | Live Git status, branch tracking, and one-click workspace management. |
+| **File Engine** | A full-featured browser with create, rename, move, and recursive search powers. |
+| **Split View** | Seamlessly jump between code editing and a high-performance terminal. |
+| **Automations** | Create persistent robots that work for you while you sleep. |
+| **Approval UI** | A dedicated queue to inspect, edit, and approve AI tool calls. |
+| **Mobile Link** | Connect Telegram for real-time mobile notifications and bot control. |
 
 ## ✦ Requirements
 
 1. **[LM Studio](https://lmstudio.ai/)** running on `http://127.0.0.1:1234`.
-2. **Qwen 3.5 9B** (or similar) model loaded.
+2. A compatible local model (e.g., `qwen/qwen3.5-9b`).
 3. Windows 10/11.
+
+## ✦ Development
+
+```bash
+# Clone and install
+npm install
+
+# Start the dev environment (Vite + Electron)
+npm run dev
+
+# Run the test suite
+npm test
+```
 
 ---
 
@@ -51,5 +66,5 @@
 Distributed under the MIT License. See `LICENSE` for more information.
 
 <p align="center">
-  <i>Developed by Natnael-15</i>
+  <i>Developed with ❤️ by Natnael-15</i>
 </p>

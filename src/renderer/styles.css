@@ -1,0 +1,93 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; overflow: hidden; }
+body { font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; transition: background 0.3s; }
+
+/* ── Light theme ── */
+:root {
+  --bg: #faf9f7; --bg-2: #ffffff; --bg-sidebar: #f0ede8; --bg-panel: #f5f3ef;
+  --bg-hover: #e9e6df; --bg-active: #e2dfd8; --bg-input: #ffffff;
+  --border: #e2dfd8; --border-light: #ebe8e2;
+  --text: #17161a; --text-2: #6b6762; --text-3: #a09c97;
+  --accent: #3b6eff; --accent-bg: #eef3ff; --accent-border: #c5d4ff;
+  --green: #1a9e5c; --green-bg: #edfaf4; --green-border: #b8ecd6;
+  --orange: #e07a30; --red: #d94f4f;
+  --shadow: rgba(0,0,0,0.08); --shadow-lg: rgba(0,0,0,0.16);
+  --code-bg: #16141f; --code-border: #2a2738; --code-text: #a8b5cc;
+  --code-green: #a6da95; --code-blue: #7dc4e4; --code-orange: #f5a97f;
+}
+/* ── Dark theme ── */
+body.dark {
+  --bg: #141318; --bg-2: #1e1c26; --bg-sidebar: #0f0e13; --bg-panel: #1a1820;
+  --bg-hover: #22202c; --bg-active: #2a2838; --bg-input: #1e1c26;
+  --border: #2e2c3c; --border-light: #252232;
+  --text: #e2e0ea; --text-2: #8c8a9e; --text-3: #55536a;
+  --accent: #5a84ff; --accent-bg: #1a2040; --accent-border: #2a3860;
+  --green: #2ab870; --green-bg: #102820; --green-border: #1a4830;
+  --orange: #e07a30; --red: #e06060;
+  --shadow: rgba(0,0,0,0.3); --shadow-lg: rgba(0,0,0,0.5);
+  --code-bg: #0d0b14; --code-border: #1e1c2a; --code-text: #8090a8;
+  --code-green: #7ab87a; --code-blue: #5ea4c4; --code-orange: #c58a60;
+}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+button { cursor: pointer; border: none; background: none; font-family: inherit; color: inherit; }
+
+/* ── Keyframes ── */
+@keyframes spin        { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes modalIn     { from { opacity: 0; transform: scale(0.94) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+@keyframes backdropIn  { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; } }
+@keyframes stepFwd     { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes stepBack    { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fadeUp      { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideDown   { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulseGreen  { 0%,100% { box-shadow: 0 0 0 0 rgba(26,158,92,0.4); } 50% { box-shadow: 0 0 0 6px rgba(26,158,92,0); } }
+@keyframes typingDot   { 0%,80%,100% { transform: scale(0.6); opacity: 0.3; } 40% { transform: scale(1); opacity: 1; } }
+@keyframes navIn       { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes msgIn       { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sidebarIn   { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ripple      { from { transform: scale(0); opacity: 0.3; } to { transform: scale(3); opacity: 0; } }
+
+/* Staggered feature list in onboarding */
+.ob-feature { opacity: 0; animation: fadeUp 0.4s ease forwards; }
+.ob-feature:nth-child(1) { animation-delay: 0.05s; }
+.ob-feature:nth-child(2) { animation-delay: 0.12s; }
+.ob-feature:nth-child(3) { animation-delay: 0.19s; }
+.ob-feature:nth-child(4) { animation-delay: 0.26s; }
+
+/* Smooth nav section transitions */
+.nav-section { animation: navIn 0.22s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* Message animations */
+.msg-enter { animation: msgIn 0.2s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* Windows title bar drag region */
+.titlebar-drag { -webkit-app-region: drag; app-region: drag; }
+.titlebar-nodrag { -webkit-app-region: no-drag; app-region: no-drag; }
+
+/* Smooth interactive states */
+.btn-pressable { transition: transform 0.1s cubic-bezier(0.34,1.56,0.64,1), background 0.12s ease, color 0.12s ease; }
+.btn-pressable:active { transform: scale(0.93) !important; }
+
+/* Windows close btn hover */
+.win-close:hover { background: #c42b1c !important; color: #fff !important; }
+.win-btn:hover { background: var(--bg-hover) !important; }
+
+/* Voice waveform bars */
+@keyframes waveBar { 0%,100%{transform:scaleY(0.3);} 50%{transform:scaleY(1);} }
+.wave-bar { width:3px; border-radius:99px; background:var(--accent); transform-origin:center; animation:waveBar 0.7s ease-in-out infinite; }
+.wave-bar:nth-child(1){animation-delay:0s;height:10px;}
+.wave-bar:nth-child(2){animation-delay:0.1s;height:16px;}
+.wave-bar:nth-child(3){animation-delay:0.2s;height:12px;}
+.wave-bar:nth-child(4){animation-delay:0.08s;height:18px;}
+.wave-bar:nth-child(5){animation-delay:0.15s;height:10px;}
+
+/* Automation flow */
+.auto-card { transition: border-color 0.15s, background 0.15s, transform 0.15s; }
+.auto-card:hover { transform: translateY(-1px); }
+
+/* Thinking animation */
+@keyframes megBounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.5; } 40% { transform: translateY(-5px); opacity: 1; } }
+.typing-dots span { animation: megBounce 1.4s infinite; display: inline-block; font-weight: bold; font-size: 14px; margin-left: 1px; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }

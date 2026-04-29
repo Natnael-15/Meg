@@ -1,0 +1,454 @@
+Meg deep-dive backlog
+Generated: 2026-04-28
+
+Purpose
+- Enumerate the concrete gaps that still keep Meg in prototype territory.
+- Focus on mock data, dead controls, fake workflows, legacy branches, and release-readiness gaps.
+- This list is meant to be finished, not admired.
+
+Closed in the 2026-04-28 cleanup slice
+- Item 8: chat attach button is now wired to the file picker.
+- Item 9: tray actions `Open Meg` and `New task` are now wired.
+- Item 10: file browser `New file` now creates a file directly.
+- Item 24: file rename no longer uses naive string replacement for the target path.
+- Item 25: file browser footer counts and language label are now data-driven.
+- Item 26: duplicate dead component block was removed from `src/renderer/views/SettingsView.jsx`.
+
+Closed in the 2026-04-29 empty-state slice
+- Item 1: `src/renderer/App.jsx` no longer boots chats, notifications, events, or workspaces from demo seed state.
+- Item 2: `src/renderer/views/WorkspaceView.jsx` no longer uses seeded workspace/activity/file data and now shows honest empty states.
+- Item 3: `src/renderer/views/TimelineView.jsx` no longer boots from `ALL_EVENTS`.
+- Item 4: `src/renderer/views/MobileCompanion.jsx` no longer boots from canned conversation data.
+- Item 7: `src/renderer/views/FileBrowser.jsx` no longer boots from seeded tree/preview content.
+- Item 31: `src/renderer/App.jsx` command palette no longer injects sample chat entries such as `Build landing page`.
+- Item 32: `src/renderer/views/AgentDashboard.jsx` no longer merges live runs with seeded demo agents.
+
+Closed in the 2026-04-29 template cleanup slice
+- Item 5: `src/renderer/views/AgentBuilder.jsx` now starts empty and offers starter templates only when explicitly chosen.
+- Item 6: `src/renderer/views/AutomationsView.jsx` now starts empty and offers starter templates only when explicitly chosen.
+- Item 11: `src/renderer/views/WorkspaceView.jsx` chat-prompt quick actions are now labeled as asks/shortcuts instead of productized workflows.
+
+Closed in the 2026-04-29 settings-truth slice
+- Item 19: `src/renderer/views/SettingsView.jsx` updates copy now reflects actual updater state instead of a generic "up to date" idle claim.
+- Item 28: `src/renderer/views/SettingsView.jsx` memory no longer boots with fake example facts and now shows an honest empty state.
+- Item 40 (partial): `src/renderer/components/overlays.jsx` quick capture no longer shows canned recent prompts when no real recent activity exists.
+
+Closed in the 2026-04-29 onboarding-truth slice
+- Item 17: onboarding in `src/renderer/App.jsx` no longer pretends to grant permissions or configure providers. It now acts as a truthful intro with live model/integration status and routes real setup work into Settings.
+
+Closed in the 2026-04-29 chat-surface truth slice
+- Item 30: `src/renderer/components/overlays.jsx` `ContextPanel` tool toggles now write back into persisted thread state instead of mutating local-only component state.
+- Item 39: `src/renderer/components/overlays.jsx` `SplitPane` no longer boots with canned HTML and terminal output. It now shows explicit empty states until a real file is opened or a real command is run.
+
+Closed in the 2026-04-29 IPC safety slice
+- Item 35: manual renderer file operations in `src/main/ipc.js` now route through the shared tool layer in `src/main/tools.js` for reads, lists, writes, mkdir, rename, and delete. Manual actions skip approval prompts, but they now share the same path/root validation and file-permission gates as model-triggered file actions.
+
+Closed in the 2026-04-29 renderer-contract slice
+- Item 32: the legacy `Meg.html` renderer fallback and `MEG_USE_LEGACY_RENDERER` branch were removed from `src/main/index.js`. The app now has one explicit renderer contract: Vite dev server in development and `dist/renderer/index.html` in packaged/runtime builds.
+
+Closed in the 2026-04-29 docs-truth slice
+- Item 37: `README.md` version and Windows download link now match `0.5.0`.
+- Item 38: `README.md` no longer claims the app is broadly "not yet fully functional" and now describes current capabilities, constraints, and beta scope more precisely.
+
+Closed in the 2026-04-29 diagnostics-and-capability-truth slice
+- Item 34: `src/main/tools.js`, `src/renderer/views/SettingsView.jsx`, `src/renderer/components/chat.jsx`, and `README.md` now describe `web_search` truthfully as DuckDuckGo instant-answer lookup, not full browsing.
+- Item 36: `src/main/index.js` and `src/main/diagnostics.js` now write runtime diagnostics, report startup/load/updater failures, and log uncaught exceptions, unhandled rejections, and renderer-process failures to a local JSONL diagnostics stream.
+
+Closed in the 2026-04-29 migration-policy slice
+- Item 33: `src/main/store.js` and `src/main/db.js` legacy JSON migrations are now versioned, tracked in store metadata, and bounded by an explicit retirement target documented in `MIGRATIONS.md`.
+
+Closed in the 2026-04-29 preview-truth slice
+- Item 15: `src/renderer/App.jsx` no longer fabricates assistant progress when the Electron bridge is unavailable. Browser render now shows an explicit limited preview banner and a truthful backend-unavailable notice in chat instead of pretending the app can execute work.
+
+Closed in the 2026-04-29 timestamp-truth slice
+- Item 16: `src/renderer/App.jsx`, `src/renderer/components/overlays.jsx`, `src/renderer/views/TimelineView.jsx`, and `src/renderer/views/WorkspaceView.jsx` now attach real `createdAt` timestamps to renderer-generated events, notifications, and threads and derive relative labels from those timestamps instead of storing filler like `just now`, `Today`, and `recently`.
+
+Closed in the 2026-04-29 model-settings slice
+- Item 18: `src/renderer/App.jsx` and `src/renderer/views/SettingsView.jsx` now load model selection, LM Studio URL, and provider API keys from the persisted Electron settings store instead of booting those values from localStorage. Onboarding, settings, and chat execution now share the same persisted model source.
+
+Closed in the 2026-04-29 settings-store slice
+- Item 29 (settings portion): `src/renderer/App.jsx` and `src/renderer/views/SettingsView.jsx` now load Telegram connection values and memory settings from the persisted Electron settings store instead of localStorage-first renderer state. Chat memory injection and Telegram-connected UI now read from the same settings source as the Settings screen.
+
+Closed in the 2026-04-29 thread-schema slice
+- Item 29: `src/renderer/App.jsx` now normalizes persisted threads through one thread-schema path, derives titles/subtitles from real message history, updates `updatedAt` centrally, and sorts the conversation list by real activity time instead of relying on ad hoc client-managed thread labels and ordering.
+
+Progress in the 2026-04-29 dialog cleanup slice
+- Item 21: `src/renderer/views/AgentBuilder.jsx` no longer uses `prompt()` for adding steps; step entry now uses an in-app modal. Structured step types and editable fields are now in place. Dedicated execution/logging behavior is still open.
+- Item 22: `src/renderer/views/AutomationsView.jsx` no longer uses `prompt()` for adding actions; action entry now uses an in-app modal. Structured trigger/action types and editable fields are now in place. Backend execution is still open.
+- Item 23: `src/renderer/views/FileBrowser.jsx` no longer uses `prompt()` / `confirm()` for create, rename, and delete flows; these now use in-app dialogs.
+
+Progress in the 2026-04-29 execution wiring slice
+- Item 12: `src/renderer/views/AgentBuilder.jsx` `Run now` now routes through the backend agent runner with source metadata and tracked run status instead of sending a synthetic chat instruction.
+- Item 13: `src/renderer/views/AutomationsView.jsx` `Run now` now routes through a dedicated backend automation runner with structured trigger/action payloads, persisted runs, and action-level status instead of incrementing a counter and sending a synthetic chat instruction. Scheduled/background automation orchestration is still open.
+
+Progress in the 2026-04-29 scheduler slice
+- Item 13: the main process now includes a real automation scheduler for enabled `schedule` triggers, local repository-event polling (`on commit to <branch>`, `on merge to <branch>`), and Telegram-keyword triggering from polled bot messages, and resets its state when automations are saved. External PR/webhook-style repository integration is still open, and the mobile/Telegram UI state model is still incomplete.
+
+Severity key
+- [P0] Broken or misleading behavior
+- [P1] Major production gap
+- [P2] Cleanup / consistency gap
+
+========================================================================
+[P0] Demo data and fake app state still driving real UI
+========================================================================
+
+1. src/renderer/App.jsx
+- Hardcoded seed data still drives core app state:
+  - INIT_THREADS
+  - INIT_NOTIFS
+  - AGENTS_DATA
+  - CMD_ITEMS
+  - AGENT_STEP_SEQUENCES
+- Result: the shell still boots with demo conversations, demo notifications, and demo command items instead of a clean persisted state.
+- Required finish:
+  - Remove demo-first boot behavior.
+  - Load real empty/persisted state from storage.
+  - Keep sample content only behind an explicit dev/demo mode if it is still needed.
+
+2. src/renderer/views/WorkspaceView.jsx
+- WORKSPACES, WS_ACTIVITY, and WS_FILES are mock workspace records.
+- Code explicitly skips git polling for "~" demo paths.
+- Workspace stats such as files/threads/agents are still fake counters.
+- Result: workspace UI looks live, but much of it is decorative.
+- Required finish:
+  - Replace seeded workspaces with persisted real workspaces only.
+  - Derive activity, file counts, and workspace metadata from real sources.
+  - Remove demo path special cases.
+
+3. src/renderer/views/TimelineView.jsx
+- ALL_EVENTS is hardcoded demo history.
+- Result: timeline is not a trustworthy record of app activity.
+- Required finish:
+  - Back timeline with a real event store.
+  - Decide retention, ordering, and event schema.
+
+4. src/renderer/views/MobileCompanion.jsx
+- Starts with canned conversation data.
+- Incoming sender display is effectively demo-oriented.
+- Result: this looks like a real companion surface but behaves like a mockup.
+- Required finish:
+  - Bind the view to actual persisted Telegram/mobile conversation state.
+  - Remove canned conversation boot data.
+
+5. src/renderer/views/AgentBuilder.jsx
+- Ships with seeded agents:
+  - deploy-pipeline
+  - weekly-report
+  - pr-reviewer
+- Result: user sees prebuilt examples mixed with what looks like real user config.
+- Required finish:
+  - Treat templates as optional starter presets, not default persistent agents.
+  - Separate system templates from user-created agents.
+
+6. src/renderer/views/AutomationsView.jsx
+- INIT_AUTOS is seeded mock automation data.
+- Result: automation system presents itself as real before a real engine exists.
+- Required finish:
+  - Remove fake default automations from normal app boot.
+  - Persist only user-created automations or explicit templates.
+
+7. src/renderer/views/FileBrowser.jsx
+- FILE_TREE and FILE_PREVIEWS provide mock content until a folder is opened.
+- Result: file browser behaves like a demo surface before it behaves like a file browser.
+- Required finish:
+  - Replace seeded tree/preview content with a true empty state.
+  - Show explicit onboarding copy instead of fake project files.
+
+========================================================================
+[P0] Buttons and controls that are unused, fake, or misleading
+========================================================================
+
+8. src/renderer/components/chatInput.jsx
+- Attach/clip button is a no-op: a:()=>{}
+- Result: visible control does nothing.
+- Required finish:
+  - Wire to file picker/context attachment flow, or remove it.
+
+9. src/renderer/components/overlays.jsx
+- TrayFlyout action row only wires "Mark all read".
+- "Open Meg" and "New task" have no action handlers.
+- Result: two visible tray actions are dead buttons.
+- Required finish:
+  - Wire both actions to real window/task flows, or remove them.
+
+10. src/renderer/views/FileBrowser.jsx
+- "New file" does not create a file.
+- It dispatches a chat prompt asking Meg to create one.
+- Result: primary file action is not a file action.
+- Required finish:
+  - Implement direct file creation with validation and duplicate handling.
+
+11. src/renderer/views/WorkspaceView.jsx
+- Several quick actions are not real workflows:
+  - Code review
+  - Write docs
+  - Generate report
+- These dispatch chat prompts rather than app workflows.
+- Result: buttons imply capability that does not exist.
+- Required finish:
+  - Either build these workflows end to end or relabel them as chat shortcuts.
+
+12. src/renderer/views/AgentBuilder.jsx
+- "Run now" emits a synthetic chat instruction after spawning a record.
+- Result: looks like a scheduled/agent runner flow, but execution is mostly theater.
+- Required finish:
+  - Route through a dedicated automation/agent execution path with state, logs, and results.
+
+13. src/renderer/views/AutomationsView.jsx
+- "Run now" increments a counter and sends a synthetic chat instruction.
+- Result: not a real automation execution.
+- Required finish:
+  - Execute actions through a backend automation engine.
+
+14. src/renderer/components/chatInput.jsx
+- "/command" and "@mention" chips only insert text into the box.
+- Result: visible command/mention affordances have no resolution system.
+- Required finish:
+  - Add real slash-command parsing and mention resolution, or remove these controls.
+
+========================================================================
+[P0] Flows that look real but are still fake or incomplete
+========================================================================
+
+15. src/renderer/App.jsx
+- Fallback browser-preview branch fabricates assistant responses when Electron APIs are unavailable.
+- Result: browser preview can pretend the app works when backend integration is absent.
+- Required finish:
+  - Restrict browser preview mode clearly, or remove fake assistant output.
+
+16. src/renderer/App.jsx
+- Notification timestamps like "just now" are injected in multiple flows.
+- Result: activity and notifications can be synthetic rather than durable state.
+- Required finish:
+  - Use real timestamps from persisted event sources.
+
+17. src/renderer/App.jsx
+- Onboarding permissions step only toggles local UI state.
+- No actual OS permission checks or tool-permission configuration is enforced there.
+- Result: onboarding implies setup completion without doing real setup.
+- Required finish:
+  - Turn onboarding into real checks and persisted configuration steps.
+
+18. src/renderer/App.jsx
+- Onboarding API setup stores local key/provider selections loosely and appears oriented around a single provider path.
+- Result: provider/model configuration does not appear robust enough for a production settings model.
+- Required finish:
+  - Define a real provider/model/settings schema.
+  - Validate, persist, and test provider switching.
+
+19. src/renderer/views/SettingsView.jsx
+- Updates section can present "Meg Local AI is up to date." as a generic idle state.
+- Result: UI message is broader than the actual updater state known by the app.
+- Required finish:
+  - Bind update messaging strictly to updater state.
+
+20. src/renderer/views/MobileCompanion.jsx and src/renderer/components/overlays.jsx
+- Status: fixed in the 2026-04-29 mobile-state slice.
+- Telegram/mobile messaging surfaces now read from one persisted renderer message store instead of demo boot messages and isolated local component state.
+- Remaining follow-up:
+  - Expand beyond the current single-thread Telegram view if multi-chat history becomes a product requirement.
+
+========================================================================
+[P1] Temporary scaffolding still standing in for product UI
+========================================================================
+
+21. src/renderer/views/AgentBuilder.jsx
+- Adding agent steps uses prompt().
+- Editing is very lightweight and schema-free.
+- Result: not acceptable for a production configuration surface.
+- Required finish:
+  - Replace prompt() with structured inline or modal editing.
+  - Validate step types, tools, and triggers.
+
+22. src/renderer/views/AutomationsView.jsx
+- Adding actions uses prompt().
+- Trigger/action design is mostly presentational.
+- Result: automation authoring is still prototype scaffolding.
+- Required finish:
+  - Add structured editors for triggers and actions.
+  - Define backend-supported action types only.
+
+23. src/renderer/views/FileBrowser.jsx
+- New folder, rename, and delete rely on prompt()/confirm().
+- Result: core file operations still use browser-dialog scaffolding.
+- Required finish:
+  - Replace with in-app dialogs and validation.
+
+24. src/renderer/views/FileBrowser.jsx
+- Rename path generation uses string replacement:
+  - oldP.replace(selected.name, name.trim())
+- Result: brittle if the filename appears elsewhere in the path.
+- Required finish:
+  - Compute new path with path.dirname/path.join semantics on the main side.
+
+25. src/renderer/views/FileBrowser.jsx
+- Footer count "12 files · 3 folders" is hardcoded.
+- Preview footer always says "TypeScript".
+- Result: file browser still contains visual filler.
+- Required finish:
+  - Derive counts and language from actual file data.
+
+========================================================================
+[P1] Duplicate or dead code still in tree
+========================================================================
+
+26. src/renderer/views/SettingsView.jsx
+- Old local component definitions remain after the main exported SettingsView:
+  - SmsFloat
+  - ContextPanel
+  - SplitPane
+  - UpdateNotification
+- Extracted live versions already exist in src/renderer/components/overlays.jsx.
+- Result: dead duplicated code increases drift risk and confuses future edits.
+- Required finish:
+  - Delete the duplicate definitions from SettingsView.jsx.
+
+27. src/renderer/views/SettingsView.jsx
+- File still contains a large amount of code unrelated to the settings surface because of the leftover duplicate block.
+- Result: ownership boundaries are blurred again after refactor.
+- Required finish:
+  - Keep the file limited to settings concerns only.
+
+========================================================================
+[P1] State and persistence model still need product decisions
+========================================================================
+
+28. src/renderer/views/SettingsView.jsx
+- Memories fall back to hardcoded examples when localStorage is empty.
+- Result: user memory system still boots with fake content.
+- Required finish:
+  - Use a real empty state or explicit starter examples behind a one-time template action.
+
+29. src/renderer/App.jsx
+- Thread titles, subtitles, and ordering are still heavily client-managed.
+- Result: conversation list risks drifting from real history/state.
+- Required finish:
+  - Define a durable thread schema and central persistence path.
+
+30. src/renderer/components/overlays.jsx
+- ContextPanel tool toggles change local component state only.
+- Result: toggles look authoritative but do not modify real tool permissions.
+- Required finish:
+  - Bind these toggles to settings/tool permission state or remove them.
+
+31. src/renderer/views/AgentDashboard.jsx
+- Dashboard merges local demo agents with active runtime agents.
+- Tool log can fall back to canned log lines.
+- Result: monitoring UI still mixes real runtime state with fabricated state.
+- Required finish:
+  - Show runtime truth only.
+  - Move examples into isolated dev fixtures if still needed.
+
+========================================================================
+[P1] Main-process and backend gaps that still feel prototype-level
+========================================================================
+
+32. src/main/index.js
+- Legacy renderer fallback is still present:
+  - legacyIndex
+  - MEG_USE_LEGACY_RENDERER
+- Result: two renderer entry assumptions still exist.
+- Required finish:
+  - Decide whether Meg.html support is still required.
+  - Remove the branch if not.
+
+33. src/main/store.js and src/main/db.js
+- Legacy migration paths are still active:
+  - meg-settings.json migration
+  - per-table legacy JSON migration
+- Result: migration support exists, but there is no declared migration lifecycle or cutoff.
+- Required finish:
+  - Document migration versions.
+  - Decide when legacy paths can be retired.
+
+34. src/main/tools.js
+- web_search uses DuckDuckGo instant answers only.
+- Result: "web search" capability is much narrower than the label suggests.
+- Required finish:
+  - Either upgrade the capability or narrow the product claim.
+
+35. src/main/ipc.js
+- Some file operations bypass the tool permission model:
+  - fs:write uses bypassPermissions
+  - fs:rename and fs:delete operate directly
+- Result: there are two different safety models in the app.
+- Required finish:
+  - Unify manual file operations and tool permissions under one policy model.
+
+36. src/main/ipc.js / src/main/index.js
+- Runtime diagnostics, structured logging, and crash-reporting posture are still light.
+- Result: debugging real-user failures will be harder than it should be.
+- Required finish:
+  - Add startup diagnostics, crash logging, and clear failure reporting.
+
+========================================================================
+[P2] Product truth, naming, and release polish gaps
+========================================================================
+
+37. README.md
+- README still says version 0.4.6 while package.json is 0.5.0.
+- Download link also points to 0.4.6.
+- Required finish:
+  - Update README, release links, and status copy.
+
+38. README.md
+- README warns that the app is not fully functional.
+- That is accurate today, but it means product messaging has not caught up with a release standard.
+- Required finish:
+  - Rewrite README only after the gaps in this file are actually closed.
+
+39. src/renderer/components/overlays.jsx
+- SplitPane default code sample and default terminal output are canned examples.
+- Result: empty states still masquerade as live working state.
+- Required finish:
+  - Replace with explicit empty states and real recent terminal history if available.
+
+40. src/renderer/views/FileBrowser.jsx, WorkspaceView.jsx, MobileCompanion.jsx, TimelineView.jsx
+- Several views still prioritize looking full over being truthful.
+- Result: polished prototype, not trustworthy app.
+- Required finish:
+  - Prefer honest empty states over fabricated fullness.
+
+Closed in the 2026-04-29 settings-state completion slice
+- Item 29 (remaining renderer settings/UI state): `src/renderer/App.jsx` and `src/renderer/views/SettingsView.jsx` now load and persist theme choice, tool permissions, onboarding completion, and split-pane state through the Electron settings store instead of treating `localStorage` as the product source of truth. Browser `localStorage` fallback now remains only in explicit preview mode where the Electron backend is unavailable.
+
+Closed in the 2026-04-29 tweak-state unification slice
+- Renderer tweak state in `src/renderer/tweaks-panel.jsx` and `src/renderer/App.jsx` no longer acts as a separate browser-only settings system in desktop runtime. Accent color and sidebar density now persist through the Electron settings store under one renderer-tweaks record, and dark-mode theme control stays on the main app theme setting instead of being shadowed by tweak-panel state.
+- The floating `TweaksPanel` is now preview-only tooling, while the shipped Electron app exposes accent, theme, and sidebar density through `src/renderer/views/SettingsView.jsx`.
+
+Closed in the 2026-04-29 notification-persistence slice
+- Definition-of-done gap (notifications): `src/renderer/App.jsx` now loads and saves notifications through the same persisted DB path used for threads, events, workspaces, and Telegram messages. Activity/tray read-state changes are no longer session-only UI state.
+
+Closed in the 2026-04-29 activity-schema slice
+- Notifications and timeline events in `src/renderer/App.jsx`, `src/renderer/lib/activity.js`, and `src/renderer/views/TimelineView.jsx` now normalize through one shared renderer activity model with deterministic IDs for approval/Telegram activity, dedupe on merge, timestamp-based ordering, and bounded retention.
+
+Closed in the 2026-04-29 workspace-reality slice
+- `src/renderer/views/WorkspaceView.jsx`, `src/renderer/App.jsx`, and `src/renderer/lib/agentRuns.js` now derive workspace file inventory from real directory listing, derive workspace thread/agent counts from linked thread and run state, and stop showing generic activity as if it belonged to every workspace. Workspace-linked chats now persist `workspaceId` / `workspacePath` so the workspace chat tab and header stats are backed by real app state instead of decorative counters.
+- Workspace file inventory now walks directories recursively instead of only counting root-level files, so workspace file stats and file lists reflect the actual project tree rather than just the top folder.
+- Workspace inventory is now cached and refreshed in `src/main/workspace.js` through the main-process workspace service instead of recursively crawling the filesystem from `src/renderer/views/WorkspaceView.jsx`. The renderer now consumes explicit workspace metadata and refreshes it through `workspace:refreshMeta`, which removes repeated deep scans from the UI layer.
+- The workspace files tab now queries cached workspace inventory through `workspace:searchFiles` instead of treating the renderer as the file index for filtering. Large-workspace file lookup now has an explicit main-process boundary instead of pushing full search behavior into the UI.
+
+========================================================================
+Recommended execution order
+========================================================================
+
+1. Remove dead controls and duplicate code.
+2. Remove demo seed data from boot flows.
+3. Convert fake workflows into real backend-backed flows, or remove them.
+4. Replace prompt()/confirm() scaffolding with real UI.
+5. Unify persistence and permission models.
+6. Retire legacy branches that no longer serve the shipped app.
+7. Update product docs only after runtime behavior matches the claims.
+
+========================================================================
+Definition of done for this backlog
+========================================================================
+
+- No default demo conversations, demo workspaces, demo notifications, demo events, or demo automations appear in normal app boot.
+- No visible button is a no-op.
+- No primary action delegates to a fake chat shortcut unless it is explicitly labeled as a shortcut.
+- No duplicate dead component block remains in active source files.
+- Settings, threads, workspaces, tool permissions, notifications, and messaging use real persisted state.
+- Legacy renderer and migration branches are either justified and documented or removed.
+- README and release notes describe the app that actually ships.

@@ -1,0 +1,22 @@
+const { defineConfig } = require('vite');
+const react = require('@vitejs/plugin-react');
+const path = require('path');
+
+module.exports = defineConfig({
+  root: path.join(__dirname, 'src/renderer'),
+  plugins: [react()],
+  build: {
+    outDir: path.join(__dirname, 'dist/renderer'),
+    emptyOutDir: true,
+  },
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+  },
+  test: {
+    environment: 'jsdom',
+    setupFiles: path.join(__dirname, 'src/renderer/test/setup.js'),
+    globals: true,
+  },
+});

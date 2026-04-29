@@ -28,4 +28,19 @@ async function getStatus(cwd) {
   };
 }
 
-module.exports = { getStatus };
+async function getHeadSnapshot(cwd) {
+  const branch = await runGit('rev-parse --abbrev-ref HEAD', cwd);
+  const head = await runGit('rev-parse HEAD', cwd);
+  const parents = await runGit('rev-list --parents -n 1 HEAD', cwd);
+
+  if (branch.exitCode !== 0 || head.exitCode !== 0 || parents.exitCode !== 0) return null;
+
+  const parentParts = parents.stdout.split(/\s+/).filter(Boolean);
+  return {
+    branch: branch.stdout,
+    head: head.stdout,
+    parentCount: Math.max(0, parentParts.length - 1),
+  };
+}
+
+module.exports = { getStatus, getHeadSnapshot };

@@ -1,8 +1,12 @@
 const { app } = require('electron');
 const path = require('path');
-const fs = require('fs');
+const store = require('./store');
 
-const SETTINGS_FILE = path.join(app.getPath('userData'), 'meg-settings.json');
+function getUserDataPath() {
+  return app?.getPath ? app.getPath('userData') : process.cwd();
+}
+
+const SETTINGS_FILE = path.join(getUserDataPath(), 'meg-settings.json');
 
 const DEFAULTS = {
   model: 'qwen/qwen3.5-9b',
@@ -14,19 +18,36 @@ const DEFAULTS = {
   integrations: { Telegram: false, GitHub: false },
   memoryEnabled: true,
   memories: [],
+  workspaces: [],
+  activeWorkspaceId: null,
+  toolWriteRoots: [process.cwd()],
+  agentRuns: [],
+  toolApprovals: [],
+  toolPermissions: {
+    readFiles: true,
+    writeFiles: false,
+    runCommands: false,
+    webSearch: true,
+    telegram: true,
+    spawnAgents: true,
+    requireApprovalForWrites: true,
+    requireApprovalForCommands: true,
+  },
 };
 
 function load() {
-  try {
-    const raw = fs.readFileSync(SETTINGS_FILE, 'utf8');
-    return { ...DEFAULTS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULTS };
-  }
+  const parsed = store.getAllSettings();
+  return {
+    ...DEFAULTS,
+    ...parsed,
+    apiKeys: { ...DEFAULTS.apiKeys, ...(parsed.apiKeys || {}) },
+    integrations: { ...DEFAULTS.integrations, ...(parsed.integrations || {}) },
+    toolPermissions: { ...DEFAULTS.toolPermissions, ...(parsed.toolPermissions || {}) },
+  };
 }
 
 function save(data) {
-  fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  store.setAllSettings({ ...DEFAULTS, ...(data || {}) });
 }
 
 function get(key) {
@@ -34,9 +55,7 @@ function get(key) {
 }
 
 function set(key, value) {
-  const current = load();
-  current[key] = value;
-  save(current);
+  store.setSetting(key, value);
 }
 
-module.exports = { load, save, get, set, SETTINGS_FILE };
+module.exports = { load, save, get, set, SETTINGS_FILE, STORE_FILE: store.DB_FILE };

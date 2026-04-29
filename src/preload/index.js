@@ -36,12 +36,47 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Git ───────────────────────────────────────────────────
   gitStatus(dirPath)    { return ipcRenderer.invoke('git:status', dirPath); },
 
+  // ── Workspaces ────────────────────────────────────────────
+  listWorkspaces()      { return ipcRenderer.invoke('workspace:list'); },
+  getActiveWorkspace()  { return ipcRenderer.invoke('workspace:active'); },
+  upsertWorkspace(data) { return ipcRenderer.invoke('workspace:upsert', data); },
+  refreshWorkspaceMeta(idOrWorkspace) { return ipcRenderer.invoke('workspace:refreshMeta', idOrWorkspace); },
+  searchWorkspaceFiles(workspaceId, query, limit) { return ipcRenderer.invoke('workspace:searchFiles', { workspaceId, query, limit }); },
+  setActiveWorkspace(idOrWorkspace) { return ipcRenderer.invoke('workspace:setActive', idOrWorkspace); },
+
+  // ── Agents ────────────────────────────────────────────────
+  listAgentRuns()       { return ipcRenderer.invoke('agent:list'); },
+  createAgentRun(data)  { return ipcRenderer.invoke('agent:create', data); },
+  cancelAgentRun(id)    { return ipcRenderer.invoke('agent:cancel', id); },
+  onAgentChange(cb)     {
+    const handler = (_, d) => cb(d);
+    ipcRenderer.on('agent:change', handler);
+    return () => ipcRenderer.removeListener('agent:change', handler);
+  },
+
+  // ── Automations ──────────────────────────────────────────
+  listAutomationRuns()      { return ipcRenderer.invoke('automation:listRuns'); },
+  createAutomationRun(data) { return ipcRenderer.invoke('automation:createRun', data); },
+  cancelAutomationRun(id)   { return ipcRenderer.invoke('automation:cancelRun', id); },
+  onAutomationChange(cb)    {
+    const handler = (_, d) => cb(d);
+    ipcRenderer.on('automation:change', handler);
+    return () => ipcRenderer.removeListener('automation:change', handler);
+  },
+
+  // ── Tool approvals ────────────────────────────────────────
+  listApprovals()       { return ipcRenderer.invoke('approval:list'); },
+  approveToolCall(id)   { return ipcRenderer.invoke('approval:approve', id); },
+  denyToolCall(id)      { return ipcRenderer.invoke('approval:deny', id); },
+  onApprovalChange(cb)  { ipcRenderer.on('approval:change', (_, d) => cb(d)); },
+
   // ── Terminal ──────────────────────────────────────────────
   execCommand(cmd, cwd) { return ipcRenderer.invoke('terminal:exec', { cmd, cwd }); },
 
   // ── File system ───────────────────────────────────────────
   listDir(dirPath)      { return ipcRenderer.invoke('fs:list', dirPath); },
   readFile(filePath)    { return ipcRenderer.invoke('fs:read', filePath); },
+  writeFile(filePath, content) { return ipcRenderer.invoke('fs:write', { filePath, content }); },
   renameFile(oldPath, newPath) { return ipcRenderer.invoke('fs:rename', { oldPath, newPath }); },
   deleteFile(filePath)  { return ipcRenderer.invoke('fs:delete', filePath); },
   mkdir(dirPath)        { return ipcRenderer.invoke('fs:mkdir', dirPath); },
