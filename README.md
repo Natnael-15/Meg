@@ -3,7 +3,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Status-BETA_1.0-orange?style=for-the-badge" alt="Status">
-  <img src="https://img.shields.io/badge/Version-1.0.0--beta.4-blue?style=for-the-badge&logo=electron" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.0.0--beta.5-blue?style=for-the-badge&logo=electron" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
 </p>
 
@@ -13,7 +13,7 @@
 ---
 
 <p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.4/Meg-Setup-1.0.0-beta.4.exe">
+  <a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.5/Meg-Setup-1.0.0-beta.5.exe">
     <img src="https://img.shields.io/badge/DOWNLOAD_PLATFORM_V1-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
   </a>
 </p>

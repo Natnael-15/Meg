@@ -4,6 +4,7 @@ const path = require('path');
 
 module.exports = defineConfig({
   root: path.join(__dirname, 'src/renderer'),
+  base: './',
   plugins: [react()],
   build: {
     outDir: path.join(__dirname, 'dist/renderer'),
