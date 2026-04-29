@@ -445,6 +445,7 @@ async function executeTool(name, args = {}, context = {}) {
         name: args.name,
         instruction: args.instruction,
         parentThreadId: threadId,
+        parentRunId: context.agentRunId || null,
       });
       result = {
         ok: true,

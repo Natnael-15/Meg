@@ -672,7 +672,7 @@ const App = () => {
     }
   },[activeId, threads, typing, nav]);
 
-  const [version, setVersion] = useState('1.0.0-beta.1'); // Fallback
+  const [version, setVersion] = useState('1.0.0-beta.2'); // Fallback
   const isPreviewMode = !window.electronAPI;
 
   useEffect(() => {

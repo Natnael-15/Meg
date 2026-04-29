@@ -3,14 +3,18 @@ import { Icon } from './icons.jsx';
 import { StatusBadge } from './primitives.jsx';
 
 export const TypingIndicator = () => (
-  <div style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
-    <div style={{width:26,height:26,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+  <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
+    <div style={{width:26,height:26,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
       <span style={{fontSize:12,color:'#fff',fontWeight:700,letterSpacing:'-0.02em'}}>M</span>
     </div>
-    <div style={{padding:'10px 14px',background:'var(--bg-2)',border:'1px solid var(--border-light)',borderRadius:'3px 10px 10px 10px',display:'flex',gap:4,alignItems:'center'}}>
-      {[0,150,300].map(d=>(
-        <div key={d} style={{width:6,height:6,borderRadius:'50%',background:'var(--text-3)',animation:`typingDot 1.2s ${d}ms ease-in-out infinite`}}/>
-      ))}
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:11,color:'var(--text-3)',marginBottom:4,fontWeight:500}}>Meg</div>
+      <div style={{padding:'10px 14px',background:'var(--bg-2)',borderRadius:'3px 10px 10px 10px',width:'fit-content',display:'flex',alignItems:'center',gap:8,border:'1px solid var(--border-light)',boxShadow:'0 1px 3px var(--shadow)'}}>
+        <span style={{fontSize:12.5,color:'var(--text-2)',fontWeight:500}}>Meg is thinking</span>
+        <div className="typing-dots" style={{display:'flex',gap:3}}>
+          <span>.</span><span>.</span><span>.</span>
+        </div>
+      </div>
     </div>
   </div>
 );

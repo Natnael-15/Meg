@@ -191,7 +191,10 @@ ${run.instruction || 'No instruction provided.'}`
   ];
 
   let output = '';
-  for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, { workspacePath: run.workspacePath })) {
+  for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, { 
+    workspacePath: run.workspacePath,
+    agentRunId: run.id 
+  })) {
     if (ctrl.cancelled || getRun(run.id)?.status === 'cancelled') return;
     if (item.type === 'text') {
       output += item.content;
