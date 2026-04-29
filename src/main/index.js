@@ -41,16 +41,11 @@ function createWindow() {
       nodeIntegration: false,
       webSecurity: true,
     },
-    show: false,
+    show: true,
   });
   const reportRuntime = createDiagnosticReporter(win);
   attachWindowDiagnostics(win, reportRuntime);
   reportRuntime('window:created', { packaged: app.isPackaged, diagnosticsPath: getDiagnosticsPath() });
-
-  win.once('ready-to-show', () => {
-    win.show();
-    reportRuntime('window:ready-to-show');
-  });
 
   // Toggle DevTools with F12
   win.webContents.on('before-input-event', (event, input) => {
@@ -132,8 +127,12 @@ ipcMain.on('update:install', () => {
 
 app.on('second-instance', () => {
   const existing = BrowserWindow.getAllWindows()[0];
-  if (!existing) return;
+  if (!existing) {
+    createWindow();
+    return;
+  }
   if (existing.isMinimized()) existing.restore();
+  existing.show();
   existing.focus();
 });
 
