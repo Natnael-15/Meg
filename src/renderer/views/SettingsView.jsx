@@ -16,7 +16,7 @@ export const SettingsView = ({
 }) => {
   const [section,setSection] = useState('model');
   const [showTgInfo, setShowTgInfo] = useState(false);
-  const [model,setModel] = useState('qwen/qwen3.5-9b');
+  const [model,setModel] = useState('');
   const [memOn,setMemOn] = useState(true);
   const [memories,setMemories] = useState([]);
   const deleteMemory = i => {
@@ -33,11 +33,30 @@ export const SettingsView = ({
   const [lmUrlStatus, setLmUrlStatus] = useState(null); // null | 'checking' | {ok,count} | {ok:false,error}
   const DEFAULT_TOOL_PERMS = {readFiles:true,writeFiles:false,runCommands:false,webSearch:true,telegram:true,spawnAgents:true,requireApprovalForWrites:true,requireApprovalForCommands:true};
   const [toolPerms,setToolPerms] = useState(DEFAULT_TOOL_PERMS);
-  const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'}];
+  const [runtimeDiagnostics, setRuntimeDiagnostics] = useState([]);
+  const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
   const accentChoice = rendererTweaks?.accentColor || 'blue';
   const sidebarChoice = rendererTweaks?.sidebarWidth || 'comfortable';
+  const latestUpdateDiagnostic = runtimeDiagnostics.find((entry) => String(entry?.type || '').startsWith('updater:'));
+  const latestUpdateError = runtimeDiagnostics.find((entry) => entry?.type === 'updater:error' || entry?.type === 'process:unhandled-rejection');
+  const latestStartupIssue = runtimeDiagnostics.find((entry) => [
+    'renderer:did-fail-load',
+    'renderer:process-gone',
+    'renderer:dev-load-failed',
+    'renderer:build-missing',
+    'renderer:load-failed',
+    'app:child-process-gone',
+    'process:uncaught-exception',
+  ].includes(entry?.type));
+  const formatDiagnosticTime = (value) => {
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value || '';
+    }
+  };
 
   const saveLmUrl = async (url) => {
     setLmUrl(url);
@@ -87,6 +106,13 @@ export const SettingsView = ({
         setToolPerms(next);
       }
     });
+    window.electronAPI.listRuntimeDiagnostics?.(50).then(items => {
+      if (Array.isArray(items)) setRuntimeDiagnostics(items);
+    });
+    const cleanupRuntime = window.electronAPI.onRuntimeDiagnostic?.((entry) => {
+      setRuntimeDiagnostics((current) => [entry, ...current].slice(0, 50));
+    });
+    return () => cleanupRuntime?.();
   },[]);
 
   const saveModel = m => {
@@ -283,6 +309,37 @@ export const SettingsView = ({
           <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Tool Permissions</h2>
           <p style={{fontSize:12.5,color:'var(--text-3)',marginBottom:20,lineHeight:1.6}}>Control what Meg and background agents can do from model tool calls.</p>
 
+          <div style={{marginBottom:22,padding:'14px 16px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)'}}>
+            <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+              <Icon name="lock" size={13} color="var(--text-3)"/>Global Approval Mode
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {[
+                {id:'manual', label:'Manual Approve', desc:'Ask for permission before any sensitive action (Recommended)'},
+                {id:'auto', label:'Auto Approve', desc:'Run sensitive actions automatically if enabled below'},
+                {id:'bypass', label:'Bypass Security', desc:'Skip all permission checks and approval gates (Advanced)'},
+              ].map(mode => {
+                const active = (toolPerms.approvalMode || 'manual') === mode.id;
+                return (
+                  <label key={mode.id} onClick={()=>{
+                    const next = {...toolPerms, approvalMode: mode.id};
+                    setToolPerms(next);
+                    window.electronAPI?.setSetting('toolApprovalMode', mode.id);
+                    window.electronAPI?.setSetting('toolPermissions', next);
+                  }} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:7,border:`1.5px solid ${active?'var(--accent-border)':'var(--border)'}`,background:active?'var(--accent-bg)':'var(--bg-2)',cursor:'pointer',transition:'all 0.15s'}}>
+                    <div style={{width:16,height:16,borderRadius:'50%',border:`2px solid ${active?'var(--accent)':'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'border-color 0.15s'}}>
+                      {active && <div style={{width:7,height:7,borderRadius:'50%',background:'var(--accent)'}}/>}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12.5,color:active?'var(--accent)':'var(--text)',fontWeight:active?500:400}}>{mode.label}</div>
+                      <div style={{fontSize:11,color:'var(--text-3)'}}>{mode.desc}</div>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
           {[
             {key:'readFiles',title:'Read files and list folders',desc:'Allows file reads, directory listing, and workspace search.'},
             {key:'writeFiles',title:'Write files',desc:'Allows Meg to create or overwrite files inside the active workspace.'},
@@ -292,31 +349,33 @@ export const SettingsView = ({
             {key:'spawnAgents',title:'Spawn background agents',desc:'Allows the model to create focused background agent runs.'},
           ].map((p,i)=>(
             <div key={p.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,padding:'12px 0',borderBottom:'1px solid var(--border-light)',animation:`fadeUp 0.18s ${i*0.04}s both`}}>
-              <div style={{minWidth:0}}>
+              <div style={{minWidth:0,opacity:(toolPerms.approvalMode==='bypass')?0.5:1}}>
                 <div style={{fontSize:13,fontWeight:500,color:'var(--text)',marginBottom:2}}>{p.title}</div>
                 <div style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.45}}>{p.desc}</div>
               </div>
-              <Toggle on={!!toolPerms[p.key]} onToggle={()=>saveToolPerm(p.key,!toolPerms[p.key])}/>
+              <Toggle on={!!toolPerms[p.key] || toolPerms.approvalMode==='bypass'} onToggle={()=>toolPerms.approvalMode!=='bypass' && saveToolPerm(p.key,!toolPerms[p.key])}/>
             </div>
           ))}
 
-          <div style={{marginTop:22,padding:'14px 16px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)'}}>
-            <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
-              <Icon name="lock" size={13} color="var(--text-3)"/>Approval Gates
-            </div>
-            {[
-              {key:'requireApprovalForWrites',title:'Require approval for file writes',desc:'When enabled, model file writes are blocked until an approval flow exists.'},
-              {key:'requireApprovalForCommands',title:'Require approval for terminal commands',desc:'When enabled, model terminal commands are blocked until an approval flow exists.'},
-            ].map(p=>(
-              <div key={p.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,padding:'10px 0',borderTop:'1px solid var(--border-light)'}}>
-                <div>
-                  <div style={{fontSize:12.5,fontWeight:500,color:'var(--text)'}}>{p.title}</div>
-                  <div style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.45}}>{p.desc}</div>
-                </div>
-                <Toggle on={!!toolPerms[p.key]} onToggle={()=>saveToolPerm(p.key,!toolPerms[p.key])}/>
+          {(toolPerms.approvalMode || 'manual') === 'manual' && (
+            <div style={{marginTop:22,padding:'14px 16px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)',animation:'fadeUp 0.2s ease'}}>
+              <div style={{fontSize:12,fontWeight:600,color:'var(--text)',marginBottom:10,display:'flex',alignItems:'center',gap:6}}>
+                <Icon name="lock" size={13} color="var(--text-3)"/>Manual Approval Gates
               </div>
-            ))}
-          </div>
+              {[
+                {key:'requireApprovalForWrites',title:'Require approval for file writes',desc:'When enabled, model file writes are blocked until an approval flow exists.'},
+                {key:'requireApprovalForCommands',title:'Require approval for terminal commands',desc:'When enabled, model terminal commands are blocked until an approval flow exists.'},
+              ].map(p=>(
+                <div key={p.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,padding:'10px 0',borderTop:'1px solid var(--border-light)'}}>
+                  <div>
+                    <div style={{fontSize:12.5,fontWeight:500,color:'var(--text)'}}>{p.title}</div>
+                    <div style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.45}}>{p.desc}</div>
+                  </div>
+                  <Toggle on={!!toolPerms[p.key]} onToggle={()=>saveToolPerm(p.key,!toolPerms[p.key])}/>
+                </div>
+              ))}
+            </div>
+          )}
         </div>}
         {section==='memory' && <div>
           <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Memory</h2>
@@ -407,6 +466,8 @@ export const SettingsView = ({
                   updateInfo?.status === 'available' ? `Version ${updateInfo.version} is available to download.` :
                   updateInfo?.status === 'downloading' ? `Downloading version ${updateInfo.version} (${updateInfo.progress}%).` :
                   updateInfo?.status === 'ready' ? `Version ${updateInfo.version} is ready to install.` :
+                  updateInfo?.status === 'error' ? (updateInfo.error || 'Update check failed.') :
+                  updateInfo?.status === 'not-available' ? 'You are already on the latest available version.' :
                   'No update check has run in this session.'}
               </div>
             </div>
@@ -420,9 +481,62 @@ export const SettingsView = ({
             </button>
           </div>
 
+          {(updateInfo?.status === 'error' || latestUpdateError) && (
+            <div style={{padding:'12px 14px',borderRadius:8,border:'1px solid rgba(224,82,82,0.28)',background:'rgba(224,82,82,0.08)',marginBottom:14}}>
+              <div style={{fontSize:12.5,fontWeight:600,color:'var(--text)',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                <Icon name="close" size={12} color="var(--red,#e05252)"/>Updater error
+              </div>
+              <div style={{fontSize:11.5,color:'var(--text-2)',lineHeight:1.55}}>
+                {updateInfo?.error || latestUpdateError?.detail?.error || 'The last update check failed.'}
+              </div>
+            </div>
+          )}
+
+          {latestStartupIssue && (
+            <div style={{padding:'12px 14px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)',marginBottom:14}}>
+              <div style={{fontSize:12.5,fontWeight:600,color:'var(--text)',marginBottom:4,display:'flex',alignItems:'center',gap:6}}>
+                <Icon name="timeline" size={12} color="var(--accent)"/>Recent startup/runtime issue
+              </div>
+              <div style={{fontSize:11.5,color:'var(--text-2)',lineHeight:1.55,marginBottom:4}}>
+                {latestStartupIssue.type}
+                {latestStartupIssue.detail?.errorDescription ? `: ${latestStartupIssue.detail.errorDescription}` : ''}
+                {latestStartupIssue.detail?.error ? `: ${latestStartupIssue.detail.error}` : ''}
+                {latestStartupIssue.detail?.reason ? `: ${latestStartupIssue.detail.reason}` : ''}
+              </div>
+              <div style={{fontSize:11,color:'var(--text-3)'}}>
+                {formatDiagnosticTime(latestStartupIssue.ts)}
+              </div>
+            </div>
+          )}
+
           <div style={{fontSize:11,color:'var(--text-3)',fontStyle:'italic'}}>
-            {updateInfo?.status ? `Updater state: ${updateInfo.status}` : 'Updater idle'}
+            {updateInfo?.status ? `Updater state: ${updateInfo.status}` : latestUpdateDiagnostic?.type ? `Last updater event: ${latestUpdateDiagnostic.type}` : 'Updater idle'}
           </div>
+        </div>}
+        {section==='diagnostics' && <div>
+          <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Runtime Diagnostics</h2>
+          <p style={{fontSize:12.5,color:'var(--text-3)',marginBottom:20,lineHeight:1.6}}>Recent startup, updater, renderer, and crash diagnostics from the main-process runtime log.</p>
+
+          {runtimeDiagnostics.length === 0 && (
+            <div style={{padding:'12px 14px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)',fontSize:12.5,color:'var(--text-3)'}}>
+              No runtime diagnostics recorded yet.
+            </div>
+          )}
+
+          {runtimeDiagnostics.map((entry, index) => (
+            <div key={`${entry.ts || 'ts'}-${entry.type || 'type'}-${index}`} style={{padding:'12px 14px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)',marginBottom:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <span style={{fontSize:10.5,padding:'2px 6px',borderRadius:99,background:entry.level==='error'?'var(--red-bg, rgba(224,82,82,0.12))':'var(--bg-active)',color:entry.level==='error'?'var(--red,#e05252)':'var(--text-3)',fontWeight:600,textTransform:'uppercase'}}>
+                  {entry.level || 'info'}
+                </span>
+                <span style={{fontSize:12.5,fontWeight:600,color:'var(--text)'}}>{entry.type || 'runtime:event'}</span>
+                <span style={{marginLeft:'auto',fontSize:11,color:'var(--text-3)'}}>{formatDiagnosticTime(entry.ts)}</span>
+              </div>
+              <pre style={{margin:0,fontSize:11.5,lineHeight:1.5,color:'var(--text-2)',fontFamily:'\"JetBrains Mono\",monospace',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>
+                {JSON.stringify(entry.detail || {}, null, 2)}
+              </pre>
+            </div>
+          ))}
         </div>}
       </div>
     </div>

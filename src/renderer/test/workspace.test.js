@@ -21,6 +21,27 @@ function loadWorkspaceModule(state) {
         },
       };
     }
+    if (id === './store') {
+      return {
+        collectionList: (collection) => Object.values(state.collections?.[collection] || {}),
+        collectionGet: (collection, id, fallbackValue = null) => state.collections?.[collection]?.[id] ?? fallbackValue,
+        collectionUpsert: (collection, id, value) => {
+          state.collections = state.collections || {};
+          state.collections[collection] = state.collections[collection] || {};
+          state.collections[collection][id] = value;
+        },
+        collectionReplaceAll: (collection, items, idSelector) => {
+          state.collections = state.collections || {};
+          state.collections[collection] = {};
+          (Array.isArray(items) ? items : []).forEach((item, index) => {
+            state.collections[collection][idSelector(item, index)] = item;
+          });
+        },
+        collectionDelete: (collection, id) => {
+          if (state.collections?.[collection]) delete state.collections[collection][id];
+        },
+      };
+    }
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/workspace.js'));
 
@@ -37,6 +58,7 @@ describe('workspace module', () => {
       workspaces: [],
       activeWorkspaceId: null,
       toolWriteRoots: [],
+      collections: {},
     };
     tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'meg-workspace-'));
     workspace = loadWorkspaceModule(state);
@@ -66,6 +88,11 @@ describe('workspace module', () => {
       id: 'ws-2',
       name: 'Renamed Workspace',
       path: path.resolve(tempRoot),
+    });
+    expect(state.workspaces[0].inventory).toBeUndefined();
+    expect(state.collections.workspaceIndex['ws-2']).toMatchObject({
+      workspaceId: 'ws-2',
+      files: expect.any(Number),
     });
   });
 
@@ -145,6 +172,8 @@ describe('workspace module', () => {
     expect(refreshed.inventory.some((entry) => entry.path.endsWith('README.md'))).toBe(true);
     expect(refreshed.inventory.some((entry) => entry.path.includes('node_modules'))).toBe(false);
     expect(refreshed.inventoryUpdatedAt).toBeTruthy();
+    expect(state.workspaces[0].inventory).toBeUndefined();
+    expect(state.collections.workspaceIndex['ws-meta'].inventoryUpdatedAt).toBeTruthy();
   });
 
   it('searches cached workspace inventory by file name and path', () => {
@@ -165,5 +194,49 @@ describe('workspace module', () => {
     const byPath = workspace.searchFiles('ws-search', 'package');
     expect(byPath.total).toBe(1);
     expect(byPath.results[0].path).toContain('package.json');
+  });
+
+  it('migrates inline workspace inventory into the dedicated workspace index store', () => {
+    state.workspaces = [{
+      id: 'ws-inline',
+      name: 'Inline Workspace',
+      path: tempRoot,
+      files: 1,
+      lang: 'TypeScript',
+      inventory: [{ name: 'app.tsx', path: path.join(tempRoot, 'app.tsx'), ext: 'tsx', size: 123, mtime: '2026-04-29T12:00:00.000Z' }],
+      inventoryTruncated: false,
+      inventoryUpdatedAt: '2026-04-29T12:00:00.000Z',
+    }];
+
+    const items = workspace.list();
+
+    expect(items[0].inventory).toBeUndefined();
+    expect(state.workspaces[0].inventory).toBeUndefined();
+    expect(state.collections.workspaceIndex['ws-inline']).toMatchObject({
+      workspaceId: 'ws-inline',
+      files: 1,
+      lang: 'TypeScript',
+    });
+  });
+
+  it('migrates legacy workspace collection data into the canonical workspace settings store', () => {
+    state.collections.workspaces = {
+      'ws-legacy': {
+        id: 'ws-legacy',
+        name: 'Legacy Workspace',
+        path: tempRoot,
+      },
+    };
+
+    const items = workspace.list();
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: 'ws-legacy',
+      name: 'Legacy Workspace',
+      path: path.resolve(tempRoot),
+    });
+    expect(state.workspaces).toHaveLength(1);
+    expect(Object.keys(state.collections.workspaces || {})).toHaveLength(0);
   });
 });

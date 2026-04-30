@@ -39,8 +39,8 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       temperature: 0.4,
       tools: TOOL_DEFINITIONS,
       tool_choice: 'auto',
-      extra_body: (thinking && /qwen3|deepseek.?r1|thinking/i.test(model))
-        ? { enable_thinking: true } : undefined,
+      extra_body: /qwen3|deepseek.?r1|thinking/i.test(model)
+        ? { enable_thinking: !!thinking } : undefined,
     }, { signal: abortCtrl.signal });
 
     let textBuffer = '';

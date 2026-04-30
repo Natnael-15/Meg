@@ -91,7 +91,20 @@ describe('tools', () => {
       telegramChatId: 'chat-id',
     };
     approvalQueue = {
-      create: vi.fn((input) => ({ id: 'approval-1', ...input })),
+      create: vi.fn((input) => ({
+        id: 'approval-1',
+        tool: input.tool,
+        args: input.args,
+        rawArgs: input.args,
+        threadId: input.context?.threadId || null,
+        agentRunId: input.context?.agentRunId || null,
+        toolCallId: input.context?.toolCallId || null,
+        workspacePath: input.context?.workspacePath || null,
+        status: 'pending',
+        reason: input.reason,
+        result: input.result || null,
+        error: null,
+      })),
     };
     agentRunner = {
       createRun: vi.fn((input) => ({ id: 'agent-1', name: input.name, instruction: input.instruction })),
@@ -129,6 +142,34 @@ describe('tools', () => {
     const blockedPath = path.join(outsideRoot, 'blocked.txt');
     const blocked = await tools.executeTool('write_file', { path: blockedPath, content: 'x' }, { threadId: 'thread-3' });
     expect(blocked.error).toContain('Write blocked outside allowed roots');
+  });
+
+  it('creates staged write approvals before backend file writes hit disk', async () => {
+    settingsState.toolPermissions.requireApprovalForWrites = true;
+    const draftPath = path.join(repoRoot, 'src', 'draft.js');
+    fs.writeFileSync(draftPath, 'const value = 1;', 'utf8');
+
+    const result = await tools.executeTool('write_file', { path: draftPath, content: 'const value = 2;' }, {
+      threadId: 'thread-write-approval',
+      agentRunId: 'agent-1',
+      toolCallId: 'tool-1',
+      workspacePath: repoRoot,
+    });
+
+    expect(result.approvalRequired).toBe(true);
+    expect(result.approval).toMatchObject({
+      tool: 'write_file',
+      agentRunId: 'agent-1',
+      toolCallId: 'tool-1',
+      result: {
+        ok: true,
+        staged: true,
+        path: draftPath,
+        existed: true,
+        originalContent: 'const value = 1;',
+      },
+    });
+    expect(fs.readFileSync(draftPath, 'utf8')).toBe('const value = 1;');
   });
 
   it('renames, creates, and deletes paths inside allowed roots', async () => {
@@ -200,6 +241,7 @@ describe('tools', () => {
       name: 'lint-fix',
       instruction: 'Fix lint issues',
       parentThreadId: 'thread-7',
+      parentRunId: null,
     });
     expect(result).toMatchObject({
       ok: true,

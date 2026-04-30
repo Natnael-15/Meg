@@ -171,6 +171,22 @@ describe('store/settings/db persistence', () => {
     expect(Object.keys(fallback.collections.threads)).toHaveLength(2);
   });
 
+  it('reads collection items back through collectionGet in fallback mode', () => {
+    const store = loadStoreModule(userDataPath);
+    store.collectionUpsert('workspaceIndex', 'ws-1', {
+      workspaceId: 'ws-1',
+      files: 2,
+      lang: 'TypeScript',
+    });
+
+    expect(store.collectionGet('workspaceIndex', 'ws-1')).toMatchObject({
+      workspaceId: 'ws-1',
+      files: 2,
+      lang: 'TypeScript',
+    });
+    expect(store.collectionGet('workspaceIndex', 'missing', null)).toBeNull();
+  });
+
   it('records skipped-existing legacy settings instead of importing over current data', () => {
     const store = loadStoreModule(userDataPath);
     store.setAllSettings({ model: 'qwen/qwen3.5-9b' });

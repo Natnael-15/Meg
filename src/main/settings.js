@@ -9,7 +9,7 @@ function getUserDataPath() {
 const SETTINGS_FILE = path.join(getUserDataPath(), 'meg-settings.json');
 
 const DEFAULTS = {
-  model: 'qwen/qwen3.5-9b',
+  model: '',
   lmStudioUrl: 'http://127.0.0.1:1234',
   telegramToken: '',
   telegramChatId: '',
@@ -21,6 +21,7 @@ const DEFAULTS = {
   workspaces: [],
   activeWorkspaceId: null,
   toolWriteRoots: [process.cwd()],
+  toolApprovalMode: 'manual', // manual | auto | bypass
   agentRuns: [],
   toolApprovals: [],
   toolPermissions: {

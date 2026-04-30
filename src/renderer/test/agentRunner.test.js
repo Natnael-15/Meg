@@ -89,7 +89,10 @@ describe('agentRunner', () => {
       'gpt-4o',
       true,
       'http://127.0.0.1:1234',
-      { workspacePath: 'C:\\repo' },
+      expect.objectContaining({
+        workspacePath: 'C:\\repo',
+        agentRunId: run.id,
+      }),
     );
   });
 
@@ -123,5 +126,113 @@ describe('agentRunner', () => {
     const failed = agentRunner.listRuns().find((item) => item.id === run.id);
     expect(failed.status).toBe('error');
     expect(failed.error).toBe('model crashed');
+  });
+
+  it('records structured tool activity for backend file writes', async () => {
+    streamChat = vi.fn(async function* () {
+      yield { type: 'tool_call', id: 'tool-1', name: 'write_file', args: { path: 'C:\\repo\\src\\draft.js', content: 'const value = 2;' } };
+      yield { type: 'tool_result', id: 'tool-1', name: 'write_file', result: { ok: true, path: 'C:\\repo\\src\\draft.js' } };
+      yield { type: 'text', content: 'Wrote the requested file.' };
+    });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+
+    const run = agentRunner.createRun({
+      name: 'write-draft',
+      instruction: 'Update src\\draft.js',
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
+
+    const completed = agentRunner.listRuns().find((item) => item.id === run.id);
+    expect(completed.toolActivity).toEqual([
+      expect.objectContaining({
+        id: 'tool-1',
+        name: 'write_file',
+        status: 'done',
+        args: expect.objectContaining({ path: 'C:\\repo\\src\\draft.js' }),
+        result: expect.objectContaining({ ok: true, path: 'C:\\repo\\src\\draft.js' }),
+      }),
+    ]);
+  });
+
+  it('keeps approval-staged backend file writes reviewable in tool activity', async () => {
+    streamChat = vi.fn(async function* () {
+      yield { type: 'tool_call', id: 'tool-1', name: 'write_file', args: { path: 'C:\\repo\\src\\draft.js', content: 'const value = 2;' } };
+      yield {
+        type: 'tool_result',
+        id: 'tool-1',
+        name: 'write_file',
+        result: {
+          approvalRequired: true,
+          error: 'File write requires approval. Approval ID: approval-1',
+          approval: {
+            id: 'approval-1',
+            tool: 'write_file',
+            toolCallId: 'tool-1',
+            result: {
+              staged: true,
+              path: 'C:\\repo\\src\\draft.js',
+              originalContent: 'const value = 1;',
+            },
+          },
+        },
+      };
+      yield { type: 'text', content: 'Prepared a draft for review.' };
+    });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+
+    const run = agentRunner.createRun({
+      name: 'stage-draft',
+      instruction: 'Stage src\\draft.js for review',
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
+
+    const completed = agentRunner.listRuns().find((item) => item.id === run.id);
+    expect(completed.toolActivity).toEqual([
+      expect.objectContaining({
+        id: 'tool-1',
+        name: 'write_file',
+        status: 'staged',
+        result: expect.objectContaining({
+          approvalRequired: true,
+          approval: expect.objectContaining({
+            id: 'approval-1',
+            result: expect.objectContaining({
+              staged: true,
+              path: 'C:\\repo\\src\\draft.js',
+            }),
+          }),
+        }),
+      }),
+    ]);
+  });
+
+  it('prunes older completed runs while preserving active ones', () => {
+    settingsState.agentRuns = [
+      { id: 'active-running', status: 'running', updatedAt: '2026-04-29T12:00:00.000Z', logs: [] },
+      ...Array.from({ length: 210 }, (_, index) => ({
+        id: `done-${index}`,
+        status: 'done',
+        updatedAt: new Date(2026, 3, 29, 11, 0, 210 - index).toISOString(),
+        logs: Array.from({ length: 250 }, (__unused, logIndex) => ({ ts: `log-${logIndex}`, level: 'info', message: `line ${logIndex}` })),
+      })),
+    ];
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+
+    const run = agentRunner.createRun({
+      name: 'retention-check',
+      instruction: 'Verify pruning',
+    });
+
+    const runs = agentRunner.listRuns();
+    expect(runs.length).toBe(200);
+    expect(runs.some((item) => item.id === 'active-running')).toBe(true);
+    expect(runs.some((item) => item.id === run.id)).toBe(true);
+    expect(runs.some((item) => item.id === 'done-209')).toBe(false);
+    const retainedCompleted = runs.find((item) => item.id === 'done-0');
+    expect(retainedCompleted.logs.length).toBe(200);
   });
 });

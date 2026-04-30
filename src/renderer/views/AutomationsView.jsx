@@ -60,8 +60,6 @@ const normalizeAutomation = (automation) => ({
   ...automation,
   trigger: normalizeTrigger(automation.trigger),
   actions: (automation.actions || []).map(normalizeAction),
-  lastRunId: automation.lastRunId || null,
-  lastRunStatus: automation.lastRunStatus || null,
 });
 
 const formatRunTime = (value) => {
@@ -119,9 +117,12 @@ const createBlankAutomation = () => ({
   trigger: { type: 'manual', detail: 'Run from the app' },
   actions: [],
   enabled: false,
-  runs: 0,
-  lastRun: 'Never',
 });
+
+const stripAutomationRuntimeState = (automation = {}) => {
+  const { runs, lastRun, lastRunId, lastRunStatus, ...rest } = automation || {};
+  return rest;
+};
 
 const TriggerCard = ({ trigger, editing, onChange }) => {
   const meta = triggerTypeMeta(trigger.type);
@@ -188,13 +189,18 @@ export const AutomationsView = () => {
   const [selected, setSelected] = useState(null);
   const [actionDraft, setActionDraft] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [runStateByAutomation, setRunStateByAutomation] = useState({});
+  const [automationRuns, setAutomationRuns] = useState([]);
+  const [selectedRunId, setSelectedRunId] = useState(null);
   const autosFirst = useRef(true);
+  const persistedAutosRef = useRef([]);
 
   useEffect(() => {
     if (!window.electronAPI) return;
-    window.electronAPI.dbLoad('automations').then((data) => {
+    window.electronAPI.listAutomationConfigs?.().then((data) => {
       if (data?.length) {
         const normalized = data.map(normalizeAutomation);
+        persistedAutosRef.current = normalized.map(stripAutomationRuntimeState);
         setAutos(normalized);
         setSelected(normalized[0].id);
       }
@@ -206,7 +212,21 @@ export const AutomationsView = () => {
       autosFirst.current = false;
       return;
     }
-    window.electronAPI?.dbSaveAll('automations', autos);
+    const prev = persistedAutosRef.current || [];
+    const next = autos.map(stripAutomationRuntimeState);
+    const prevMap = new Map(prev.map((item) => [item.id, item]));
+    const nextMap = new Map(next.map((item) => [item.id, item]));
+    next.forEach((item) => {
+      if (JSON.stringify(prevMap.get(item.id)) !== JSON.stringify(item)) {
+        window.electronAPI?.upsertAutomationConfig?.(item);
+      }
+    });
+    prev.forEach((item) => {
+      if (!nextMap.has(item.id)) {
+        window.electronAPI?.deleteAutomationConfig?.(item.id);
+      }
+    });
+    persistedAutosRef.current = next;
   }, [autos]);
 
   const auto = autos.find((item) => item.id === selected);
@@ -229,22 +249,75 @@ export const AutomationsView = () => {
     setEditing(true);
   };
 
+  const deleteAutomation = () => {
+    if (!auto) return;
+    const remaining = autos.filter((item) => item.id !== auto.id);
+    setAutos(remaining);
+    setSelected(remaining[0]?.id || null);
+    setEditing(false);
+  };
+
+  useEffect(() => {
+    if (!window.electronAPI?.listAutomationRuns) return;
+    window.electronAPI.listAutomationRuns().then((runs) => {
+      if (!Array.isArray(runs)) return;
+      setAutomationRuns(runs);
+      const next = {};
+      runs.forEach((run) => {
+        if (!run?.sourceId) return;
+        const current = next[run.sourceId] || { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null };
+        const at = run.updatedAt || run.completedAt || run.startedAt || run.createdAt || null;
+        current.count += 1;
+        if (!current.lastRunAt || Date.parse(at || 0) > Date.parse(current.lastRunAt || 0)) {
+          current.lastRunAt = at;
+          current.lastRunId = run.id;
+          current.lastRunStatus = run.status;
+        }
+        next[run.sourceId] = current;
+      });
+      setRunStateByAutomation(next);
+    });
+  }, []);
+
   useEffect(() => {
     if (!window.electronAPI?.onAutomationChange) return;
     const handleChange = ({ run }) => {
       if (!run?.sourceId) return;
-      setAutos((current) => current.map((item) => item.id === run.sourceId ? {
-        ...item,
-        lastRunId: run.id,
-        lastRunStatus: run.status,
-        lastRun: run.updatedAt || run.completedAt || run.startedAt || run.createdAt || item.lastRun,
-      } : item));
+      setAutomationRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
+      setRunStateByAutomation((current) => {
+        const previous = current[run.sourceId] || { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null };
+        const at = run.updatedAt || run.completedAt || run.startedAt || run.createdAt || previous.lastRunAt || null;
+        const shouldIncrement = previous.lastRunId !== run.id && run.status === 'queued';
+        return {
+          ...current,
+          [run.sourceId]: {
+            count: previous.count + (shouldIncrement ? 1 : 0),
+            lastRunAt: at,
+            lastRunId: run.id,
+            lastRunStatus: run.status,
+          },
+        };
+      });
     };
     const dispose = window.electronAPI.onAutomationChange(handleChange);
     return () => {
       if (typeof dispose === 'function') dispose();
     };
   }, []);
+
+  const runtimeState = auto ? runStateByAutomation[auto.id] || { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null } : { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null };
+  const runsForAutomation = auto
+    ? automationRuns
+      .filter((run) => run.sourceId === auto.id || run.automationId === auto.id)
+      .sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0))
+    : [];
+  const selectedRun = runsForAutomation.find((run) => run.id === selectedRunId) || runsForAutomation[0] || null;
+
+  useEffect(() => {
+    if (!selectedRunId || !runsForAutomation.some((run) => run.id === selectedRunId)) {
+      setSelectedRunId(runsForAutomation[0]?.id || null);
+    }
+  }, [runsForAutomation, selectedRunId]);
 
   return (
     <div style={{ flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }}>
@@ -292,7 +365,7 @@ export const AutomationsView = () => {
                   <Icon name={meta.icon} size={11} color={meta.color} />
                   <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{item.trigger.detail}</span>
                 </div>
-                <span style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{item.runs} runs · last {item.lastRun}</span>
+                <span style={{ fontSize: 10.5, color: 'var(--text-3)' }}>{runStateByAutomation[item.id]?.count || 0} runs · last {formatRunTime(runStateByAutomation[item.id]?.lastRunAt) || 'Never'}</span>
               </button>
             );
           })}
@@ -311,15 +384,17 @@ export const AutomationsView = () => {
               <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.02em', marginBottom: 4 }}>{auto.name}</h2>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <StatusBadge status={auto.enabled ? 'done' : 'queued'} />
-                {auto.lastRunStatus && <StatusBadge status={auto.lastRunStatus} />}
-                <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>{auto.runs} runs · last {formatRunTime(auto.lastRun) || auto.lastRun}</span>
+                {runtimeState.lastRunStatus && <StatusBadge status={runtimeState.lastRunStatus} />}
+                <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>{runtimeState.count} runs · last {formatRunTime(runtimeState.lastRunAt) || 'Never'}</span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={deleteAutomation} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-3)', background: 'var(--bg)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                <Icon name="trash" size={12} /> Delete
+              </button>
               <button onClick={() => setEditing((current) => !current)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-2)', background: 'var(--bg)' }}>{editing ? 'Save' : 'Edit'}</button>
               <Toggle on={auto.enabled} onToggle={() => updateAutomation({ enabled: !auto.enabled })} />
               <button onClick={() => {
-                const actionText = auto.actions.map((action, index) => `${index + 1}. [${actionTypeMeta(action.type).label}] ${action.label}${action.target ? ` (${action.target})` : ''}`).join('\n');
                 window.electronAPI?.createAutomationRun?.({
                   name: auto.name,
                   trigger: auto.trigger,
@@ -327,10 +402,17 @@ export const AutomationsView = () => {
                   source: 'automation-config',
                   sourceId: auto.id,
                 });
-                updateAutomation({
-                  runs: auto.runs + 1,
-                  lastRun: new Date().toISOString(),
-                  lastRunStatus: 'queued',
+                setRunStateByAutomation((current) => {
+                  const previous = current[auto.id] || { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null };
+                  return {
+                    ...current,
+                    [auto.id]: {
+                      ...previous,
+                      count: previous.count + 1,
+                      lastRunAt: new Date().toISOString(),
+                      lastRunStatus: 'queued',
+                    },
+                  };
                 });
               }} style={{ padding: '6px 14px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
                 <Icon name="play" size={12} color="#fff" /> Run now
@@ -382,6 +464,82 @@ export const AutomationsView = () => {
               <button onClick={() => setActionDraft({ type: 'notify', label: '', target: '' })} style={{ padding: '10px 16px', borderRadius: 10, border: '1.5px dashed var(--border)', background: 'transparent', display: 'flex', alignItems: 'center', gap: 8, minWidth: 320, cursor: 'pointer', color: 'var(--text-3)', fontSize: 12.5, fontFamily: 'inherit', transition: 'all 0.12s' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'var(--accent-bg)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.background = 'transparent'; }}>
                 <Icon name="plus" size={14} /> Add action
               </button>
+            )}
+          </div>
+
+          <div style={{ marginTop: 28 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Run history</div>
+            {!runsForAutomation.length && (
+              <div style={{ fontSize: 12.5, color: 'var(--text-3)' }}>No automation runs yet.</div>
+            )}
+            {runsForAutomation.length > 0 && (
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <div style={{ width: 260, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {runsForAutomation.slice(0, 8).map((run) => (
+                    <button
+                      key={run.id}
+                      onClick={() => setSelectedRunId(run.id)}
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: 8,
+                        border: `1px solid ${selectedRun?.id === run.id ? 'var(--accent-border)' : 'var(--border)'}`,
+                        background: selectedRun?.id === run.id ? 'var(--accent-bg)' : 'var(--bg)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+                        <span style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 600 }}>{run.name}</span>
+                        <StatusBadge status={run.status} small />
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{formatRunTime(run.updatedAt || run.createdAt) || 'Unknown time'}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {selectedRun && (
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{selectedRun.name}</div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+                          Started {formatRunTime(selectedRun.startedAt || selectedRun.createdAt) || 'Unknown'} · Finished {formatRunTime(selectedRun.completedAt) || 'Not finished'}
+                        </div>
+                      </div>
+                      <StatusBadge status={selectedRun.status} />
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Actions</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {(selectedRun.actions || []).map((action) => (
+                          <div key={action.id} style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-2)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text)', fontWeight: 500 }}>{action.label}</span>
+                              <StatusBadge status={action.status} small />
+                            </div>
+                            <div style={{ fontSize: 11.5, color: 'var(--text-3)' }}>{actionTypeMeta(action.type).label}{action.target ? ` · ${action.target}` : ''}</div>
+                            {action.error && <div style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 6 }}>{action.error}</div>}
+                            {action.result && !action.error && <div style={{ fontSize: 11.5, color: 'var(--text-2)', marginTop: 6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{JSON.stringify(action.result, null, 2)}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Logs</div>
+                      <div style={{ background: 'var(--code-bg)', borderRadius: 8, border: '1px solid var(--code-border)', padding: '10px 12px' }}>
+                        {(selectedRun.logs || []).length ? selectedRun.logs.map((entry, index) => (
+                          <div key={`${entry.ts || 'log'}-${index}`} style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 10.5, color: entry.level === 'error' ? 'var(--red)' : entry.level === 'warn' ? 'var(--orange)' : 'var(--code-blue)', lineHeight: 1.8 }}>
+                            {`${entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} ${(entry.level || 'info').toUpperCase()}: ${entry.message || ''}`}
+                          </div>
+                        )) : <div style={{ fontSize: 11.5, color: 'var(--text-3)' }}>No automation log entries yet.</div>}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

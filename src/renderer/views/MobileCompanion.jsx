@@ -28,7 +28,7 @@ export const MobileCompanion = ({ messages = [], connected = false, contactName 
               </div>
               <div style={{padding:'8px 16px',display:'flex',alignItems:'center',gap:10,borderBottom:'1px solid #e5e5ea',flexShrink:0}}>
                 <div style={{width:32,height:32,borderRadius:'50%',background:'#3b6eff',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  <span style={{fontSize:13,color:'#fff',fontWeight:700}}>M</span>
+                  <Icon name="logo" size={16} color="#fff"/>
                 </div>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:'#000'}}>{contactName}</div>

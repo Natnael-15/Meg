@@ -49,8 +49,36 @@ describe('preload bridge', () => {
     electronAPI.setActiveWorkspace({ id: 'ws-1' });
     electronAPI.refreshWorkspaceMeta('ws-1');
     electronAPI.searchWorkspaceFiles('ws-1', 'app', 50);
+    electronAPI.listThreads();
+    electronAPI.upsertThread({ id: 'thread-1' });
+    electronAPI.deleteThread('thread-1');
+    electronAPI.saveThreads([{ id: 'thread-1' }]);
+    electronAPI.listNotifications();
+    electronAPI.upsertNotification({ id: 'notif-1' });
+    electronAPI.dismissNotification('notif-1');
+    electronAPI.markAllNotificationsRead();
+    electronAPI.saveNotifications([{ id: 'notif-1' }]);
+    electronAPI.listEvents();
+    electronAPI.upsertEvent({ id: 'event-1' });
+    electronAPI.saveEvents([{ id: 'event-1' }]);
+    electronAPI.listTelegramMessages();
+    electronAPI.upsertTelegramMessage({ id: 'message-1' });
+    electronAPI.deleteTelegramMessage('message-1');
+    electronAPI.saveTelegramMessages([{ id: 'message-1' }]);
+    electronAPI.applyStagedApproval('approval-1', 'C:\\repo\\file.txt');
+    electronAPI.listRuntimeDiagnostics(25);
+    electronAPI.listAgentConfigs();
+    electronAPI.upsertAgentConfig({ id: 'agent-1' });
+    electronAPI.deleteAgentConfig('agent-1');
+    electronAPI.saveAgentConfigs([{ id: 'agent-1' }]);
+    electronAPI.listAutomationConfigs();
+    electronAPI.upsertAutomationConfig({ id: 'auto-1' });
+    electronAPI.deleteAutomationConfig('auto-1');
+    electronAPI.saveAutomationConfigs([{ id: 'auto-1' }]);
     electronAPI.createAutomationRun({ id: 'auto-1' });
     electronAPI.cancelAutomationRun('run-1');
+    const stopDiagnostics = electronAPI.onRuntimeDiagnostic(vi.fn());
+    stopDiagnostics();
 
     expect(send).toHaveBeenCalledWith('chat:send', {
       messages: ['msg'],
@@ -66,8 +94,35 @@ describe('preload bridge', () => {
     expect(invoke).toHaveBeenCalledWith('workspace:setActive', { id: 'ws-1' });
     expect(invoke).toHaveBeenCalledWith('workspace:refreshMeta', 'ws-1');
     expect(invoke).toHaveBeenCalledWith('workspace:searchFiles', { workspaceId: 'ws-1', query: 'app', limit: 50 });
+    expect(invoke).toHaveBeenCalledWith('thread:list');
+    expect(invoke).toHaveBeenCalledWith('thread:upsert', { id: 'thread-1' });
+    expect(invoke).toHaveBeenCalledWith('thread:delete', 'thread-1');
+    expect(invoke).toHaveBeenCalledWith('thread:saveAll', [{ id: 'thread-1' }]);
+    expect(invoke).toHaveBeenCalledWith('activity:listNotifications');
+    expect(invoke).toHaveBeenCalledWith('activity:upsertNotification', { id: 'notif-1' });
+    expect(invoke).toHaveBeenCalledWith('activity:dismissNotification', 'notif-1');
+    expect(invoke).toHaveBeenCalledWith('activity:markAllNotificationsRead');
+    expect(invoke).toHaveBeenCalledWith('activity:saveNotifications', [{ id: 'notif-1' }]);
+    expect(invoke).toHaveBeenCalledWith('activity:listEvents');
+    expect(invoke).toHaveBeenCalledWith('activity:upsertEvent', { id: 'event-1' });
+    expect(invoke).toHaveBeenCalledWith('activity:saveEvents', [{ id: 'event-1' }]);
+    expect(invoke).toHaveBeenCalledWith('telegramState:listMessages');
+    expect(invoke).toHaveBeenCalledWith('telegramState:upsertMessage', { id: 'message-1' });
+    expect(invoke).toHaveBeenCalledWith('telegramState:deleteMessage', 'message-1');
+    expect(invoke).toHaveBeenCalledWith('telegramState:saveMessages', [{ id: 'message-1' }]);
+    expect(invoke).toHaveBeenCalledWith('approval:applyStaged', { id: 'approval-1', path: 'C:\\repo\\file.txt' });
+    expect(invoke).toHaveBeenCalledWith('diagnostics:list', 25);
+    expect(invoke).toHaveBeenCalledWith('agentConfig:list');
+    expect(invoke).toHaveBeenCalledWith('agentConfig:upsert', { id: 'agent-1' });
+    expect(invoke).toHaveBeenCalledWith('agentConfig:delete', 'agent-1');
+    expect(invoke).toHaveBeenCalledWith('agentConfig:saveAll', [{ id: 'agent-1' }]);
+    expect(invoke).toHaveBeenCalledWith('automationConfig:list');
+    expect(invoke).toHaveBeenCalledWith('automationConfig:upsert', { id: 'auto-1' });
+    expect(invoke).toHaveBeenCalledWith('automationConfig:delete', 'auto-1');
+    expect(invoke).toHaveBeenCalledWith('automationConfig:saveAll', [{ id: 'auto-1' }]);
     expect(invoke).toHaveBeenCalledWith('automation:createRun', { id: 'auto-1' });
     expect(invoke).toHaveBeenCalledWith('automation:cancelRun', 'run-1');
+    expect(removeListener).toHaveBeenCalledWith('runtime:diagnostic', expect.any(Function));
   });
 
   it('unwraps event payloads for listeners and removes listeners by channel', () => {

@@ -10,9 +10,9 @@ function loadAutomationScheduler({ automations, automationRunner, workspaces = [
   const runModule = new Function('require', 'module', 'exports', '__dirname', '__filename', source);
 
   runModule((id) => {
-    if (id === './db') {
+    if (id === './automationConfigs') {
       return {
-        load: vi.fn(() => automations),
+        list: vi.fn(() => automations),
       };
     }
     if (id === './automationRunner') {
@@ -27,6 +27,15 @@ function loadAutomationScheduler({ automations, automationRunner, workspaces = [
       return {
         getHeadSnapshot,
       };
+    }
+    if (id === './agentRunner') {
+      return { listRuns: () => [] };
+    }
+    if (id === './settings') {
+      return { get: vi.fn(() => 'token') };
+    }
+    if (id === './telegram') {
+      return { getBot: vi.fn(() => ({ sendMessage: vi.fn() })) };
     }
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/automationScheduler.js'));
@@ -163,7 +172,7 @@ describe('automationScheduler', () => {
     expect(await scheduler.tick(new Date('2026-05-01T17:01:00'))).toHaveLength(1);
   });
 
-  it('triggers telegram automations once per matching message', () => {
+  it('triggers telegram automations once per matching message', async () => {
     automations.push({
       id: 'auto-telegram',
       name: 'Telegram alert',
@@ -180,8 +189,8 @@ describe('automationScheduler', () => {
       message_id: 99,
     };
 
-    const first = scheduler.handleTelegramMessage(message);
-    const second = scheduler.handleTelegramMessage(message);
+    const first = await scheduler.handleTelegramMessage(message);
+    const second = await scheduler.handleTelegramMessage(message);
 
     expect(first).toHaveLength(1);
     expect(second).toHaveLength(0);

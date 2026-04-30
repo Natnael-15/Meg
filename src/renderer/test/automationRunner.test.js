@@ -30,6 +30,12 @@ function loadAutomationRunner({ settingsState, activeWorkspace, executeTool, age
     if (id === './agentRunner') {
       return agentRunner;
     }
+    if (id === './lmstudio') {
+      return { completeChat: vi.fn(async () => 'Generated document content') };
+    }
+    if (id === './activityStore') {
+      return { listEvents: () => [] };
+    }
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/automationRunner.js'));
 
@@ -132,5 +138,33 @@ describe('automationRunner', () => {
     expect(failed.status).toBe('error');
     expect(failed.actions[0].status).toBe('error');
     expect(failed.error).toContain('command failed');
+  });
+
+  it('prunes older completed automation runs while preserving active ones', () => {
+    settingsState.automationRuns = [
+      { id: 'active-queued', status: 'queued', updatedAt: '2026-04-29T12:00:00.000Z', logs: [] },
+      ...Array.from({ length: 210 }, (_, index) => ({
+        id: `done-${index}`,
+        status: 'done',
+        updatedAt: new Date(2026, 3, 29, 11, 0, 210 - index).toISOString(),
+        logs: Array.from({ length: 250 }, (__unused, logIndex) => ({ ts: `log-${logIndex}`, level: 'info', message: `line ${logIndex}` })),
+        actions: [],
+      })),
+    ];
+    automationRunner = loadAutomationRunner({ settingsState, activeWorkspace, executeTool, agentRunner });
+
+    const run = automationRunner.createRun({
+      sourceId: 'auto-retention',
+      name: 'Retention check',
+      actions: [],
+    });
+
+    const runs = automationRunner.listRuns();
+    expect(runs.length).toBe(200);
+    expect(runs.some((item) => item.id === 'active-queued')).toBe(true);
+    expect(runs.some((item) => item.id === run.id)).toBe(true);
+    expect(runs.some((item) => item.id === 'done-209')).toBe(false);
+    const retainedCompleted = runs.find((item) => item.id === 'done-0');
+    expect(retainedCompleted.logs.length).toBe(200);
   });
 });
