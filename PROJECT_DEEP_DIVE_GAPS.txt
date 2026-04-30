@@ -57,6 +57,30 @@ Closed in the 2026-04-29 diagnostics-and-capability-truth slice
 Closed in the 2026-04-29 migration-policy slice
 - Item 33: `src/main/store.js` and `src/main/db.js` legacy JSON migrations are now versioned, tracked in store metadata, and bounded by an explicit retirement target documented in `MIGRATIONS.md`.
 
+Closed in the 2026-04-29 retention-policy slice
+- Long-lived persisted history now has explicit bounded retention across the main-process persistence boundary:
+  - `src/main/agentRunner.js` and `src/main/automationRunner.js` prune completed run history and cap per-run logs.
+  - `src/main/threadStore.js` caps thread history and per-thread message history.
+  - `src/main/activityStore.js` caps persisted notifications and timeline events.
+  - `src/main/telegramStore.js` caps persisted Telegram message history.
+- `MIGRATIONS.md` now documents those retention limits so state growth policy is explicit instead of being buried only in implementation.
+
+Closed in the 2026-04-29 incremental-store-api slice
+- `src/main/threadStore.js`, `src/main/activityStore.js`, and `src/main/telegramStore.js` now expose explicit upsert/delete-style operations in addition to list normalization, instead of leaving renderer-owned product state dependent on whole-collection replacement as the only write path.
+- `src/main/ipc.js` and `src/preload/index.js` now expose those narrower store operations to the renderer.
+- `src/renderer/App.jsx` now persists threads, notifications, timeline events, and Telegram messages through diffed incremental upserts/deletes rather than calling bulk `saveAll` APIs on every state change.
+
+Closed in the 2026-04-29 config-store-api slice
+- `src/main/agentConfigs.js` and `src/main/automationConfigs.js` now expose explicit upsert/delete operations in addition to normalization and list loading.
+- `src/main/ipc.js` and `src/preload/index.js` now expose those narrower config mutations to the renderer, and automation-config mutations still reload the scheduler.
+- `src/renderer/views/AgentBuilder.jsx` and `src/renderer/views/AutomationsView.jsx` now persist config changes through diffed incremental upserts/deletes instead of bulk `saveAll` writes, and both surfaces now expose real config deletion through the shipped UI.
+
+Closed in the 2026-04-30 chat-command-resolution slice
+- `src/renderer/App.jsx` now parses slash commands and mention tokens before sending chat requests.
+- `/agent` now launches a real backend agent run through the existing runner instead of behaving like plain text.
+- `/search`, `/code`, `/explain`, and `/fix` now resolve into explicit chat-mode/system-context behavior instead of remaining decorative text prefixes.
+- `@file(...)`, `@clipboard`, `@memory`, and `@web` now resolve into concrete chat context/system messages where possible instead of remaining inert mention chips.
+
 Closed in the 2026-04-29 preview-truth slice
 - Item 15: `src/renderer/App.jsx` no longer fabricates assistant progress when the Electron bridge is unavailable. Browser render now shows an explicit limited preview banner and a truthful backend-unavailable notice in chat instead of pretending the app can execute work.
 
@@ -428,6 +452,25 @@ Closed in the 2026-04-29 workspace-reality slice
 - Workspace file inventory now walks directories recursively instead of only counting root-level files, so workspace file stats and file lists reflect the actual project tree rather than just the top folder.
 - Workspace inventory is now cached and refreshed in `src/main/workspace.js` through the main-process workspace service instead of recursively crawling the filesystem from `src/renderer/views/WorkspaceView.jsx`. The renderer now consumes explicit workspace metadata and refreshes it through `workspace:refreshMeta`, which removes repeated deep scans from the UI layer.
 - The workspace files tab now queries cached workspace inventory through `workspace:searchFiles` instead of treating the renderer as the file index for filtering. Large-workspace file lookup now has an explicit main-process boundary instead of pushing full search behavior into the UI.
+- Workspace index metadata is now persisted in a dedicated `workspaceIndex` collection through `src/main/store.js` instead of being embedded in the settings-backed workspace records. Renderer-side `workspaces` persistence now strips inventory payloads too, so cached file metadata no longer bloats the primary workspace/settings state.
+- Workspace identity itself is now treated as a single canonical main-process store in `src/main/workspace.js`. The renderer no longer loads or saves `workspaces` through `dbLoad/dbSaveAll`, and the workspace service migrates any legacy `workspaces` collection data into the canonical settings-backed workspace store on first read.
+- Agent and automation config records in `src/renderer/views/AgentBuilder.jsx` and `src/renderer/views/AutomationsView.jsx` no longer persist derived runtime fields such as run counts, last-run timestamps, or last-run statuses back into the saved config objects. Those views now derive execution status from backend run records instead of mixing config and runtime state in the same stored documents.
+- Agent and automation configs now flow through explicit main-process config services (`src/main/agentConfigs.js` and `src/main/automationConfigs.js`) exposed through IPC, rather than having renderer views write product configuration directly through generic `dbLoad/dbSaveAll` calls. The automation scheduler also reads from the automation config service instead of reaching into raw DB collections.
+- Those config services now normalize and sanitize saved records at load/save time. Legacy or malformed agent/automation config shapes are corrected at the main-process boundary, and transient runtime fields are stripped there instead of being tolerated and pushed back through the renderer.
+- Agent and automation config records now carry explicit `schemaVersion: 1` metadata through their main-process config services, and `MIGRATIONS.md` documents that version anchor. Future config-shape changes now have an intentional schema boundary to evolve from instead of relying only on best-effort normalization.
+- Threads, notifications, timeline events, and Telegram message state now also flow through explicit main-process store services (`src/main/threadStore.js`, `src/main/activityStore.js`, and `src/main/telegramStore.js`) exposed through preload and IPC. `src/renderer/App.jsx` no longer loads or saves those product records through generic `dbLoad/dbSaveAll`, so the remaining core app state now has the same explicit persistence boundary as workspaces, agent configs, and automation configs.
+- Those thread/activity/Telegram store services now normalize saved records to explicit `schemaVersion: 1` shapes at load/save time, so malformed legacy state is corrected at the main-process boundary rather than relying on renderer-only cleanup.
+- The generic `db:load` / `db:saveAll` preload and IPC bridge has now been removed from the shipped app path. Product persistence goes through explicit domain services only, so there is no remaining generic renderer backdoor for writing arbitrary collections.
+- Runtime diagnostics are now visible inside the shipped app through `Settings > Diagnostics`, backed by the persisted main-process diagnostics log and live `runtime:diagnostic` events instead of requiring manual inspection of files under user data.
+- Renderer startup failure now has an explicit main-process recovery surface in `src/main/index.js` and `src/main/recovery.js`. When the dev server is unreachable, the fallback build is missing/broken, or the packaged renderer fails to load, Meg now shows a minimal recovery page with actionable context and the diagnostics log path instead of relying only on thrown errors and background logs.
+- The renderer boot path is now factored into a testable startup helper in `src/main/startup.js`, with direct coverage for dev-server failure, missing packaged builds, and packaged load failure. Recovery behavior is now exercised in tests instead of existing only as an unchecked startup branch.
+- Main-process updater behavior is now factored into `src/main/updater.js`, with direct coverage for lifecycle event forwarding, scheduled packaged-only checks, and manual check/download/install failure reporting. Updater behavior is no longer just anonymous event wiring embedded in `src/main/index.js`.
+- Agent and automation run history in `src/main/agentRunner.js` and `src/main/automationRunner.js` now has explicit retention limits. Completed runs are pruned to bounded history while queued/running items are preserved, and per-run logs are capped so long-lived usage does not turn settings-backed run state into unbounded growth.
+- Workspace quick actions in `src/renderer/views/WorkspaceView.jsx` no longer hide canned prompt injection behind product labels. `Code review`, `Docs draft`, and `Progress report` now launch real backend agent runs through the app event bridge with explicit `workspace-quick-action` source metadata instead of dispatching fake chat-only workflows.
+- Remaining product-shaped assistant entry points in `src/renderer/views/FileBrowser.jsx` and `src/renderer/views/WorkspaceView.jsx` now launch explicit backend runs too. File `Edit` / `Ask Meg` actions and the workspace-header `Ask Meg` action no longer route through generic chat-prompt injection.
+- The last generic renderer `sendToChat` bridge use has been removed from normal product flows. Workspace command shortcuts now use an explicit command-result-to-chat action instead of relying on a catch-all “treat this like a user message” event path.
+- `src/renderer/views/AgentDashboard.jsx` no longer fabricates fallback tool logs or tool badges when a backend run has no runtime activity. The dashboard now shows honest empty states and exposes real output/error/source details from mapped runs.
+- `src/renderer/views/AutomationsView.jsx` now exposes real automation run history, action-level status/results, and persisted logs for the selected automation instead of only showing aggregate run counts and latest status badges.
 
 ========================================================================
 Recommended execution order

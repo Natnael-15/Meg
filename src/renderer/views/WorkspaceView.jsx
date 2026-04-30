@@ -9,6 +9,59 @@ const getEntryExt = (name = '') => {
   return ext && ext !== name.toLowerCase() ? ext : '';
 };
 
+const buildWorkspaceWorkflow = (workspace, workflowId) => {
+  const workspaceTarget = workspace?.path || workspace?.name || 'workspace';
+  if (workflowId === 'code-review') {
+    return {
+      name: `workspace-review-${workspace?.name || 'project'}`,
+      source: 'workspace-quick-action',
+      sourceId: `workspace:${workspace?.id || 'unknown'}:code-review`,
+      steps: [
+        { type: 'read_files', label: 'Inspect workspace layout and key source files', target: workspaceTarget },
+        { type: 'run_command', label: 'Check project status and available validation commands', target: workspaceTarget },
+        { type: 'write_output', label: 'Summarize concrete bugs, risks, and missing tests', target: 'workspace review report' },
+      ],
+    };
+  }
+  if (workflowId === 'docs-draft') {
+    return {
+      name: `workspace-docs-${workspace?.name || 'project'}`,
+      source: 'workspace-quick-action',
+      sourceId: `workspace:${workspace?.id || 'unknown'}:docs-draft`,
+      steps: [
+        { type: 'read_files', label: 'Inspect package metadata, entrypoints, and developer-facing files', target: workspaceTarget },
+        { type: 'read_files', label: 'Identify setup, usage, and architecture details worth documenting', target: workspaceTarget },
+        { type: 'write_output', label: 'Draft concise workspace documentation with setup and usage guidance', target: 'workspace docs draft' },
+      ],
+    };
+  }
+  if (workflowId === 'progress-report') {
+    return {
+      name: `workspace-progress-${workspace?.name || 'project'}`,
+      source: 'workspace-quick-action',
+      sourceId: `workspace:${workspace?.id || 'unknown'}:progress-report`,
+      steps: [
+        { type: 'read_files', label: 'Inspect recent workspace state, linked chats, and current files', target: workspaceTarget },
+        { type: 'run_command', label: 'Check repository status for outstanding work signals', target: workspaceTarget },
+        { type: 'send_update', label: 'Produce a short progress report with current status and next actions', target: 'workspace status report' },
+      ],
+    };
+  }
+  return null;
+};
+
+const buildWorkspaceOverviewWorkflow = (workspace) => ({
+  name: `workspace-next-step-${workspace?.name || 'project'}`,
+  source: 'workspace-header-action',
+  sourceId: `workspace:${workspace?.id || 'unknown'}:next-step`,
+  instruction: `Assess the ${workspace?.name || 'current'} workspace at ${workspace?.path || 'the current path'}. Consider branch ${workspace?.branch || 'unknown'} and recommend the most important next work with concise reasoning.`,
+  steps: [
+    { type: 'read_files', label: 'Inspect the workspace structure and recent files', target: workspace?.path || workspace?.name || 'workspace' },
+    { type: 'run_command', label: 'Check repository status and current branch state', target: workspace?.path || workspace?.name || 'workspace' },
+    { type: 'send_update', label: 'Recommend the next concrete work items for this workspace', target: 'workspace next-step summary' },
+  ],
+});
+
 export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorkspaces, onActiveWorkspace}) => {
   const [activeWs, setActiveWs] = useState(workspaces[0]?.id || null);
   const [tab, setTab] = useState('overview');
@@ -186,6 +239,13 @@ export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorksp
     threads: linkedThreads.length,
     agents: linkedAgents.length,
   } : { files: 0, threads: 0, agents: 0 };
+  const workspaceQuickActions = [
+    { icon:'terminal', label:'Run dev server', cmd:'npm run dev' },
+    { icon:'play', label:'Run tests', cmd:'npm test' },
+    { icon:'agent', label:'Code review', workflowId:'code-review' },
+    { icon:'doc', label:'Docs draft', workflowId:'docs-draft' },
+    { icon:'chart', label:'Progress report', workflowId:'progress-report' },
+  ];
 
   return (
     <div style={{flex:1,display:'flex',minWidth:0,overflow:'hidden'}}>
@@ -201,7 +261,8 @@ export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorksp
 
         <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
           {workspaces.map((w,i)=>(
-            <button key={w.id} onClick={()=>activateWorkspace(w)} style={{width:'100%',padding:'10px 10px',borderRadius:8,display:'flex',gap:10,alignItems:'flex-start',background:activeWs===w.id?'var(--bg-active)':'transparent',border:'none',cursor:'pointer',textAlign:'left',marginBottom:3,transition:'background 0.12s',animation:`fadeUp 0.2s ${i*0.05}s both`}}
+            <div key={w.id} style={{position:'relative',marginBottom:3}} className="ws-item">
+            <button onClick={()=>activateWorkspace(w)} style={{width:'100%',padding:'10px 10px',borderRadius:8,display:'flex',gap:10,alignItems:'flex-start',background:activeWs===w.id?'var(--bg-active)':'transparent',border:'none',cursor:'pointer',textAlign:'left',transition:'background 0.12s',animation:`fadeUp 0.2s ${i*0.05}s both`}}
               onMouseEnter={e=>{if(activeWs!==w.id)e.currentTarget.style.background='var(--bg-hover)';}} onMouseLeave={e=>{if(activeWs!==w.id)e.currentTarget.style.background='transparent';}}>
               <div style={{width:32,height:32,borderRadius:8,background:w.color+'22',border:`1.5px solid ${w.color}44`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,transition:'border-color 0.15s'}}>
                 <span style={{fontSize:13,fontWeight:700,color:w.color,letterSpacing:'-0.03em'}}>{w.name[0]}</span>
@@ -209,6 +270,7 @@ export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorksp
               <div style={{flex:1,minWidth:0}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:2}}>
                   <span style={{fontSize:12.5,fontWeight:600,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.name}</span>
+                  {activeWs===w.id && <span style={{fontSize:9,color:'var(--accent)',flexShrink:0,marginLeft:4,fontWeight:600,letterSpacing:'0.04em',textTransform:'uppercase'}}>active</span>}
                   {w.dirty>0 && <span style={{fontSize:10,color:'var(--orange)',flexShrink:0,marginLeft:4}}>●{w.dirty}</span>}
                 </div>
                 <div style={{fontSize:11,color:'var(--text-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:2}}>{w.path}</div>
@@ -218,6 +280,25 @@ export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorksp
                 </div>
               </div>
             </button>
+            <button
+              title="Remove workspace from Meg (does not delete files)"
+              onClick={async e=>{
+                e.stopPropagation();
+                const next = workspaces.filter(x=>x.id!==w.id);
+                setWorkspaces(next);
+                if(activeWs===w.id) {
+                  const fallback = next[0]||null;
+                  setActiveWs(fallback?.id||null);
+                  onActiveWorkspace?.(fallback);
+                  if(fallback) await window.electronAPI?.setActiveWorkspace(fallback);
+                }
+              }}
+              style={{position:'absolute',top:6,right:6,width:20,height:20,borderRadius:4,border:'none',background:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',opacity:0,transition:'opacity 0.15s,background 0.12s',color:'var(--text-3)'}}
+              className="ws-delete-btn"
+              onMouseEnter={e=>{e.currentTarget.style.background='var(--red,#e05252)22';e.currentTarget.style.color='var(--red,#e05252)';}}
+              onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}
+            >✕</button>
+            </div>
           ))}
         </div>
 
@@ -275,7 +356,19 @@ export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorksp
               }} style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',background:'var(--bg)',fontSize:12,color:'var(--text-2)',display:'flex',alignItems:'center',gap:5,cursor:'pointer',transition:'border-color 0.12s'}} onMouseEnter={e=>e.currentTarget.style.borderColor='var(--accent-border)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
                 <Icon name="terminal" size={12} color="var(--text-3)"/> Terminal
               </button>
-              <button onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'sendToChat',text:`Tell me about the ${ws?.name} workspace at ${ws?.path||'this path'}. Branch: ${ws?.branch}. What should I work on next?`}}))} style={{padding:'6px 12px',borderRadius:6,border:'none',background:'var(--accent)',color:'#fff',fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:5,cursor:'pointer'}}>
+              <button onClick={() => {
+                const workflow = buildWorkspaceOverviewWorkflow(ws);
+                window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'navigate', screen: 'agents' } }));
+                window.dispatchEvent(new CustomEvent('meg:action', {
+                  detail: {
+                    action: 'spawnAgent',
+                    value: {
+                      ...workflow,
+                      workspace: ws,
+                    },
+                  },
+                }));
+              }} style={{padding:'6px 12px',borderRadius:6,border:'none',background:'var(--accent)',color:'#fff',fontSize:12,fontWeight:500,display:'flex',alignItems:'center',gap:5,cursor:'pointer'}}>
                 <Icon name="agent" size={12} color="#fff"/> Ask Meg
               </button>
             </div>
@@ -328,20 +421,25 @@ export const WorkspaceView = ({events, threads, agentRuns, workspaces, setWorksp
                 <div style={{marginTop:18}}>
                   <div style={{fontSize:11,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:10}}>Quick actions</div>
                   <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                    {[
-                      {icon:'terminal',label:'Run dev server', cmd:'npm run dev'},
-                      {icon:'play',     label:'Run tests',      cmd:'npm test'},
-                      {icon:'agent',    label:'Ask for code review',    chat:'Review the code in this workspace for issues and improvements.'},
-                      {icon:'doc',      label:'Ask for docs draft',     chat:'Write documentation for the current workspace.'},
-                      {icon:'chart',    label:'Ask for progress report',chat:'Generate a progress report for this workspace.'},
-                    ].map((a,i)=>(
+                    {workspaceQuickActions.map((a,i)=>(
                       <button key={i} onClick={async()=>{
                         if(a.cmd){
                           const r=await window.electronAPI?.execCommand(a.cmd, ws?.path);
                           const out=(r?.stdout||'')+(r?.stderr?'\n'+r.stderr:'');
-                          window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'sendToChat',text:`Ran \`${a.cmd}\`:\n\`\`\`\n${out||'(no output)'}\n\`\`\``}}));
-                        } else if(a.chat){
-                          window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'sendToChat',text:a.chat}}));
+                          window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'appendCommandResultToChat',text:`Ran \`${a.cmd}\`:\n\`\`\`\n${out||'(no output)'}\n\`\`\``}}));
+                        } else if(a.workflowId){
+                          const workflow = buildWorkspaceWorkflow(ws, a.workflowId);
+                          if (!workflow) return;
+                          window.dispatchEvent(new CustomEvent('meg:action', { detail: { action:'navigate', screen:'agents' } }));
+                          window.dispatchEvent(new CustomEvent('meg:action', {
+                            detail: {
+                              action:'spawnAgent',
+                              value: {
+                                ...workflow,
+                                workspace: ws,
+                              },
+                            },
+                          }));
                         }
                       }} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg-2)',fontSize:12,color:'var(--text-2)',cursor:'pointer',transition:'all 0.12s',animation:`fadeUp 0.2s ${0.1+i*0.04}s both`}}
                         onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.background='var(--accent-bg)';e.currentTarget.style.color='var(--accent)';}}

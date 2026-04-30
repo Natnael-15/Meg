@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const settings = require('./settings');
+const store = require('./store');
 
 const GENERATED_DIRS = new Set([
   '.git',
@@ -15,6 +16,8 @@ const GENERATED_DIRS = new Set([
 const MAX_WORKSPACE_INVENTORY = 2000;
 const WORKSPACE_META_MAX_AGE_MS = 5 * 60 * 1000;
 const DEFAULT_WORKSPACE_SEARCH_LIMIT = 100;
+const WORKSPACE_INDEX_COLLECTION = 'workspaceIndex';
+const LEGACY_WORKSPACE_COLLECTION = 'workspaces';
 const EXT_LABELS = {
   ts: 'TypeScript',
   tsx: 'TypeScript',
@@ -113,9 +116,77 @@ function buildWorkspaceMeta(workspace) {
   };
 }
 
+function sanitizeWorkspaceRecord(workspace = {}) {
+  if (!workspace || typeof workspace !== 'object') return workspace;
+  const {
+    files,
+    lang,
+    inventory,
+    inventoryTruncated,
+    inventoryUpdatedAt,
+    ...rest
+  } = workspace;
+  return rest;
+}
+
+function readWorkspaceIndex(workspaceId) {
+  if (!workspaceId) return null;
+  return store.collectionGet(WORKSPACE_INDEX_COLLECTION, String(workspaceId), null);
+}
+
+function writeWorkspaceIndex(workspaceId, meta) {
+  if (!workspaceId || !meta) return;
+  store.collectionUpsert(WORKSPACE_INDEX_COLLECTION, String(workspaceId), {
+    workspaceId: String(workspaceId),
+    files: typeof meta.files === 'number' ? meta.files : 0,
+    lang: meta.lang || '',
+    inventory: Array.isArray(meta.inventory) ? meta.inventory : [],
+    inventoryTruncated: Boolean(meta.inventoryTruncated),
+    inventoryUpdatedAt: meta.inventoryUpdatedAt || new Date().toISOString(),
+  });
+}
+
+function deleteWorkspaceIndex(workspaceId) {
+  if (!workspaceId) return;
+  store.collectionDelete(WORKSPACE_INDEX_COLLECTION, String(workspaceId));
+}
+
+function migrateWorkspaceIndex(workspace) {
+  if (!workspace?.id) return sanitizeWorkspaceRecord(workspace);
+  const hasInlineIndex =
+    typeof workspace.files === 'number' ||
+    typeof workspace.lang === 'string' && workspace.lang.length > 0 ||
+    Array.isArray(workspace.inventory) ||
+    workspace.inventoryTruncated ||
+    workspace.inventoryUpdatedAt;
+  if (!hasInlineIndex) return sanitizeWorkspaceRecord(workspace);
+  if (!readWorkspaceIndex(workspace.id)) {
+    writeWorkspaceIndex(workspace.id, {
+      files: workspace.files,
+      lang: workspace.lang,
+      inventory: workspace.inventory,
+      inventoryTruncated: workspace.inventoryTruncated,
+      inventoryUpdatedAt: workspace.inventoryUpdatedAt,
+    });
+  }
+  return sanitizeWorkspaceRecord(workspace);
+}
+
+function mergeWorkspaceMeta(workspace, meta = null) {
+  return {
+    ...workspace,
+    files: typeof meta?.files === 'number' ? meta.files : 0,
+    lang: meta?.lang || '',
+    inventory: Array.isArray(meta?.inventory) ? meta.inventory : [],
+    inventoryTruncated: Boolean(meta?.inventoryTruncated),
+    inventoryUpdatedAt: meta?.inventoryUpdatedAt || null,
+  };
+}
+
 function isMetaStale(workspace) {
-  if (!workspace?.inventoryUpdatedAt) return true;
-  const updatedAt = Date.parse(workspace.inventoryUpdatedAt);
+  const index = workspace?.id ? readWorkspaceIndex(workspace.id) : null;
+  if (!index?.inventoryUpdatedAt) return true;
+  const updatedAt = Date.parse(index.inventoryUpdatedAt);
   if (Number.isNaN(updatedAt)) return true;
   return (Date.now() - updatedAt) > WORKSPACE_META_MAX_AGE_MS;
 }
@@ -135,43 +206,50 @@ function normalizeWorkspace(input = {}) {
     ignoredDirs: Array.isArray(input.ignoredDirs) ? input.ignoredDirs : Array.from(GENERATED_DIRS),
     createdAt: input.createdAt || new Date().toISOString(),
     lastActiveAt: new Date().toISOString(),
-    files: typeof input.files === 'number' ? input.files : 0,
-    lang: input.lang || '',
-    inventory: Array.isArray(input.inventory) ? input.inventory : [],
-    inventoryTruncated: Boolean(input.inventoryTruncated),
-    inventoryUpdatedAt: input.inventoryUpdatedAt || null,
   };
 }
 
+function migrateLegacyWorkspaceCollection() {
+  const current = settings.get('workspaces');
+  if (Array.isArray(current) && current.length > 0) return current;
+  const legacy = store.collectionList(LEGACY_WORKSPACE_COLLECTION) || [];
+  if (!Array.isArray(legacy) || legacy.length === 0) return Array.isArray(current) ? current : [];
+  const migrated = legacy.map((item) => normalizeWorkspace(item));
+  saveAll(migrated);
+  store.collectionReplaceAll(LEGACY_WORKSPACE_COLLECTION, [], (item, index) => String(item?.id ?? index));
+  return migrated;
+}
+
 function list() {
-  const workspaces = settings.get('workspaces');
-  return Array.isArray(workspaces) ? workspaces : [];
+  const workspaces = migrateLegacyWorkspaceCollection();
+  const current = Array.isArray(workspaces) ? workspaces : [];
+  let changed = false;
+  const sanitized = current.map((workspace) => {
+    const next = migrateWorkspaceIndex(workspace);
+    if (JSON.stringify(next) !== JSON.stringify(workspace)) changed = true;
+    return next;
+  });
+  if (changed) saveAll(sanitized);
+  return sanitized;
 }
 
 function saveAll(workspaces) {
-  settings.set('workspaces', Array.isArray(workspaces) ? workspaces : []);
+  settings.set('workspaces', Array.isArray(workspaces) ? workspaces.map(sanitizeWorkspaceRecord) : []);
 }
 
 function refreshWorkspaceMeta(target) {
   const current = list();
   const targetId = typeof target === 'string' ? target : target?.id;
   const targetPath = typeof target === 'object' ? path.resolve(target.path) : null;
-  let refreshedWorkspace = null;
-
-  const next = current.map((workspace) => {
-    const matchesTarget =
-      !target ||
-      workspace.id === targetId ||
-      (targetPath && path.resolve(workspace.path) === targetPath);
-    if (!matchesTarget) return workspace;
-    const refreshed = { ...workspace, ...buildWorkspaceMeta(workspace) };
-    refreshedWorkspace = refreshed;
-    return refreshed;
-  });
-
-  if (!refreshedWorkspace) return null;
-  saveAll(next);
-  return refreshedWorkspace;
+  const workspace = current.find((item) => (
+    !target ||
+    item.id === targetId ||
+    (targetPath && path.resolve(item.path) === targetPath)
+  ));
+  if (!workspace) return null;
+  const meta = buildWorkspaceMeta(workspace);
+  writeWorkspaceIndex(workspace.id, meta);
+  return mergeWorkspaceMeta(workspace, meta);
 }
 
 function resolveWorkspace(target) {
@@ -187,17 +265,12 @@ function resolveWorkspace(target) {
 
 function listWithMeta() {
   const current = list();
-  let changed = false;
-  const next = current.map((workspace) => {
-    if (!isMetaStale(workspace)) return workspace;
-    changed = true;
-    return { ...workspace, ...buildWorkspaceMeta(workspace) };
+  return current.map((workspace) => {
+    if (isMetaStale(workspace)) {
+      return refreshWorkspaceMeta(workspace.id);
+    }
+    return mergeWorkspaceMeta(workspace, readWorkspaceIndex(workspace.id));
   });
-  if (changed) {
-    saveAll(next);
-    return next;
-  }
-  return current;
 }
 
 function searchFiles(target, query, limit = DEFAULT_WORKSPACE_SEARCH_LIMIT) {
@@ -205,7 +278,9 @@ function searchFiles(target, query, limit = DEFAULT_WORKSPACE_SEARCH_LIMIT) {
   if (!workspace) throw new Error(`Workspace not found: ${typeof target === 'string' ? target : target?.id || target?.path || 'unknown'}`);
   const normalizedQuery = typeof query === 'string' ? query.trim().toLowerCase() : '';
   const count = Number.isFinite(limit) ? Math.max(1, Math.min(limit, DEFAULT_WORKSPACE_SEARCH_LIMIT)) : DEFAULT_WORKSPACE_SEARCH_LIMIT;
-  const current = isMetaStale(workspace) ? refreshWorkspaceMeta(workspace.id) : workspace;
+  const current = isMetaStale(workspace)
+    ? refreshWorkspaceMeta(workspace.id)
+    : mergeWorkspaceMeta(workspace, readWorkspaceIndex(workspace.id));
   const inventory = Array.isArray(current?.inventory) ? current.inventory : [];
   const results = normalizedQuery
     ? inventory.filter((entry) => {
@@ -228,8 +303,12 @@ function searchFiles(target, query, limit = DEFAULT_WORKSPACE_SEARCH_LIMIT) {
 
 function upsert(input) {
   const workspace = normalizeWorkspace(input);
-  const refreshed = { ...workspace, ...buildWorkspaceMeta(workspace) };
+  const meta = buildWorkspaceMeta(workspace);
+  writeWorkspaceIndex(workspace.id, meta);
+  const refreshed = mergeWorkspaceMeta(workspace, meta);
   const existing = list();
+  const removed = existing.filter(w => w.id !== refreshed.id && path.resolve(w.path) === refreshed.path);
+  removed.forEach((workspaceToDelete) => deleteWorkspaceIndex(workspaceToDelete.id));
   const next = [
     refreshed,
     ...existing.filter(w => w.id !== refreshed.id && path.resolve(w.path) !== refreshed.path),

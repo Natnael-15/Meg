@@ -9,6 +9,7 @@ function createIpcHarness() {
   const onMap = new Map();
   const webSend = vi.fn();
   const executeTool = vi.fn();
+  const prepareStagedWrite = vi.fn();
   const streamChat = vi.fn();
   const bot = {
     startPolling: vi.fn(),
@@ -20,6 +21,7 @@ function createIpcHarness() {
     list: vi.fn(() => []),
     get: vi.fn(),
     markRunning: vi.fn(),
+    markStaged: vi.fn(),
     markApproved: vi.fn(),
     markFailed: vi.fn(),
     deny: vi.fn(),
@@ -49,6 +51,43 @@ function createIpcHarness() {
     save: vi.fn(),
     set: vi.fn(),
   };
+  const threadStore = {
+    list: vi.fn(() => []),
+    upsert: vi.fn((item) => item),
+    remove: vi.fn(() => []),
+    saveAll: vi.fn((items) => items),
+  };
+  const activityStore = {
+    listNotifications: vi.fn(() => []),
+    upsertNotification: vi.fn((item) => item),
+    dismissNotification: vi.fn(() => []),
+    markAllNotificationsRead: vi.fn(() => []),
+    saveNotifications: vi.fn((items) => items),
+    listEvents: vi.fn(() => []),
+    upsertEvent: vi.fn((item) => item),
+    saveEvents: vi.fn((items) => items),
+  };
+  const telegramStore = {
+    listMessages: vi.fn(() => []),
+    upsertMessage: vi.fn((item) => item),
+    removeMessage: vi.fn(() => []),
+    saveMessages: vi.fn((items) => items),
+  };
+  const diagnostics = {
+    readRecentDiagnostics: vi.fn(() => []),
+  };
+  const agentConfigs = {
+    list: vi.fn(() => []),
+    upsert: vi.fn((item) => item),
+    remove: vi.fn(() => []),
+    saveAll: vi.fn((items) => items),
+  };
+  const automationConfigs = {
+    list: vi.fn(() => []),
+    upsert: vi.fn((item) => item),
+    remove: vi.fn(() => []),
+    saveAll: vi.fn((items) => items),
+  };
 
   const source = fs.readFileSync(path.resolve(__dirname, '../../main/ipc.js'), 'utf8');
   const module = { exports: {} };
@@ -72,7 +111,13 @@ function createIpcHarness() {
     if (id === './settings') return settings;
     if (id === './db') return { load: vi.fn(), saveAll: vi.fn() };
     if (id === './workspace') return { list: vi.fn(), getActive: vi.fn(), upsert: vi.fn(), setActive: vi.fn() };
-    if (id === './tools') return { executeTool };
+    if (id === './threadStore') return threadStore;
+    if (id === './activityStore') return activityStore;
+    if (id === './telegramStore') return telegramStore;
+    if (id === './diagnostics') return diagnostics;
+    if (id === './agentConfigs') return agentConfigs;
+    if (id === './automationConfigs') return automationConfigs;
+    if (id === './tools') return { executeTool, prepareStagedWrite };
     if (id === './agentRunner') return agentRunner;
     if (id === './approvalQueue') return approvalQueue;
     if (id === './automationRunner') return automationRunner;
@@ -97,12 +142,19 @@ function createIpcHarness() {
     onMap,
     webSend,
     executeTool,
+    prepareStagedWrite,
     streamChat,
     bot,
     approvalQueue,
     agentRunner,
     automationRunner,
     automationScheduler,
+    threadStore,
+    activityStore,
+    telegramStore,
+    diagnostics,
+    agentConfigs,
+    automationConfigs,
     settings,
     win,
   };
@@ -170,8 +222,8 @@ describe('main ipc contract', () => {
     const approval = {
       id: 'approval-2',
       status: 'pending',
-      tool: 'write_file',
-      args: { path: 'file.txt', content: 'x' },
+      tool: 'run_command',
+      args: { command: 'npm test' },
     };
     harness.approvalQueue.get.mockReturnValue(approval);
     harness.executeTool.mockResolvedValue({ error: 'permission denied' });
@@ -186,6 +238,82 @@ describe('main ipc contract', () => {
       approval: { ...approval, status: 'failed' },
       result: { error: 'permission denied' },
     });
+  });
+
+  it('stages write approvals for review instead of executing the write immediately', async () => {
+    const approval = {
+      id: 'approval-write-1',
+      status: 'pending',
+      tool: 'write_file',
+      rawArgs: { path: 'src\\file.js', content: 'const value = 2;' },
+      threadId: 'thread-1',
+      agentRunId: 'run-1',
+      workspacePath: 'C:\\repo',
+    };
+    const stagedResult = {
+      ok: true,
+      staged: true,
+      path: 'C:\\repo\\src\\file.js',
+      existed: true,
+      originalContent: 'const value = 1;',
+    };
+    harness.approvalQueue.get.mockReturnValue(approval);
+    harness.approvalQueue.markRunning.mockReturnValue({ ...approval, status: 'running' });
+    harness.prepareStagedWrite.mockReturnValue(stagedResult);
+    harness.approvalQueue.markStaged.mockReturnValue({ ...approval, status: 'staged', result: stagedResult });
+
+    const handler = harness.handleMap.get('approval:approve');
+    const result = await handler({}, 'approval-write-1');
+
+    expect(harness.prepareStagedWrite).toHaveBeenCalledWith(
+      { path: 'src\\file.js', content: 'const value = 2;' },
+      {
+        threadId: 'thread-1',
+        agentRunId: 'run-1',
+        workspacePath: 'C:\\repo',
+      },
+    );
+    expect(harness.executeTool).not.toHaveBeenCalled();
+    expect(harness.approvalQueue.markStaged).toHaveBeenCalledWith('approval-write-1', stagedResult);
+    expect(result).toEqual({
+      ok: true,
+      approval: { ...approval, status: 'staged', result: stagedResult },
+      result: stagedResult,
+    });
+  });
+
+  it('marks staged write approvals as approved after the reviewed save is applied', async () => {
+    const approval = {
+      id: 'approval-write-2',
+      status: 'staged',
+      tool: 'write_file',
+      rawArgs: { path: 'src\\file.js', content: 'const value = 2;' },
+      result: {
+        staged: true,
+        path: 'C:\\repo\\src\\file.js',
+        originalContent: 'const value = 1;',
+      },
+    };
+    harness.approvalQueue.get.mockReturnValue(approval);
+    harness.approvalQueue.markApproved.mockReturnValue({
+      ...approval,
+      status: 'approved',
+      result: { ...approval.result, ok: true, applied: true },
+    });
+
+    const handler = harness.handleMap.get('approval:applyStaged');
+    const result = await handler({}, { id: 'approval-write-2', path: 'C:\\repo\\src\\file.js' });
+
+    expect(harness.approvalQueue.markApproved).toHaveBeenCalledWith(
+      'approval-write-2',
+      expect.objectContaining({
+        staged: true,
+        ok: true,
+        applied: true,
+        path: 'C:\\repo\\src\\file.js',
+      }),
+    );
+    expect(result.ok).toBe(true);
   });
 
   it('streams chat events back to the renderer in order', async () => {
@@ -210,6 +338,7 @@ describe('main ipc contract', () => {
       'gpt-4o',
       true,
       'http://127.0.0.1:1234',
+      { ctrl: { cancelled: false } },
     );
     expect(harness.webSend.mock.calls).toEqual([
       ['chat:chunk', { chunk: 'hello', threadId: 'thread-1' }],
@@ -257,10 +386,126 @@ describe('main ipc contract', () => {
     expect(result).toEqual({ ok: true, run: { id: 'auto-run-1', status: 'queued' } });
   });
 
-  it('reloads the automation scheduler when automations are saved', async () => {
-    const handler = harness.handleMap.get('db:saveAll');
-    await handler({}, 'automations', [{ id: 'auto-1' }]);
+  it('loads and saves config records through explicit config handlers', async () => {
+    harness.agentConfigs.list.mockReturnValue([{ id: 'agent-1' }]);
+    harness.agentConfigs.upsert.mockReturnValue({ id: 'agent-2' });
+    harness.agentConfigs.remove.mockReturnValue([{ id: 'agent-2' }]);
+    harness.agentConfigs.saveAll.mockReturnValue([{ id: 'agent-1' }, { id: 'agent-2' }]);
+    harness.automationConfigs.list.mockReturnValue([{ id: 'auto-1' }]);
+    harness.automationConfigs.upsert.mockReturnValue({ id: 'auto-2' });
+    harness.automationConfigs.remove.mockReturnValue([{ id: 'auto-2' }]);
+    harness.automationConfigs.saveAll.mockReturnValue([{ id: 'auto-1' }, { id: 'auto-2' }]);
+
+    expect(await harness.handleMap.get('agentConfig:list')({})).toEqual([{ id: 'agent-1' }]);
+    expect(await harness.handleMap.get('agentConfig:upsert')({}, { id: 'agent-2' })).toEqual({
+      ok: true,
+      item: { id: 'agent-2' },
+    });
+    expect(await harness.handleMap.get('agentConfig:delete')({}, 'agent-1')).toEqual({
+      ok: true,
+      items: [{ id: 'agent-2' }],
+    });
+    expect(await harness.handleMap.get('agentConfig:saveAll')({}, [{ id: 'agent-1' }, { id: 'agent-2' }])).toEqual({
+      ok: true,
+      items: [{ id: 'agent-1' }, { id: 'agent-2' }],
+    });
+    expect(await harness.handleMap.get('automationConfig:list')({})).toEqual([{ id: 'auto-1' }]);
+    expect(await harness.handleMap.get('automationConfig:upsert')({}, { id: 'auto-2' })).toEqual({
+      ok: true,
+      item: { id: 'auto-2' },
+    });
+    expect(await harness.handleMap.get('automationConfig:delete')({}, 'auto-1')).toEqual({
+      ok: true,
+      items: [{ id: 'auto-2' }],
+    });
+    expect(await harness.handleMap.get('automationConfig:saveAll')({}, [{ id: 'auto-1' }, { id: 'auto-2' }])).toEqual({
+      ok: true,
+      items: [{ id: 'auto-1' }, { id: 'auto-2' }],
+    });
     expect(harness.automationScheduler.reload).toHaveBeenCalled();
+  });
+
+  it('loads and mutates thread, activity, and telegram records through explicit store handlers', async () => {
+    harness.threadStore.list.mockReturnValue([{ id: 'thread-1' }]);
+    harness.threadStore.upsert.mockReturnValue({ id: 'thread-2' });
+    harness.threadStore.remove.mockReturnValue([{ id: 'thread-2' }]);
+    harness.threadStore.saveAll.mockReturnValue([{ id: 'thread-1' }, { id: 'thread-2' }]);
+    harness.activityStore.listNotifications.mockReturnValue([{ id: 'notif-1' }]);
+    harness.activityStore.upsertNotification.mockReturnValue({ id: 'notif-1', read: true });
+    harness.activityStore.dismissNotification.mockReturnValue([]);
+    harness.activityStore.markAllNotificationsRead.mockReturnValue([{ id: 'notif-1', read: true }]);
+    harness.activityStore.saveNotifications.mockReturnValue([{ id: 'notif-1', read: true }]);
+    harness.activityStore.listEvents.mockReturnValue([{ id: 'event-1' }]);
+    harness.activityStore.upsertEvent.mockReturnValue({ id: 'event-2' });
+    harness.activityStore.saveEvents.mockReturnValue([{ id: 'event-1' }, { id: 'event-2' }]);
+    harness.telegramStore.listMessages.mockReturnValue([{ id: 'msg-1' }]);
+    harness.telegramStore.upsertMessage.mockReturnValue({ id: 'msg-2' });
+    harness.telegramStore.removeMessage.mockReturnValue([{ id: 'msg-2' }]);
+    harness.telegramStore.saveMessages.mockReturnValue([{ id: 'msg-1' }, { id: 'msg-2' }]);
+
+    expect(await harness.handleMap.get('thread:list')({})).toEqual([{ id: 'thread-1' }]);
+    expect(await harness.handleMap.get('thread:upsert')({}, { id: 'thread-2' })).toEqual({
+      ok: true,
+      item: { id: 'thread-2' },
+    });
+    expect(await harness.handleMap.get('thread:delete')({}, 'thread-1')).toEqual({
+      ok: true,
+      items: [{ id: 'thread-2' }],
+    });
+    expect(await harness.handleMap.get('thread:saveAll')({}, [{ id: 'thread-1' }, { id: 'thread-2' }])).toEqual({
+      ok: true,
+      items: [{ id: 'thread-1' }, { id: 'thread-2' }],
+    });
+    expect(await harness.handleMap.get('activity:listNotifications')({})).toEqual([{ id: 'notif-1' }]);
+    expect(await harness.handleMap.get('activity:upsertNotification')({}, { id: 'notif-1', read: true })).toEqual({
+      ok: true,
+      item: { id: 'notif-1', read: true },
+    });
+    expect(await harness.handleMap.get('activity:dismissNotification')({}, 'notif-1')).toEqual({
+      ok: true,
+      items: [],
+    });
+    expect(await harness.handleMap.get('activity:markAllNotificationsRead')({}, undefined)).toEqual({
+      ok: true,
+      items: [{ id: 'notif-1', read: true }],
+    });
+    expect(await harness.handleMap.get('activity:saveNotifications')({}, [{ id: 'notif-1', read: true }])).toEqual({
+      ok: true,
+      items: [{ id: 'notif-1', read: true }],
+    });
+    expect(await harness.handleMap.get('activity:listEvents')({})).toEqual([{ id: 'event-1' }]);
+    expect(await harness.handleMap.get('activity:upsertEvent')({}, { id: 'event-2' })).toEqual({
+      ok: true,
+      item: { id: 'event-2' },
+    });
+    expect(await harness.handleMap.get('activity:saveEvents')({}, [{ id: 'event-1' }, { id: 'event-2' }])).toEqual({
+      ok: true,
+      items: [{ id: 'event-1' }, { id: 'event-2' }],
+    });
+    expect(await harness.handleMap.get('telegramState:listMessages')({})).toEqual([{ id: 'msg-1' }]);
+    expect(await harness.handleMap.get('telegramState:upsertMessage')({}, { id: 'msg-2' })).toEqual({
+      ok: true,
+      item: { id: 'msg-2' },
+    });
+    expect(await harness.handleMap.get('telegramState:deleteMessage')({}, 'msg-1')).toEqual({
+      ok: true,
+      items: [{ id: 'msg-2' }],
+    });
+    expect(await harness.handleMap.get('telegramState:saveMessages')({}, [{ id: 'msg-1' }, { id: 'msg-2' }])).toEqual({
+      ok: true,
+      items: [{ id: 'msg-1' }, { id: 'msg-2' }],
+    });
+  });
+
+  it('loads recent runtime diagnostics through the diagnostics service', async () => {
+    harness.diagnostics.readRecentDiagnostics.mockReturnValue([
+      { ts: '2026-04-29T12:00:00.000Z', type: 'app:ready', level: 'info', detail: { packaged: false } },
+    ]);
+
+    expect(await harness.handleMap.get('diagnostics:list')({}, 25)).toEqual([
+      { ts: '2026-04-29T12:00:00.000Z', type: 'app:ready', level: 'info', detail: { packaged: false } },
+    ]);
+    expect(harness.diagnostics.readRecentDiagnostics).toHaveBeenCalledWith(25);
   });
 
   it('routes manual file operations through the shared tool layer', async () => {

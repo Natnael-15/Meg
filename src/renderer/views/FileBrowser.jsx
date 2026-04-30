@@ -22,6 +22,39 @@ const getParentPath = (fullPath) => {
 
 const joinPath = (base, child) => `${base.replace(/[\\/]+$/, '')}\\${child}`;
 
+const buildFileWorkflow = (item, mode, content) => {
+  const target = item?.path || item?.name || 'selected file';
+  if (mode === 'edit') {
+    return {
+      name: `file-edit-${item?.name || 'file'}`,
+      source: 'file-browser-action',
+      sourceId: `file:${target}:edit`,
+      workspacePath: getParentPath(target),
+      instruction: `Review the file at ${target} and propose concrete code changes. Focus on precise edits, risks, and implementation details.`,
+      steps: [
+        { type: 'read_files', label: 'Inspect the selected file content', target },
+        { type: 'write_output', label: 'Recommend concrete code changes for this file', target: item?.name || 'selected file' },
+      ],
+      previewContent: content || '',
+    };
+  }
+  if (mode === 'review') {
+    return {
+      name: `file-review-${item?.name || 'file'}`,
+      source: 'file-browser-action',
+      sourceId: `file:${target}:review`,
+      workspacePath: getParentPath(target),
+      instruction: `Explain what the file at ${target} does, identify important implementation details, and call out any obvious issues or follow-up questions.`,
+      steps: [
+        { type: 'read_files', label: 'Inspect the selected file content', target },
+        { type: 'write_output', label: 'Summarize file behavior and implementation details', target: item?.name || 'selected file' },
+      ],
+      previewContent: content || '',
+    };
+  }
+  return null;
+};
+
 const countTreeStats = (items) => items.reduce((totals, item) => {
   if (item.type === 'folder') {
     totals.folders += 1;
@@ -247,10 +280,36 @@ export const FileBrowser = () => {
                 <button onClick={() => setDialog({ type: 'delete' })} style={{padding:'4px 10px',borderRadius:5,border:'1px solid var(--border)',fontSize:11.5,color:'var(--red,#e05252)',display:'flex',alignItems:'center',gap:4,background:'var(--bg)',cursor:'pointer',transition:'border-color 0.12s'}} title="Delete" onMouseEnter={e=>e.currentTarget.style.borderColor='var(--red)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
                   <Icon name="trash" size={11} color="var(--red)"/> Delete
                 </button>
-                <button onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'sendToChat',text:`Edit this file (${selected.name}):\n\`\`\`${selected.ext||''}\n${preview||''}\n\`\`\`\nWhat changes should I make?`}}))} style={{padding:'4px 10px',borderRadius:5,border:'1px solid var(--border)',fontSize:11.5,color:'var(--text-2)',display:'flex',alignItems:'center',gap:4,background:'var(--bg)',cursor:'pointer',transition:'border-color 0.12s'}} onMouseEnter={e=>e.currentTarget.style.borderColor='var(--accent)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
+                <button onClick={() => {
+                  const workflow = buildFileWorkflow(selected, 'edit', preview || '');
+                  if (!workflow) return;
+                  window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'navigate', screen: 'agents' } }));
+                  window.dispatchEvent(new CustomEvent('meg:action', {
+                    detail: {
+                      action: 'spawnAgent',
+                      value: {
+                        ...workflow,
+                        workspace: rootPath ? { name: rootPath.split(/[\\/]/).pop(), path: rootPath } : null,
+                      },
+                    },
+                  }));
+                }} style={{padding:'4px 10px',borderRadius:5,border:'1px solid var(--border)',fontSize:11.5,color:'var(--text-2)',display:'flex',alignItems:'center',gap:4,background:'var(--bg)',cursor:'pointer',transition:'border-color 0.12s'}} onMouseEnter={e=>e.currentTarget.style.borderColor='var(--accent)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
                   <Icon name="build" size={11} color="var(--text-3)"/> Edit
                 </button>
-                <button onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'sendToChat',text:`Review this file and explain what it does:\n\`\`\`${selected?.ext||''}\n${preview}\n\`\`\``}}))} style={{padding:'4px 10px',borderRadius:5,border:'none',background:'var(--accent)',color:'#fff',fontSize:11.5,display:'flex',alignItems:'center',gap:4,cursor:'pointer'}}>
+                <button onClick={() => {
+                  const workflow = buildFileWorkflow(selected, 'review', preview || '');
+                  if (!workflow) return;
+                  window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'navigate', screen: 'agents' } }));
+                  window.dispatchEvent(new CustomEvent('meg:action', {
+                    detail: {
+                      action: 'spawnAgent',
+                      value: {
+                        ...workflow,
+                        workspace: rootPath ? { name: rootPath.split(/[\\/]/).pop(), path: rootPath } : null,
+                      },
+                    },
+                  }));
+                }} style={{padding:'4px 10px',borderRadius:5,border:'none',background:'var(--accent)',color:'#fff',fontSize:11.5,display:'flex',alignItems:'center',gap:4,cursor:'pointer'}}>
                   <Icon name="agent" size={11} color="#fff"/> Ask Meg
                 </button>
               </div>

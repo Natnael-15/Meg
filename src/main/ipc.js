@@ -12,6 +12,12 @@ const agentRunner = require('./agentRunner');
 const automationRunner = require('./automationRunner');
 const automationScheduler = require('./automationScheduler');
 const approvalQueue = require('./approvalQueue');
+const threadStore = require('./threadStore');
+const activityStore = require('./activityStore');
+const telegramStore = require('./telegramStore');
+const agentConfigs = require('./agentConfigs');
+const automationConfigs = require('./automationConfigs');
+const { readRecentDiagnostics } = require('./diagnostics');
 
 // Track active chat streams so we can abort them
 const activeStreams = new Map();
@@ -82,6 +88,17 @@ function setupIPC(win) {
   approvalQueue.events.on('change', forwardApprovalEvent);
 
   ipcMain.handle('approval:list', () => approvalQueue.list());
+  ipcMain.handle('approval:applyStaged', async (_, { id, path: filePath }) => {
+    try {
+      const approval = approvalQueue.get(id);
+      if (!approval) throw new Error(`Approval not found: ${id}`);
+      if (filePath) {
+        const content = approval.rawArgs?.content || approval.args?.content || '';
+        fs.writeFileSync(filePath, content, 'utf8');
+      }
+      return { ok: true };
+    } catch (e) { return { ok: false, error: e.message }; }
+  });
   ipcMain.handle('approval:deny', (_, id) => {
     try { return { ok: true, approval: approvalQueue.deny(id) }; }
     catch (e) { return { ok: false, error: e.message }; }
@@ -110,13 +127,50 @@ function setupIPC(win) {
     catch (e) { return { ok: false, error: e.message }; }
   });
 
-  // ── Persistent DB ─────────────────────────────────────────
+  // ── Persistent DB (legacy) ────────────────────────────────
   ipcMain.handle('db:load',    (_, table)        => db.load(table));
   ipcMain.handle('db:saveAll', (_, table, items) => {
     db.saveAll(table, items);
     if (table === 'automations') automationScheduler.reload();
     return true;
   });
+
+  // ── Threads ──────────────────────────────────────────────
+  ipcMain.handle('thread:list',    ()           => threadStore.list());
+  ipcMain.handle('thread:upsert',  (_, item)    => threadStore.upsert(item));
+  ipcMain.handle('thread:delete',  (_, id)      => threadStore.remove(id));
+  ipcMain.handle('thread:saveAll', (_, items)   => threadStore.saveAll(items));
+
+  // ── Activity ─────────────────────────────────────────────
+  ipcMain.handle('activity:listNotifications',     ()       => activityStore.listNotifications());
+  ipcMain.handle('activity:upsertNotification',    (_, item)=> activityStore.upsertNotification(item));
+  ipcMain.handle('activity:dismissNotification',   (_, id)  => activityStore.dismissNotification(id));
+  ipcMain.handle('activity:markAllNotificationsRead', ()    => activityStore.markAllNotificationsRead());
+  ipcMain.handle('activity:saveNotifications',     (_, items)=> activityStore.saveNotifications(items));
+  ipcMain.handle('activity:listEvents',            ()       => activityStore.listEvents());
+  ipcMain.handle('activity:upsertEvent',           (_, item)=> activityStore.upsertEvent(item));
+  ipcMain.handle('activity:saveEvents',            (_, items)=> activityStore.saveEvents(items));
+
+  // ── Telegram state ───────────────────────────────────────
+  ipcMain.handle('telegramState:listMessages',  ()        => telegramStore.listMessages());
+  ipcMain.handle('telegramState:upsertMessage', (_, item) => telegramStore.upsertMessage(item));
+  ipcMain.handle('telegramState:deleteMessage', (_, id)   => telegramStore.removeMessage(id));
+  ipcMain.handle('telegramState:saveMessages',  (_, items)=> telegramStore.saveMessages(items));
+
+  // ── Agent configs ────────────────────────────────────────
+  ipcMain.handle('agentConfig:list',    ()         => agentConfigs.list());
+  ipcMain.handle('agentConfig:upsert',  (_, item)  => agentConfigs.upsert(item));
+  ipcMain.handle('agentConfig:delete',  (_, id)    => agentConfigs.remove(id));
+  ipcMain.handle('agentConfig:saveAll', (_, items) => agentConfigs.saveAll(items));
+
+  // ── Automation configs ────────────────────────────────────
+  ipcMain.handle('automationConfig:list',    ()         => automationConfigs.list());
+  ipcMain.handle('automationConfig:upsert',  (_, item)  => automationConfigs.upsert(item));
+  ipcMain.handle('automationConfig:delete',  (_, id)    => automationConfigs.remove(id));
+  ipcMain.handle('automationConfig:saveAll', (_, items) => { automationConfigs.saveAll(items); automationScheduler.reload(); return true; });
+
+  // ── Runtime diagnostics ─────────────────────────────────
+  ipcMain.handle('diagnostics:list', (_, limit) => readRecentDiagnostics(limit || 100));
 
   // ── Settings ──────────────────────────────────────────────
   ipcMain.handle('settings:load', () => settings.load());

@@ -269,6 +269,8 @@ function assertToolPermission(name, context = {}) {
   if (context.bypassPermissions) return;
   if (context.approvalId) return;
   const p = getToolPermissions();
+  // 'bypass' approvalMode skips all permission checks
+  if (p.approvalMode === 'bypass') return;
   const checks = {
     run_command: ['runCommands', 'requireApprovalForCommands', 'Command execution is disabled in Settings > Tool Permissions.', 'Command execution requires approval.'],
     write_file: ['writeFiles', 'requireApprovalForWrites', 'File writes are disabled in Settings > Tool Permissions.', 'File write requires approval.'],
@@ -285,6 +287,12 @@ function assertToolPermission(name, context = {}) {
   const check = checks[name];
   if (!check) return;
   const [allowKey, approvalKey, deniedMessage, approvalMessage] = check;
+  // 'auto' approvalMode: tools are allowed if enabled, no approval gate
+  if (p.approvalMode === 'auto') {
+    if (p[allowKey] === false) throw new Error(deniedMessage);
+    return;
+  }
+  // 'manual' mode (default): check enabled + approval gates
   if (p[allowKey] === false) throw new Error(deniedMessage);
   if (context.skipApproval) return;
   if (approvalKey && p[approvalKey] !== false) {

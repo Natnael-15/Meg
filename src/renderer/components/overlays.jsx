@@ -1,7 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons.jsx';
 import { Toggle } from './primitives.jsx';
 import { formatRelativeTime } from '../lib/time.js';
+
+const buildDiffLines = (originalText = '', nextText = '') => {
+  const originalLines = String(originalText).split('\n');
+  const nextLines = String(nextText).split('\n');
+  const max = Math.max(originalLines.length, nextLines.length);
+  const lines = [];
+  for (let index = 0; index < max; index += 1) {
+    const before = originalLines[index];
+    const after = nextLines[index];
+    if (before === after) {
+      if (before !== undefined) {
+        lines.push({ type: 'context', text: before, line: index + 1 });
+      }
+      continue;
+    }
+    if (before !== undefined) {
+      lines.push({ type: 'remove', text: before, line: index + 1 });
+    }
+    if (after !== undefined) {
+      lines.push({ type: 'add', text: after, line: index + 1 });
+    }
+  }
+  return lines;
+};
 
 export const NotifPanel = ({notifs, onClose, onMarkAllRead, onDismiss}) => (
   <div style={{position:'absolute',top:50,right:16,width:300,background:'var(--bg-2)',borderRadius:10,border:'1px solid var(--border)',boxShadow:`0 12px 36px var(--shadow-lg)`,zIndex:200,overflow:'hidden',animation:'slideDown 0.18s ease'}}>
@@ -45,7 +69,7 @@ export const QuickCapture = ({onClose, onSend, recentItems = []}) => {
         <div style={{background:'var(--bg-2)',borderRadius:14,border:'1px solid var(--border)',boxShadow:`0 32px 80px var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.05)`,overflow:'hidden'}}>
           <div style={{display:'flex',alignItems:'center',gap:10,padding:'14px 18px',borderBottom:'1px solid var(--border-light)'}}>
             <div style={{width:28,height:28,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <span style={{fontSize:13,color:'#fff',fontWeight:800,letterSpacing:'-0.03em'}}>M</span>
+              <Icon name="logo" size={14} color="#fff"/>
             </div>
             <input value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey)submit(val);if(e.key==='Escape')onClose();}} placeholder="Ask Meg anything, or drop a task…" style={{flex:1,border:'none',outline:'none',fontSize:15,color:'var(--text)',background:'none',fontFamily:'inherit'}} autoFocus/>
             <kbd style={{fontSize:10,color:'var(--text-3)',background:'var(--bg-active)',padding:'2px 6px',borderRadius:4,border:'1px solid var(--border)',flexShrink:0}}>Esc</kbd>
@@ -98,7 +122,7 @@ export const TrayFlyout = ({notifs, approvals, onApprove, onDeny, onClose, onMar
       <div style={{padding:'12px 16px 10px',borderBottom:'1px solid var(--border-light)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{width:20,height:20,borderRadius:6,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            <span style={{fontSize:10,color:'#fff',fontWeight:800}}>M</span>
+            <Icon name="logo" size={12} color="#fff"/>
           </div>
           <span style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Meg</span>
           {unread.length>0 && <span style={{fontSize:10.5,background:'var(--orange)',color:'#fff',padding:'1px 6px',borderRadius:99,fontWeight:600}}>{unread.length} new</span>}
@@ -248,49 +272,73 @@ export const ContextPanel = ({thread, onAddFiles, onToggleTool}) => {
   );
 };
 
-export const SplitPane = ({activeFile, activeWorkspace}) => {
+export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], onTerminalHistoryChange}) => {
   const [tab,setTab] = useState('code');
-  const [termLines,setTermLines] = useState([]);
   const [termInput,setTermInput] = useState('');
+  const [saveState, setSaveState] = useState(null);
+  const [codeViewMode, setCodeViewMode] = useState('edit');
+  const lastFilePathRef = useRef(null);
+  const appendTerminalEntry = (entry) => {
+    onTerminalHistoryChange?.((current = []) => [...current, entry].slice(-200));
+  };
   const runCmd = async () => {
     const cmd = termInput.trim();
     if(!cmd) return;
-    setTermLines(l=>[...l,{type:'cmd',text:'$ '+cmd}]);
+    appendTerminalEntry({ id:`term-cmd-${Date.now()}`, type:'cmd', text:'$ '+cmd, command:cmd, cwd:activeWorkspace?.path || null, createdAt:new Date().toISOString() });
     setTermInput('');
     if(window.electronAPI) {
       const r = await window.electronAPI.execCommand(cmd, activeWorkspace?.path);
       const out = (r.stdout||'')+(r.stderr?'\n'+r.stderr:'');
-      setTermLines(l=>[...l,{type:r.exitCode===0?'out':'err',text:out||'(no output)'}]);
+      appendTerminalEntry({ id:`term-out-${Date.now()}`, type:r.exitCode===0?'out':'err', text:out||'(no output)', command:cmd, cwd:activeWorkspace?.path || null, exitCode:r.exitCode, createdAt:new Date().toISOString() });
       window.dispatchEvent(new CustomEvent('meg:action', {
         detail: {
           action: 'addEvent',
-          value: { type: 'agent', icon: 'terminal', color: r.exitCode===0?'var(--green)':'var(--red)', title: `Ran: ${cmd}`, detail: r.exitCode===0?'Command finished':'Command failed', ws: activeWorkspace?.name || 'Local' }
+          value: { type: 'agent', icon: 'terminal', color: r.exitCode===0?'var(--green)':'var(--red)', title: `Ran: ${cmd}`, detail: r.exitCode===0 ? `Command finished in ${activeWorkspace?.path || 'current shell'}` : `Command failed with exit code ${r.exitCode ?? 'unknown'}`, ws: activeWorkspace?.name || activeFile?.path || 'Local' }
         }
       }));
     } else {
-      setTermLines(l=>[...l,{type:'out',text:'(terminal only available in Electron)'}]);
+      appendTerminalEntry({ id:`term-preview-${Date.now()}`, type:'out', text:'(terminal only available in Electron)', command:cmd, cwd:activeWorkspace?.path || null, createdAt:new Date().toISOString() });
     }
   };
   const [isEditing, setIsEditing] = useState(false);
   const [editedCode, setEditedCode] = useState('');
 
   useEffect(() => {
-    setEditedCode(activeFile?.content || '');
-    setIsEditing(false);
+    const nextPath = activeFile?.path || null;
+    const draftContent = typeof activeFile?.draftContent === 'string' ? activeFile.draftContent : null;
+    const hasDraft = draftContent !== null && draftContent !== (activeFile?.content || '');
+    setEditedCode(hasDraft ? draftContent : (activeFile?.content || ''));
+    setIsEditing(hasDraft);
+    setCodeViewMode(hasDraft ? 'diff' : 'edit');
+    if (lastFilePathRef.current !== nextPath) {
+      setSaveState(null);
+    }
+    lastFilePathRef.current = nextPath;
   }, [activeFile]);
 
   const save = async () => {
     if (!activeFile) return;
     const r = await window.electronAPI?.writeFile(activeFile.path, editedCode);
     if (r?.ok) {
+      if (activeFile.approvalId) {
+        await window.electronAPI?.applyStagedApproval?.(activeFile.approvalId, activeFile.path);
+      }
       setIsEditing(false);
-      window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'openFile', value: { ...activeFile, content: editedCode } } }));
-      window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'addEvent', value: { type: 'file', icon: 'save', color: 'var(--green)', title: `Saved: ${activeFile.name}`, detail: 'Manual edit saved to disk', ws: 'Local' } } }));
+      setCodeViewMode('edit');
+      setSaveState({ type: 'success', message: `Saved ${activeFile.name}`, path: activeFile.path, at: new Date().toISOString() });
+      const { draftContent, approvalId, ...nextFile } = activeFile;
+      window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'openFile', value: { ...nextFile, content: editedCode } } }));
+      window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'addEvent', value: { type: 'file', icon: 'save', color: 'var(--green)', title: `Saved: ${activeFile.name}`, detail: `Manual edit saved to ${activeFile.path}`, ws: activeWorkspace?.name || activeFile.path } } }));
+    } else {
+      setSaveState({ type: 'error', message: r?.error || 'Could not save this file.', path: activeFile.path, at: new Date().toISOString() });
     }
   };
 
   const displayCode = activeFile?.content || '';
   const fileName = activeFile?.name || 'No file';
+  const diffLines = buildDiffLines(displayCode, editedCode);
+  const changedLines = diffLines.filter((line) => line.type !== 'context').length;
+  const hasUnsavedChanges = isEditing && editedCode !== displayCode;
 
   return (
     <div style={{width:360,display:'flex',flexDirection:'column',background:'var(--code-bg)',borderLeft:'1px solid var(--border)',flexShrink:0}}>
@@ -305,7 +353,26 @@ export const SplitPane = ({activeFile, activeWorkspace}) => {
         <div style={{padding:'0 10px',display:'flex',alignItems:'center',gap:8}}>
           {tab==='code' && activeFile && (
             isEditing ? (
-              <button onClick={save} style={{padding:'2px 8px',borderRadius:4,background:'var(--green)',color:'#fff',fontSize:10.5,border:'none',cursor:'pointer',fontWeight:600}}>Save</button>
+              <>
+                <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 7px',borderRadius:4,background:'rgba(255,255,255,0.05)',color:hasUnsavedChanges?'var(--orange)':'#777',fontSize:10.5,fontFamily:'"JetBrains Mono",monospace'}}>
+                  {hasUnsavedChanges ? `Unsaved changes: ${changedLines}` : 'No changes'}
+                </div>
+                <div style={{display:'flex',border:'1px solid var(--code-border)',borderRadius:4,overflow:'hidden'}}>
+                  {[
+                    { id: 'edit', label: 'Edit' },
+                    { id: 'diff', label: 'Diff' },
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      onClick={() => setCodeViewMode(mode.id)}
+                      style={{padding:'2px 8px',border:'none',background:codeViewMode===mode.id?'rgba(255,255,255,0.12)':'transparent',color:codeViewMode===mode.id?'#fff':'#777',fontSize:10.5,cursor:'pointer'}}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={save} style={{padding:'2px 8px',borderRadius:4,background:'var(--green)',color:'#fff',fontSize:10.5,border:'none',cursor:'pointer',fontWeight:600}}>Save</button>
+              </>
             ) : (
               <button onClick={()=>setIsEditing(true)} style={{padding:'2px 8px',borderRadius:4,background:'var(--bg-active)',color:'var(--text-2)',fontSize:10.5,border:'1px solid var(--border)',cursor:'pointer'}}>Edit</button>
             )
@@ -315,8 +382,30 @@ export const SplitPane = ({activeFile, activeWorkspace}) => {
       </div>
       {tab==='code'?(
         <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',background:'var(--code-bg)'}}>
-          {isEditing ? (
+          {saveState && <div style={{padding:'8px 12px',borderBottom:'1px solid var(--code-border)',fontSize:11.5,color:saveState.type==='success'?'var(--green)':'var(--red)',background:'rgba(255,255,255,0.03)'}}>{saveState.message}</div>}
+          {isEditing && codeViewMode === 'edit' ? (
             <textarea value={editedCode} onChange={e=>setEditedCode(e.target.value)} style={{flex:1,width:'100%',background:'none',border:'none',outline:'none',padding:'12px 16px',color:'var(--code-text)',fontFamily:'"JetBrains Mono",monospace',fontSize:11,lineHeight:1.7,resize:'none'}}/>
+          ) : isEditing && codeViewMode === 'diff' ? (
+            <div style={{flex:1,overflowY:'auto',padding:'12px 16px'}}>
+              {hasUnsavedChanges ? (
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  {diffLines.map((line, index) => (
+                    <div key={`${line.type}-${line.line}-${index}`} style={{display:'grid',gridTemplateColumns:'44px 14px 1fr',gap:8,fontFamily:'"JetBrains Mono",monospace',fontSize:11,lineHeight:1.7,color:line.type==='add'?'var(--green)':line.type==='remove'?'var(--red)':'var(--code-text)',background:line.type==='add'?'rgba(26,158,92,0.08)':line.type==='remove'?'rgba(224,82,82,0.08)':'transparent',borderRadius:4,padding:'1px 6px'}}>
+                      <span style={{color:'#666'}}>{line.line}</span>
+                      <span>{line.type==='add' ? '+' : line.type==='remove' ? '-' : ' '}</span>
+                      <span style={{whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{line.text}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',textAlign:'center'}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No unsaved changes</div>
+                    <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:6,lineHeight:1.5}}>Edit the file to preview a line-by-line diff before saving.</div>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             displayCode ? (
               <div style={{flex:1,overflowY:'auto',padding:'12px 16px'}}>
@@ -340,14 +429,14 @@ export const SplitPane = ({activeFile, activeWorkspace}) => {
       ):(
         <div style={{flex:1,display:'flex',flexDirection:'column'}}>
           <div style={{flex:1,overflowY:'auto',padding:'12px 14px',display:'flex',flexDirection:'column',gap:3}}>
-            {termLines.length === 0 ? (
+            {terminalHistory.length === 0 ? (
               <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
                 <div>
                   <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No terminal history</div>
                   <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:6,lineHeight:1.5}}>Run a command to start a terminal session for this workspace.</div>
                 </div>
               </div>
-            ) : termLines.map((l,i)=><div key={i} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,lineHeight:1.6,color:l.type==='cmd'?'var(--code-green)':'var(--code-text)',whiteSpace:'pre'}}>{l.text}</div>)}
+            ) : terminalHistory.map((l,i)=><div key={l.id || i} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,lineHeight:1.6,color:l.type==='cmd'?'var(--code-green)':l.type==='err'?'var(--red)':'var(--code-text)',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{l.text}</div>)}
           </div>
           <div style={{padding:'8px 12px',borderTop:'1px solid var(--code-border)',display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
             <span style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,color:'var(--code-green)',flexShrink:0}}>$</span>
