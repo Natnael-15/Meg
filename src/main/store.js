@@ -207,6 +207,16 @@ function collectionList(collection) {
   return Object.values(items);
 }
 
+function collectionGet(collection, id, fallbackValue = null) {
+  if (!id) return fallbackValue;
+  if (initSqlite()) {
+    const row = db.prepare('SELECT value FROM kv_collections WHERE collection = ? AND id = ?').get(collection, id);
+    return row ? parseValue(row.value, fallbackValue) : fallbackValue;
+  }
+  const items = loadFallback().collections[collection] || {};
+  return Object.prototype.hasOwnProperty.call(items, id) ? items[id] : fallbackValue;
+}
+
 function collectionReplaceAll(collection, items, idSelector = defaultIdSelector) {
   const safeItems = Array.isArray(items) ? items : [];
   if (initSqlite()) {
@@ -346,6 +356,7 @@ module.exports = {
   getLegacyMigrationState,
   markLegacyMigration,
   collectionList,
+  collectionGet,
   collectionReplaceAll,
   collectionCount,
   collectionUpsert,

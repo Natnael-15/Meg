@@ -1,6 +1,9 @@
-const db = require('./db');
+const automationConfigs = require('./automationConfigs');
 const automationRunner = require('./automationRunner');
+const agentRunner = require('./agentRunner');
 const workspace = require('./workspace');
+const settings = require('./settings');
+const telegram = require('./telegram');
 const { getHeadSnapshot } = require('./git');
 
 const CHECK_INTERVAL_MS = 30 * 1000;
@@ -119,7 +122,7 @@ function shouldTriggerTelegram(automation, message = {}) {
 }
 
 function listAutomations() {
-  return db.load('automations').map(normalizeAutomation);
+  return automationConfigs.list().map(normalizeAutomation);
 }
 
 function triggerAutomation(automation, context = {}) {
@@ -150,7 +153,22 @@ async function tick(date = new Date()) {
   return triggered;
 }
 
-function handleTelegramMessage(message) {
+async function handleTelegramMessage(message) {
+  const text = String(message.text || '').trim();
+  const chatId = message.chat?.id;
+
+  if (text.startsWith('/')) {
+    const [cmd, ...args] = text.split(/\s+/);
+    if (cmd === '/status') {
+      await sendStatusReport(chatId);
+      return [];
+    }
+    if (cmd === '/run') {
+      await runAutomationByName(chatId, args.join(' '));
+      return [];
+    }
+  }
+
   const automations = listAutomations();
   const triggered = [];
   for (const automation of automations) {
@@ -160,6 +178,58 @@ function handleTelegramMessage(message) {
     }
   }
   return triggered;
+}
+
+async function sendStatusReport(chatId) {
+  const token = settings.get('telegramToken');
+  if (!token || !chatId) return;
+  const bot = telegram.getBot(token);
+  if (!bot) return;
+
+  const agents = agentRunner.listRuns().filter((r) => r.status === 'running');
+  const autos = automationRunner.listRuns().filter((r) => r.status === 'running');
+
+  let report = '<b>✦ Meg System Status</b>\n\n';
+  if (agents.length === 0 && autos.length === 0) {
+    report += 'System is currently idle. No active background tasks.';
+  } else {
+    if (agents.length > 0) {
+      report += `<b>Active Agents (${agents.length}):</b>\n`;
+      agents.forEach((a) => {
+        report += `• ${a.name} (ID: ${a.id.slice(-6)})\n`;
+      });
+      report += '\n';
+    }
+    if (autos.length > 0) {
+      report += `<b>Active Automations (${autos.length}):</b>\n`;
+      autos.forEach((a) => {
+        report += `• ${a.name} (ID: ${a.id.slice(-6)})\n`;
+      });
+    }
+  }
+
+  await bot.sendMessage(chatId, report).catch(() => {});
+}
+
+async function runAutomationByName(chatId, name) {
+  const token = settings.get('telegramToken');
+  if (!token || !chatId) return;
+  const bot = telegram.getBot(token);
+  if (!bot) return;
+
+  if (!name) {
+    await bot.sendMessage(chatId, 'Please specify an automation name. Usage: <code>/run [name]</code>').catch(() => {});
+    return;
+  }
+
+  const configs = listAutomations();
+  const found = configs.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  if (found) {
+    triggerAutomation(found, { trigger: { type: 'telegram', detail: 'Remote /run command from Telegram' } });
+    await bot.sendMessage(chatId, `🚀 Starting automation: <b>${found.name}</b>`).catch(() => {});
+  } else {
+    await bot.sendMessage(chatId, `❌ Could not find automation named "<b>${name}</b>"`).catch(() => {});
+  }
 }
 
 function start() {
