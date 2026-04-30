@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onToolCall(cb)   { ipcRenderer.on('chat:tool_call',   (_, d) => cb(d)); },
   onToolResult(cb) { ipcRenderer.on('chat:tool_result', (_, d) => cb(d)); },
   onResume(cb)     { ipcRenderer.on('chat:resume',      (_, d) => cb(d)); },
+  onThinking(cb)   { ipcRenderer.on('chat:thinking',    (_, d) => cb(d)); },
   
   removeListeners(...channels) {
     channels.forEach(ch => ipcRenderer.removeAllListeners(ch));

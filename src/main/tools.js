@@ -12,12 +12,12 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'run_command',
-      description: 'Execute a non-destructive shell command and return stdout, stderr, and exit code.',
+      description: 'Execute a PowerShell command on the user\'s Windows machine. Returns stdout, stderr, and exit code. IMPORTANT: Use PowerShell syntax only — # for comments, Set-Content/Out-File for writing, Get-Content for reading, Test-Path for existence checks. NEVER use Unix commands (ls, cat, touch, mkdir -p, grep). Use this to run scripts, install packages, compile code, run tests, or check system state. Always check stderr and exitCode in the result.',
       parameters: {
         type: 'object',
         properties: {
-          command: { type: 'string', description: 'The shell command to run' },
-          cwd: { type: 'string', description: 'Working directory. Defaults to the app directory.' },
+          command: { type: 'string', description: 'The PowerShell command to execute. Use proper PowerShell syntax.' },
+          cwd: { type: 'string', description: 'Working directory for the command. Defaults to the active workspace path.' },
         },
         required: ['command'],
       },
@@ -27,10 +27,10 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'read_file',
-      description: 'Read a UTF-8 text file from disk.',
+      description: 'Read the full contents of a text file (UTF-8). Use this to inspect file content, verify what was written, check configuration, or understand existing code. Returns the file content as a string. Fails if the file does not exist — use list_directory first if unsure whether the file exists.',
       parameters: {
         type: 'object',
-        properties: { path: { type: 'string', description: 'Absolute or relative file path' } },
+        properties: { path: { type: 'string', description: 'File path, absolute or relative to the active workspace.' } },
         required: ['path'],
       },
     },
@@ -39,12 +39,12 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'write_file',
-      description: 'Write or overwrite a file under an allowed workspace path.',
+      description: 'Create or overwrite a file with the given content. The parent directory is created automatically if needed. CRITICAL: After calling write_file, you MUST call list_directory on the parent folder to verify the file actually exists. Never tell the user "I created X" without confirming via list_directory. The content parameter should contain the complete file content.',
       parameters: {
         type: 'object',
         properties: {
-          path: { type: 'string' },
-          content: { type: 'string' },
+          path: { type: 'string', description: 'File path, absolute or relative to the active workspace.' },
+          content: { type: 'string', description: 'The full file content to write. Must be a complete, valid file — not a snippet or partial content.' },
         },
         required: ['path', 'content'],
       },
@@ -54,12 +54,12 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'rename_path',
-      description: 'Rename or move a file or directory under an allowed workspace path.',
+      description: 'Rename or move a file or directory. Both paths must be within allowed workspace boundaries.',
       parameters: {
         type: 'object',
         properties: {
-          oldPath: { type: 'string' },
-          newPath: { type: 'string' },
+          oldPath: { type: 'string', description: 'Current path of the file or directory.' },
+          newPath: { type: 'string', description: 'New path (can be in a different directory to move it).' },
         },
         required: ['oldPath', 'newPath'],
       },
@@ -69,11 +69,11 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'delete_path',
-      description: 'Delete a file or directory under an allowed workspace path.',
+      description: 'Permanently delete a file or directory (directories are deleted recursively). Use with caution — this cannot be undone.',
       parameters: {
         type: 'object',
         properties: {
-          path: { type: 'string' },
+          path: { type: 'string', description: 'Path to the file or directory to delete.' },
         },
         required: ['path'],
       },
@@ -83,11 +83,11 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'make_directory',
-      description: 'Create a directory under an allowed workspace path.',
+      description: 'Create a directory (and any missing parent directories). Use this before write_file if you need to create a project structure. Safe to call on directories that already exist.',
       parameters: {
         type: 'object',
         properties: {
-          path: { type: 'string' },
+          path: { type: 'string', description: 'Path of the directory to create.' },
         },
         required: ['path'],
       },
@@ -97,10 +97,10 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'list_directory',
-      description: 'List files and subdirectories in a directory.',
+      description: 'List all files and subdirectories in a directory. Returns each entry with name, type (file/dir), and extension. Use this to: (1) verify files exist after write_file, (2) explore project structure, (3) check what files are in a folder before operating on them. This is your primary tool for confirming the filesystem state.',
       parameters: {
         type: 'object',
-        properties: { path: { type: 'string' } },
+        properties: { path: { type: 'string', description: 'Path to the directory to list.' } },
         required: ['path'],
       },
     },
@@ -109,12 +109,12 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'search_files',
-      description: 'Search for text in files under a directory. Skips common generated folders.',
+      description: 'Search for a text pattern (string or regex) across all files in a directory tree. Skips node_modules, .git, dist, build, and other generated folders. Returns matching lines with file paths and line numbers. Use this to find where functions are defined, locate configuration values, or find all usages of a variable.',
       parameters: {
         type: 'object',
         properties: {
-          path: { type: 'string', description: 'Directory to search in' },
-          pattern: { type: 'string', description: 'Text or regular expression to search for' },
+          path: { type: 'string', description: 'Root directory to search in.' },
+          pattern: { type: 'string', description: 'Text or regex pattern to search for (case-insensitive).' },
         },
         required: ['path', 'pattern'],
       },
@@ -124,11 +124,11 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Fetch instant-answer web results for a query using DuckDuckGo. This is not a full browser search.',
+      description: 'Get instant answers from the web via DuckDuckGo. Best for factual lookups, API documentation, syntax references, and error message solutions. Returns short text answers, not full web pages. Use specific, targeted queries for best results.',
       parameters: {
         type: 'object',
         properties: {
-          query: { type: 'string', description: 'The search query' },
+          query: { type: 'string', description: 'Search query — be specific for better results.' },
         },
         required: ['query'],
       },
@@ -138,11 +138,11 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'send_telegram',
-      description: 'Send a message to the user via Telegram.',
+      description: 'Send a notification message to the user via their connected Telegram account. Use for important updates or when the user asks to be notified.',
       parameters: {
         type: 'object',
         properties: {
-          text: { type: 'string', description: 'The message text to send' },
+          text: { type: 'string', description: 'The message text to send.' },
         },
         required: ['text'],
       },
@@ -152,12 +152,12 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'spawn_subagent',
-      description: 'Create a background task record for a specialized sub-agent.',
+      description: 'Create a background task for parallel work. The sub-agent runs independently. Only use this for genuinely parallel tasks — do NOT use it for sequential steps. For normal step-by-step work, just use tools directly.',
       parameters: {
         type: 'object',
         properties: {
-          name: { type: 'string', description: 'Descriptive name for the sub-agent' },
-          instruction: { type: 'string', description: 'The specific goal and context for the sub-agent' },
+          name: { type: 'string', description: 'Short name describing the task.' },
+          instruction: { type: 'string', description: 'Detailed instructions for what the sub-agent should accomplish.' },
         },
         required: ['name', 'instruction'],
       },
@@ -498,7 +498,12 @@ function sanitizeArgs(args = {}) {
 
 function summarizeToolResult(result, args = {}) {
   if (result?.status === 'spawned') return result;
-  if (result?.ok) return { ok: true, path: result.path || args.path || args.command };
+  if (result?.error) return result;
+  if (result?.entries) return { ok: true, entries: result.entries.map(e => `${e.type === 'dir' ? '[DIR]' : '[FILE]'} ${e.name}`).join(', ') };
+  if (result?.content != null) return { ok: true, content: result.content };
+  if (result?.results != null) return { ok: true, results: result.results };
+  if (result?.stdout != null) return { ok: true, stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+  if (result?.ok) return { ok: true, path: result.path || args.path };
   return result;
 }
 

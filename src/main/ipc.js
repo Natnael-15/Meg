@@ -152,10 +152,12 @@ function setupIPC(win) {
     activeStreams.set(threadId, ctrl);
     try {
       const lmUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
-      for await (const item of streamChat(messages, threadId, model, thinking, lmUrl)) {
+      for await (const item of streamChat(messages, threadId, model, thinking, lmUrl, { ctrl })) {
         if (ctrl.cancelled) break;
         if (item.type === 'text') {
           win.webContents.send('chat:chunk', { chunk: item.content, threadId });
+        } else if (item.type === 'thinking') {
+          win.webContents.send('chat:thinking', { chunk: item.content, threadId });
         } else if (item.type === 'tool_call') {
           win.webContents.send('chat:tool_call', { id: item.id, name: item.name, args: item.args, threadId });
         } else if (item.type === 'tool_result') {
