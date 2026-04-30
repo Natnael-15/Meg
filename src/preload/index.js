@@ -2,8 +2,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
   // ── Chat ──────────────────────────────────────────────────
-  sendChat(messages, threadId, model, thinking) {
-    ipcRenderer.send('chat:send', { messages, threadId, model, thinking });
+  sendChat(messages, threadId, model, thinking, tools) {
+    ipcRenderer.send('chat:send', { messages, threadId, model, thinking, tools });
   },
   abortChat(threadId) {
     ipcRenderer.send('chat:abort', { threadId });
@@ -13,16 +13,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onError(cb)      { ipcRenderer.on('chat:error',       (_, d) => cb(d)); },
   onToolCall(cb)   { ipcRenderer.on('chat:tool_call',   (_, d) => cb(d)); },
   onToolResult(cb) { ipcRenderer.on('chat:tool_result', (_, d) => cb(d)); },
+  onWaitingApproval(cb) { ipcRenderer.on('chat:waiting_approval', (_, d) => cb(d)); },
   onResume(cb)     { ipcRenderer.on('chat:resume',      (_, d) => cb(d)); },
   onThinking(cb)   { ipcRenderer.on('chat:thinking',    (_, d) => cb(d)); },
   
   removeListeners(...channels) {
     channels.forEach(ch => ipcRenderer.removeAllListeners(ch));
   },
-
-  // ── Persistent DB ─────────────────────────────────────────
-  dbLoad:    table        => ipcRenderer.invoke('db:load', table),
-  dbSaveAll: (table, items) => ipcRenderer.invoke('db:saveAll', table, items),
 
   // ── Models ────────────────────────────────────────────────
   getModels()  { return ipcRenderer.invoke('models:list'); },
@@ -45,6 +42,42 @@ contextBridge.exposeInMainWorld('electronAPI', {
   searchWorkspaceFiles(workspaceId, query, limit) { return ipcRenderer.invoke('workspace:searchFiles', { workspaceId, query, limit }); },
   setActiveWorkspace(idOrWorkspace) { return ipcRenderer.invoke('workspace:setActive', idOrWorkspace); },
 
+  // ── Threads ──────────────────────────────────────────────
+  listThreads()         { return ipcRenderer.invoke('thread:list'); },
+  upsertThread(item)    { return ipcRenderer.invoke('thread:upsert', item); },
+  deleteThread(id)      { return ipcRenderer.invoke('thread:delete', id); },
+  saveThreads(items)    { return ipcRenderer.invoke('thread:saveAll', items); },
+
+  // ── Activity ─────────────────────────────────────────────
+  listNotifications()   { return ipcRenderer.invoke('activity:listNotifications'); },
+  upsertNotification(item) { return ipcRenderer.invoke('activity:upsertNotification', item); },
+  dismissNotification(id) { return ipcRenderer.invoke('activity:dismissNotification', id); },
+  markAllNotificationsRead() { return ipcRenderer.invoke('activity:markAllNotificationsRead'); },
+  saveNotifications(items) { return ipcRenderer.invoke('activity:saveNotifications', items); },
+  listEvents()          { return ipcRenderer.invoke('activity:listEvents'); },
+  upsertEvent(item)     { return ipcRenderer.invoke('activity:upsertEvent', item); },
+  saveEvents(items)     { return ipcRenderer.invoke('activity:saveEvents', items); },
+
+  // ── Telegram state ───────────────────────────────────────
+  listTelegramMessages() { return ipcRenderer.invoke('telegramState:listMessages'); },
+  upsertTelegramMessage(item) { return ipcRenderer.invoke('telegramState:upsertMessage', item); },
+  deleteTelegramMessage(id) { return ipcRenderer.invoke('telegramState:deleteMessage', id); },
+  saveTelegramMessages(items) { return ipcRenderer.invoke('telegramState:saveMessages', items); },
+
+  // ── Runtime diagnostics ─────────────────────────────────
+  listRuntimeDiagnostics(limit) { return ipcRenderer.invoke('diagnostics:list', limit); },
+  onRuntimeDiagnostic(cb) {
+    const handler = (_, d) => cb(d);
+    ipcRenderer.on('runtime:diagnostic', handler);
+    return () => ipcRenderer.removeListener('runtime:diagnostic', handler);
+  },
+
+  // ── Agent configs ────────────────────────────────────────
+  listAgentConfigs()    { return ipcRenderer.invoke('agentConfig:list'); },
+  upsertAgentConfig(item) { return ipcRenderer.invoke('agentConfig:upsert', item); },
+  deleteAgentConfig(id) { return ipcRenderer.invoke('agentConfig:delete', id); },
+  saveAgentConfigs(items) { return ipcRenderer.invoke('agentConfig:saveAll', items); },
+
   // ── Agents ────────────────────────────────────────────────
   listAgentRuns()       { return ipcRenderer.invoke('agent:list'); },
   createAgentRun(data)  { return ipcRenderer.invoke('agent:create', data); },
@@ -56,6 +89,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // ── Automations ──────────────────────────────────────────
+  listAutomationConfigs()   { return ipcRenderer.invoke('automationConfig:list'); },
+  upsertAutomationConfig(item) { return ipcRenderer.invoke('automationConfig:upsert', item); },
+  deleteAutomationConfig(id) { return ipcRenderer.invoke('automationConfig:delete', id); },
+  saveAutomationConfigs(items) { return ipcRenderer.invoke('automationConfig:saveAll', items); },
   listAutomationRuns()      { return ipcRenderer.invoke('automation:listRuns'); },
   createAutomationRun(data) { return ipcRenderer.invoke('automation:createRun', data); },
   cancelAutomationRun(id)   { return ipcRenderer.invoke('automation:cancelRun', id); },
@@ -68,6 +105,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Tool approvals ────────────────────────────────────────
   listApprovals()       { return ipcRenderer.invoke('approval:list'); },
   approveToolCall(id)   { return ipcRenderer.invoke('approval:approve', id); },
+  applyStagedApproval(id, path) { return ipcRenderer.invoke('approval:applyStaged', { id, path }); },
   denyToolCall(id)      { return ipcRenderer.invoke('approval:deny', id); },
   onApprovalChange(cb)  { ipcRenderer.on('approval:change', (_, d) => cb(d)); },
 

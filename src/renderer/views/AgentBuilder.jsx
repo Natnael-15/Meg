@@ -72,9 +72,6 @@ const normalizeStep = (step) => {
 const normalizeAgent = (agent) => ({
   ...agent,
   steps: (agent.steps || []).map(normalizeStep),
-  lastRunId: agent.lastRunId || null,
-  lastRunStatus: agent.lastRunStatus || null,
-  lastRunAt: agent.lastRunAt || null,
 });
 
 const formatRunTime = (value) => {
@@ -91,14 +88,16 @@ const createBlankAgent = () => normalizeAgent({
   id: `ag-${Date.now()}`,
   name: 'new-agent',
   trigger: 'manual only',
-  model: 'qwen/qwen3.5-9b',
+  model: '',
   tools: [],
   steps: [createStep('command', 'Describe what this agent should do', '')],
   enabled: false,
-  lastRunId: null,
-  lastRunStatus: null,
-  lastRunAt: null,
 });
+
+const stripAgentRuntimeState = (agent = {}) => {
+  const { lastRunId, lastRunStatus, lastRunAt, ...rest } = agent || {};
+  return rest;
+};
 
 const stepTypeMeta = (type) => STEP_TYPES.find((item) => item.id === type) || STEP_TYPES[0];
 
@@ -148,13 +147,16 @@ export const AgentBuilder = () => {
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [stepDraft, setStepDraft] = useState(null);
+  const [runStateByAgent, setRunStateByAgent] = useState({});
   const agentsFirst = useRef(true);
+  const persistedAgentsRef = useRef([]);
 
   useEffect(() => {
     if (!window.electronAPI) return;
-    window.electronAPI.dbLoad('agents').then((data) => {
+    window.electronAPI.listAgentConfigs?.().then((data) => {
       if (data?.length) {
         const normalized = data.map(normalizeAgent);
+        persistedAgentsRef.current = normalized;
         setAgents(normalized);
         setSelected(normalized[0].id);
       }
@@ -166,7 +168,21 @@ export const AgentBuilder = () => {
       agentsFirst.current = false;
       return;
     }
-    window.electronAPI?.dbSaveAll('agents', agents);
+    const prev = persistedAgentsRef.current || [];
+    const next = agents.map(stripAgentRuntimeState);
+    const prevMap = new Map(prev.map((item) => [item.id, item]));
+    const nextMap = new Map(next.map((item) => [item.id, item]));
+    next.forEach((item) => {
+      if (JSON.stringify(prevMap.get(item.id)) !== JSON.stringify(item)) {
+        window.electronAPI?.upsertAgentConfig?.(item);
+      }
+    });
+    prev.forEach((item) => {
+      if (!nextMap.has(item.id)) {
+        window.electronAPI?.deleteAgentConfig?.(item.id);
+      }
+    });
+    persistedAgentsRef.current = next;
   }, [agents]);
 
   const agent = agents.find((item) => item.id === selected);
@@ -197,22 +213,55 @@ export const AgentBuilder = () => {
     setEditing(true);
   };
 
+  const deleteAgent = () => {
+    if (!agent) return;
+    const remaining = agents.filter((item) => item.id !== agent.id);
+    setAgents(remaining);
+    setSelected(remaining[0]?.id || null);
+    setEditing(false);
+  };
+
+  useEffect(() => {
+    if (!window.electronAPI?.listAgentRuns) return;
+    window.electronAPI.listAgentRuns().then((runs) => {
+      if (!Array.isArray(runs)) return;
+      const next = {};
+      runs.forEach((run) => {
+        if (run?.source !== 'agent-config' || !run?.sourceId) return;
+        const current = next[run.sourceId];
+        const at = run.updatedAt || run.completedAt || run.startedAt || run.createdAt || null;
+        if (!current || Date.parse(at || 0) > Date.parse(current.at || 0)) {
+          next[run.sourceId] = {
+            id: run.id,
+            status: run.status,
+            at,
+          };
+        }
+      });
+      setRunStateByAgent(next);
+    });
+  }, []);
+
   useEffect(() => {
     if (!window.electronAPI?.onAgentChange) return;
     const handleChange = ({ run }) => {
       if (run?.source !== 'agent-config' || !run?.sourceId) return;
-      setAgents((current) => current.map((item) => item.id === run.sourceId ? {
-        ...item,
-        lastRunId: run.id,
-        lastRunStatus: run.status,
-        lastRunAt: run.updatedAt || run.completedAt || run.startedAt || run.createdAt || item.lastRunAt,
-      } : item));
+      setRunStateByAgent((current) => ({
+        ...current,
+        [run.sourceId]: {
+          id: run.id,
+          status: run.status,
+          at: run.updatedAt || run.completedAt || run.startedAt || run.createdAt || current[run.sourceId]?.at || null,
+        },
+      }));
     };
     const dispose = window.electronAPI.onAgentChange(handleChange);
     return () => {
       if (typeof dispose === 'function') dispose();
     };
   }, []);
+
+  const runtimeState = agent ? runStateByAgent[agent.id] || null : null;
 
   return (
     <div style={{ flex: 1, display: 'flex', minWidth: 0, overflow: 'hidden' }}>
@@ -271,11 +320,14 @@ export const AgentBuilder = () => {
               <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', fontFamily: '"JetBrains Mono",monospace', marginBottom: 4 }}>{agent.name}</h2>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <StatusBadge status={agent.enabled ? 'done' : 'queued'} />
-                {agent.lastRunStatus && <StatusBadge status={agent.lastRunStatus} />}
-                {agent.lastRunAt && <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>last run {formatRunTime(agent.lastRunAt)}</span>}
+                {runtimeState?.status && <StatusBadge status={runtimeState.status} />}
+                {runtimeState?.at && <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>last run {formatRunTime(runtimeState.at)}</span>}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={deleteAgent} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-3)', background: 'var(--bg)', display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
+                <Icon name="trash" size={12} /> Delete
+              </button>
               <button onClick={() => setEditing((current) => !current)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-2)', background: 'var(--bg)', transition: 'border-color 0.12s' }} onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}>{editing ? 'Save' : 'Edit'}</button>
               <button onClick={() => {
                 window.dispatchEvent(new CustomEvent('meg:action', {
@@ -288,10 +340,14 @@ export const AgentBuilder = () => {
                     },
                   },
                 }));
-                updateAgent({
-                  lastRunStatus: 'queued',
-                  lastRunAt: new Date().toISOString(),
-                });
+                setRunStateByAgent((current) => ({
+                  ...current,
+                  [agent.id]: {
+                    id: current[agent.id]?.id || null,
+                    status: 'queued',
+                    at: new Date().toISOString(),
+                  },
+                }));
               }} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer' }}>
                 <Icon name="play" size={12} color="#fff" /> Run now
               </button>

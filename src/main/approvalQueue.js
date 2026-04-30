@@ -22,7 +22,7 @@ function emit(type, approval) {
   events.emit('change', { type, approval });
 }
 
-function create({ tool, args, context = {}, reason }) {
+function create({ tool, args, context = {}, reason, result = null }) {
   const approval = {
     id: `approval-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     tool,
@@ -30,10 +30,11 @@ function create({ tool, args, context = {}, reason }) {
     rawArgs: args || {},
     threadId: context.threadId || null,
     agentRunId: context.agentRunId || (context.threadId?.startsWith?.('agent-') ? context.threadId : null),
+    toolCallId: context.toolCallId || null,
     workspacePath: context.workspacePath || null,
     status: 'pending',
     reason: reason || 'Approval required',
-    result: null,
+    result,
     error: null,
     createdAt: now(),
     resolvedAt: null,
@@ -64,6 +65,10 @@ function markRunning(id) {
   return update(id, { status: 'running' }, 'approval:running');
 }
 
+function markStaged(id, result) {
+  return update(id, { status: 'staged', result, error: null }, 'approval:staged');
+}
+
 function markApproved(id, result) {
   return update(id, { status: 'approved', result, resolvedAt: now() }, 'approval:approved');
 }
@@ -90,6 +95,7 @@ module.exports = {
   get,
   deny,
   markRunning,
+  markStaged,
   markApproved,
   markFailed,
 };

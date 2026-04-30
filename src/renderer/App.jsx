@@ -7,6 +7,7 @@ import { TypingIndicator, AgentCard, ToolCallCard, Message } from './components/
 import { InputBar } from './components/chatInput.jsx';
 import { ContextPanel, NotifPanel, QuickCapture, SmsFloat, SplitPane, TrayFlyout } from './components/overlays.jsx';
 import { mapAgentRun } from './lib/agentRuns.js';
+import { SKILLS, autoDetectSkill } from './lib/skills.js';
 import { dismissNotification, markAllNotificationsRead, normalizeEventList, normalizeNotificationList, upsertEvent, upsertNotification } from './lib/activity.js';
 import { formatRelativeTime } from './lib/time.js';
 import { normalizeThread, normalizeThreadList } from './lib/threads.js';
@@ -470,6 +471,8 @@ const App = () => {
   const [trayOpen, setTrayOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [smsOpen, setSmsOpen] = useState(false);
+  const [wsDropOpen, setWsDropOpen] = useState(false);
+  const [activeSkill, setActiveSkill] = useState(null);
   const [splitOpen, setSplitOpen] = useState(() => readPreviewStorage('meg:splitOpen', 'false') === 'true');
   const [nav, setNav] = useState('chat');
   const [activeId, setActiveId] = useState(null);
@@ -701,7 +704,7 @@ const App = () => {
   // ── Load persisted app state on mount ────────────────────────
   useEffect(()=>{
     if(!window.electronAPI) return;
-    window.electronAPI.dbLoad('threads').then(data=>{
+    window.electronAPI.listThreads().then(data=>{
       dbLoaded.current = true;
       if(data?.length){
         setThreads(normalizeThreadList(data));
@@ -710,16 +713,16 @@ const App = () => {
         });
       }
     });
-    window.electronAPI.dbLoad('notifications').then(data => {
+    window.electronAPI.listNotifications().then(data => {
       setNotifs(normalizeNotificationList(data));
     });
-    window.electronAPI.dbLoad('events').then(data=>{
+    window.electronAPI.listEvents().then(data=>{
       setEvents(normalizeEventList(data));
     });
-    window.electronAPI.dbLoad('workspaces').then(data=>{
+    window.electronAPI.listWorkspaces().then(data=>{
       if(data?.length) setWorkspaces(data);
     });
-    window.electronAPI.dbLoad('telegramMessages').then(data=>{
+    window.electronAPI.listTelegramMessages().then(data=>{
       if(Array.isArray(data)) setTelegramMessages(data);
     });
     window.electronAPI.getSetting('memoryEnabled').then(value => {
@@ -803,27 +806,27 @@ const App = () => {
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
     if(threads.some(t=>t.messages?.some(m=>m.streaming))) return;
-    window.electronAPI.dbSaveAll('threads', threads);
+    window.electronAPI.saveThreads(threads);
   },[threads]);
 
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
-    window.electronAPI.dbSaveAll('notifications', notifs);
+    window.electronAPI.saveNotifications(notifs);
   },[notifs]);
 
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
-    window.electronAPI.dbSaveAll('events', events);
+    window.electronAPI.saveEvents(events);
   },[events]);
 
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
-    window.electronAPI.dbSaveAll('workspaces', workspaces);
+    workspaces.forEach(w => window.electronAPI.upsertWorkspace(w));
   },[workspaces]);
 
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
-    window.electronAPI.dbSaveAll('telegramMessages', telegramMessages);
+    window.electronAPI.saveTelegramMessages(telegramMessages);
   },[telegramMessages]);
 
   // ── Persist last active thread ────────────────────────────
@@ -1125,6 +1128,16 @@ OPERATING CONTEXT:
 - When writing PowerShell scripts: test small pieces first with run_command before building complex scripts.
 - NEVER say "I'll create..." or "Let me set up..." — just DO IT with tools, then report what happened.
 
+━━━ OUTPUT QUALITY STANDARDS ━━━
+When asked to build something visual (web app, dashboard, simulation, game, UI), these are MINIMUMS:
+- HTML: Proper DOCTYPE, meta tags, semantic structure, at minimum 50+ lines. Include a header/nav, main content area, controls panel, and footer. NO bare skeleton files.
+- CSS: Real design system — CSS variables for colors/fonts/spacing, responsive layout (flexbox/grid), hover states, transitions, shadows, gradients. At minimum 100+ lines. NO plain unstyled pages.
+- JavaScript: Functional, interactive code — event listeners, state management, animations with requestAnimationFrame or setInterval, real logic. At minimum 100+ lines. NO placeholder "console.log" code.
+- "Professional" means: dark theme OR polished light theme, consistent typography, visual hierarchy, smooth animations, loading states, error handling in UI.
+- "Comprehensive" means: multiple interactive features, not just one thing. A simulation needs controls (start/stop/speed), live stats/readouts, visual feedback, and a legend or info panel.
+- "Logic-rich" means: real algorithms, not CSS-only animations. Physics, state machines, data structures.
+When the user asks for a project, deliver a COMPLETE, IMPRESSIVE result — not a proof of concept. If the file would be short, you're not done yet.
+
 ${memoryPrompt}`
       };
 
@@ -1142,7 +1155,18 @@ ${memoryPrompt}`
         .filter(m=>m.role==='user'||m.role==='meg')
         .map(m=>({role:m.role==='meg'?'assistant':'user', content:m.text}));
       
+      // Use manually-selected skill or auto-detect from message
+      let resolvedSkill = activeSkill;
+      if (!resolvedSkill) {
+        resolvedSkill = autoDetectSkill(text);
+        if (resolvedSkill) setActiveSkill(resolvedSkill);
+      }
+
       const apiMessages = [systemPrompt];
+      if (resolvedSkill) {
+        const skill = SKILLS.find(s => s.id === resolvedSkill);
+        if (skill) apiMessages.push({ role: 'system', content: skill.prompt });
+      }
       if (contextMsg) apiMessages.push(contextMsg);
       apiMessages.push(...hist, {role:'user', content:text});
 
@@ -1379,6 +1403,49 @@ ${memoryPrompt}`
               )}
             </div>
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
+              {/* Workspace switcher */}
+              {workspaces.length > 0 && (
+                  <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setWsDropOpen(false);}} tabIndex={-1}>
+                    <button onClick={()=>setWsDropOpen(o=>!o)} title="Switch workspace"
+                      style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:`1px solid ${activeWorkspace?'var(--accent-border)':'var(--border)'}`,background:activeWorkspace?'var(--accent-bg)':'transparent',color:activeWorkspace?'var(--accent)':'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5,transition:'all 0.12s',maxWidth:160}}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';e.currentTarget.style.background='var(--accent-bg)';}}
+                      onMouseLeave={e=>{if(!activeWorkspace){e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';e.currentTarget.style.background='transparent';}}}>
+                      <Icon name="workspace" size={11} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
+                      <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:100}}>{activeWorkspace?.name||'No workspace'}</span>
+                      <Icon name="chevronDown" size={9} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
+                    </button>
+                    {wsDropOpen && (
+                      <div style={{position:'absolute',top:'calc(100% + 4px)',right:0,minWidth:200,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:8,boxShadow:'0 4px 16px var(--shadow-lg)',zIndex:999,overflow:'hidden'}}>
+                        <div style={{padding:'6px 10px 4px',fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Switch workspace</div>
+                        {workspaces.map(w=>(
+                          <button key={w.id} onClick={()=>{
+                            setActiveWorkspace(w);
+                            window.electronAPI?.setActiveWorkspace(w);
+                            setWsDropOpen(false);
+                          }} style={{width:'100%',padding:'8px 10px',display:'flex',alignItems:'center',gap:8,border:'none',background:activeWorkspace?.id===w.id?'var(--bg-active)':'transparent',cursor:'pointer',textAlign:'left',transition:'background 0.1s'}}
+                            onMouseEnter={e=>{if(activeWorkspace?.id!==w.id)e.currentTarget.style.background='var(--bg-hover)';}}
+                            onMouseLeave={e=>{if(activeWorkspace?.id!==w.id)e.currentTarget.style.background='transparent';}}>
+                            <div style={{width:20,height:20,borderRadius:5,background:w.color+'22',border:`1.5px solid ${w.color}55`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                              <span style={{fontSize:10,fontWeight:700,color:w.color}}>{w.name[0]}</span>
+                            </div>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{fontSize:12,fontWeight:activeWorkspace?.id===w.id?600:400,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.name}</div>
+                              <div style={{fontSize:10,color:'var(--text-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.path}</div>
+                            </div>
+                            {activeWorkspace?.id===w.id && <span style={{fontSize:9,color:'var(--accent)',fontWeight:600}}>✓</span>}
+                          </button>
+                        ))}
+                        <div style={{borderTop:'1px solid var(--border-light)',padding:6}}>
+                          <button onClick={()=>{setWsDropOpen(false);setNav('workspace');}} style={{width:'100%',padding:'6px 8px',borderRadius:5,border:'none',background:'transparent',color:'var(--text-3)',fontSize:11,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:5}}
+                            onMouseEnter={e=>e.currentTarget.style.color='var(--text)'}
+                            onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}>
+                            <Icon name="workspace" size={11}/> Manage workspaces
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+              )}
               <button onClick={()=>setCmdOpen(true)} style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',color:'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,background:'transparent',transition:'all 0.12s'}} onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';}}>⌘K</button>
               <button onClick={()=>setSplitOpen(o=>!o)} style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',background:splitOpen?'var(--bg-active)':'transparent',color:splitOpen?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,transition:'all 0.12s'}}>
                 <Icon name="splitH" size={12} color={splitOpen?'var(--text)':'var(--text-3)'}/> split
@@ -1424,12 +1491,14 @@ ${memoryPrompt}`
             </div>
             {splitOpen && <SplitPane activeFile={activeFile} activeWorkspace={activeWorkspace}/>}
           </div>
-          <InputBar 
-            onSend={addMessage} 
+          <InputBar
+            onSend={addMessage}
             onAbort={()=>window.electronAPI?.abortChat(activeId)}
             typing={typing}
-            thinking={thinking} 
+            thinking={thinking}
             onToggleThinking={isThinkingModel(activeModel)?()=>setThinking(t=>!t):null}
+            activeSkill={activeSkill}
+            onSkillChange={setActiveSkill}
           />
           {smsOpen && <SmsFloat messages={telegramMessages} connected={telegramConnected} contactName={telegramContactName} onClose={()=>setSmsOpen(false)} onSend={sendTelegramMessage} sendError={telegramSendError}/>}
           

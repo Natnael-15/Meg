@@ -10,8 +10,6 @@ const createElectronApiMock = () => {
   });
 
   return {
-  dbLoad: vi.fn(async (key) => []),
-  dbSaveAll: vi.fn(async () => ({ ok: true })),
   getActiveWorkspace: vi.fn(async () => null),
   getModels: vi.fn(async () => []),
   getSetting: vi.fn(async (key) => {
@@ -23,19 +21,41 @@ const createElectronApiMock = () => {
     return null;
   }),
   getVersion: vi.fn(async () => '0.5.0'),
+  listThreads: vi.fn(async () => []),
+  upsertThread: vi.fn(async (item) => ({ ok: true, item })),
+  deleteThread: vi.fn(async () => ({ ok: true, items: [] })),
+  saveThreads: vi.fn(async () => ({ ok: true, items: [] })),
+  listNotifications: vi.fn(async () => []),
+  upsertNotification: vi.fn(async (item) => ({ ok: true, item })),
+  dismissNotification: vi.fn(async () => ({ ok: true, items: [] })),
+  markAllNotificationsRead: vi.fn(async () => ({ ok: true, items: [] })),
+  saveNotifications: vi.fn(async () => ({ ok: true, items: [] })),
+  listEvents: vi.fn(async () => []),
+  upsertEvent: vi.fn(async (item) => ({ ok: true, item })),
+  saveEvents: vi.fn(async () => ({ ok: true, items: [] })),
+  listTelegramMessages: vi.fn(async () => []),
+  upsertTelegramMessage: vi.fn(async (item) => ({ ok: true, item })),
+  deleteTelegramMessage: vi.fn(async () => ({ ok: true, items: [] })),
+  saveTelegramMessages: vi.fn(async () => ({ ok: true, items: [] })),
+  listRuntimeDiagnostics: vi.fn(async () => []),
+  listAgentConfigs: vi.fn(async () => []),
   listAgentRuns: vi.fn(async () => []),
   listApprovals: vi.fn(async () => []),
+  listAutomationConfigs: vi.fn(async () => []),
+  listAutomationRuns: vi.fn(async () => []),
   listWorkspaces: vi.fn(async () => []),
   refreshWorkspaceMeta: vi.fn(async () => ({ ok: true, workspace: null })),
   searchWorkspaceFiles: vi.fn(async () => ({ ok: true, results: [], total: 0, truncated: false })),
   gitStatus: vi.fn(async () => ({ branch: 'main', dirty: 0, ahead: 0 })),
   onAgentChange: register('agent:change'),
+  onAutomationChange: register('automation:change'),
   onApprovalChange: register('approval:change'),
   onUpdateAvailable: register('update:available'),
   onUpdateNotAvailable: register('update:not-available'),
   onUpdateProgress: register('update:progress'),
   onUpdateDownloaded: register('update:downloaded'),
   onUpdateError: register('update:error'),
+  onRuntimeDiagnostic: register('runtime:diagnostic'),
   onTelegramMessage: register('telegram:message'),
   onChunk: register('chat:chunk'),
   onDone: register('chat:done'),
@@ -48,6 +68,8 @@ const createElectronApiMock = () => {
     names.forEach((name) => listeners.delete(name));
   }),
   sendChat: vi.fn(() => {}),
+  saveAgentConfigs: vi.fn(async () => ({ ok: true, items: [] })),
+  saveAutomationConfigs: vi.fn(async () => ({ ok: true, items: [] })),
   setSetting: vi.fn(async () => ({ ok: true })),
   startTelegramPolling: vi.fn(async () => ({ ok: true })),
   sendTelegram: vi.fn(async () => ({ ok: true })),
@@ -66,9 +88,11 @@ const createElectronApiMock = () => {
   findTelegramChatId: vi.fn(async () => ({ ok: false })),
   abortChat: vi.fn(async () => ({ ok: true })),
   approveToolCall: vi.fn(async () => ({ ok: true })),
+  applyStagedApproval: vi.fn(async () => ({ ok: true })),
   denyToolCall: vi.fn(async () => ({ ok: true })),
   checkForUpdates: vi.fn(async () => ({ ok: true })),
   createAgentRun: vi.fn(async () => ({ ok: true })),
+  createAutomationRun: vi.fn(async () => ({ ok: true })),
   downloadUpdate: vi.fn(async () => ({ ok: true })),
   installUpdate: vi.fn(async () => ({ ok: true })),
   __emit: (name, payload) => {
@@ -84,6 +108,10 @@ describe('App smoke flows', () => {
     localStorage.setItem('meg:onboarded', 'true');
     localStorage.setItem('meg:splitOpen', 'false');
     window.electronAPI = createElectronApiMock();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { readText: vi.fn(async () => 'clipboard context') },
+    });
   });
 
   it('renders the default chat shell', async () => {
@@ -175,6 +203,47 @@ describe('App smoke flows', () => {
     });
   });
 
+  it('restores persisted terminal history and saves new command output', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.getSetting.mockImplementation(async (key) => {
+      if (key === 'toolPermissions') return null;
+      if (key === 'lastActiveThreadId') return null;
+      if (key === 'onboardingCompleted') return true;
+      if (key === 'splitOpen') return true;
+      if (key === 'splitTerminalHistory') {
+        return [
+          { id: 'term-1', type: 'cmd', text: '$ npm test', createdAt: '2026-04-29T09:00:00.000Z' },
+          { id: 'term-2', type: 'out', text: 'tests ok', createdAt: '2026-04-29T09:00:01.000Z' },
+        ];
+      }
+      if (key === 'theme') return 'light';
+      return null;
+    });
+    window.electronAPI.execCommand.mockResolvedValue({ stdout: 'all green', stderr: '', exitCode: 0 });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Terminal')).toBeInTheDocument();
+    });
+    await user.click(screen.getByText('Terminal'));
+    expect(await screen.findByText('$ npm test')).toBeInTheDocument();
+    expect(screen.getByText('tests ok')).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText('run a command…'), 'npm run lint{enter}');
+    await waitFor(() => {
+      expect(window.electronAPI.execCommand).toHaveBeenCalledWith('npm run lint', undefined);
+    });
+    await waitFor(() => {
+      const historyCalls = window.electronAPI.setSetting.mock.calls.filter(([key]) => key === 'splitTerminalHistory');
+      const latestHistory = historyCalls.at(-1)?.[1] || [];
+      expect(latestHistory).toEqual(expect.arrayContaining([
+        expect.objectContaining({ text: '$ npm run lint', type: 'cmd' }),
+        expect.objectContaining({ text: 'all green', type: 'out' }),
+      ]));
+    });
+  });
+
   it('opens notification and tray overlays', async () => {
     const user = userEvent.setup();
     render(<App />);
@@ -188,20 +257,15 @@ describe('App smoke flows', () => {
 
   it('restores persisted notifications and saves read-state changes', async () => {
     const user = userEvent.setup();
-    window.electronAPI.dbLoad.mockImplementation(async (key) => {
-      if (key === 'notifications') {
-        return [{
-          id: 'notif-1',
-          icon: 'sms',
-          color: 'var(--accent)',
-          title: 'Telegram from Alex',
-          body: '"status update"',
-          createdAt: '2026-04-29T09:00:00.000Z',
-          read: false,
-        }];
-      }
-      return [];
-    });
+    window.electronAPI.listNotifications.mockResolvedValue([{
+      id: 'notif-1',
+      icon: 'sms',
+      color: 'var(--accent)',
+      title: 'Telegram from Alex',
+      body: '"status update"',
+      createdAt: '2026-04-29T09:00:00.000Z',
+      read: false,
+    }]);
 
     render(<App />);
 
@@ -210,10 +274,7 @@ describe('App smoke flows', () => {
     await user.click(screen.getByText('Mark all read'));
 
     await waitFor(() => {
-      const saveCalls = window.electronAPI.dbSaveAll.mock.calls.filter(([table]) => table === 'notifications');
-      expect(saveCalls.length).toBeGreaterThan(0);
-      const latestNotifs = saveCalls[saveCalls.length - 1][1];
-      expect(latestNotifs[0]).toEqual(expect.objectContaining({ id: 'notif-1', read: true }));
+      expect(window.electronAPI.upsertNotification).toHaveBeenCalledWith(expect.objectContaining({ id: 'notif-1', read: true }));
     });
   });
 
@@ -270,6 +331,206 @@ describe('App smoke flows', () => {
       expect(composer.value).toContain('@file(README.md)');
       expect(composer.value).toContain('@file(App.jsx)');
     });
+  });
+
+  it('shows explicit save feedback for split-pane file edits', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByText('split'));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('meg:action', {
+        detail: {
+          action: 'openFile',
+          value: { name: 'notes.md', path: 'C:\\repo\\notes.md', ext: 'md', content: 'old text' },
+        },
+      }));
+    });
+
+    await user.click(await screen.findByText('Edit'));
+    const editor = screen.getByDisplayValue('old text');
+    await user.clear(editor);
+    await user.type(editor, 'updated text');
+    await user.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(window.electronAPI.writeFile).toHaveBeenCalledWith('C:\\repo\\notes.md', 'updated text');
+    });
+    expect(await screen.findByText('Saved notes.md')).toBeInTheDocument();
+  });
+
+  it('shows unsaved-change diff preview in the split pane before save', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByText('split'));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('meg:action', {
+        detail: {
+          action: 'openFile',
+          value: { name: 'draft.md', path: 'C:\\repo\\draft.md', ext: 'md', content: 'before line' },
+        },
+      }));
+    });
+
+    await user.click(await screen.findByText('Edit'));
+    const editor = screen.getByDisplayValue('before line');
+    await user.clear(editor);
+    await user.type(editor, 'after line');
+
+    expect(await screen.findByText(/Unsaved changes:/)).toBeInTheDocument();
+    await user.click(screen.getByText('Diff'));
+    expect(await screen.findByText('before line')).toBeInTheDocument();
+    expect(await screen.findByText('after line')).toBeInTheDocument();
+  });
+
+  it('applies assistant code blocks into the open file as a draft diff', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByText('split'));
+    await act(async () => {
+      window.dispatchEvent(new CustomEvent('meg:action', {
+        detail: {
+          action: 'openFile',
+          value: { name: 'apply.js', path: 'C:\\repo\\apply.js', ext: 'js', content: 'const value = 1;' },
+        },
+      }));
+    });
+
+    await user.type(screen.getByPlaceholderText(/Ask Meg anything/i), 'show me the patch');
+    await user.keyboard('{Enter}');
+
+    const threadId = window.electronAPI.sendChat.mock.calls.at(-1)?.[1];
+
+    await act(async () => {
+      window.electronAPI.__emit('chat:chunk', {
+        threadId,
+        chunk: '```js\nconst value = 2;\n```',
+      });
+      window.electronAPI.__emit('chat:done', { threadId });
+    });
+
+    await user.click(await screen.findByText('Apply to open file'));
+
+    expect(await screen.findByText(/Unsaved changes:/)).toBeInTheDocument();
+    expect(screen.getByText('Diff')).toBeInTheDocument();
+    expect(screen.getAllByText('const value = 1;').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('const value = 2;').length).toBeGreaterThan(1);
+  });
+
+  it('opens staged write approvals as review diffs and marks them applied on save', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await act(async () => {
+      window.electronAPI.__emit('approval:change', {
+        type: 'approval:staged',
+        approval: {
+          id: 'approval-write-1',
+          tool: 'write_file',
+          rawArgs: { path: 'src\\auth.js', content: 'export const auth = false;' },
+          result: {
+            staged: true,
+            path: 'C:\\repo\\src\\auth.js',
+            originalContent: 'export const auth = true;',
+          },
+        },
+      });
+    });
+
+    expect(await screen.findByText(/Unsaved changes:/)).toBeInTheDocument();
+    expect(screen.getByText('Diff')).toBeInTheDocument();
+    expect(screen.getAllByText('export const auth = true;').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('export const auth = false;').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(window.electronAPI.writeFile).toHaveBeenCalledWith('C:\\repo\\src\\auth.js', 'export const auth = false;');
+      expect(window.electronAPI.applyStagedApproval).toHaveBeenCalledWith('approval-write-1', 'C:\\repo\\src\\auth.js');
+    });
+  });
+
+  it('launches file-browser review actions as backend agent runs', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.openFolder.mockResolvedValue({ canceled: false, filePaths: ['C:\\repo'] });
+    window.electronAPI.listDir.mockResolvedValue([
+      { name: 'README.md', path: 'C:\\repo\\README.md', isDir: false, ext: 'md' },
+    ]);
+    window.electronAPI.readFile.mockResolvedValue({ content: '# Project\nNotes', error: null });
+    window.electronAPI.createAgentRun.mockResolvedValue({
+      ok: true,
+      run: {
+        id: 'run-file-review',
+        name: 'file-review-README.md',
+        status: 'queued',
+        workspacePath: 'C:\\repo',
+      },
+    });
+
+    render(<App />);
+    await user.click(screen.getByTitle('File Browser'));
+    await user.click(await screen.findByText('Open folder'));
+    await user.click(await screen.findByText('README.md'));
+    await user.click(await screen.findByText('Ask Meg'));
+
+    await waitFor(() => {
+      expect(window.electronAPI.createAgentRun).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'file-review-README.md',
+        source: 'file-browser-action',
+        sourceId: 'file:C:\\repo\\README.md:review',
+        workspacePath: 'C:\\repo',
+      }));
+    });
+    expect(window.electronAPI.sendChat).not.toHaveBeenCalled();
+  });
+
+  it('resolves /agent into a real backend agent run instead of chat send', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.createAgentRun.mockResolvedValue({
+      ok: true,
+      run: { id: 'run-slash-1', name: 'slash-agent', status: 'queued' },
+    });
+
+    render(<App />);
+    await user.type(await screen.findByPlaceholderText(/Ask Meg anything/i), '/agent review the auth flow{enter}');
+
+    await waitFor(() => {
+      expect(window.electronAPI.createAgentRun).toHaveBeenCalledWith(expect.objectContaining({
+        instruction: 'review the auth flow',
+        source: 'slash-command',
+      }));
+    });
+    expect(window.electronAPI.sendChat).not.toHaveBeenCalled();
+    expect((await screen.findAllByText('Queued agent run for: review the auth flow')).length).toBeGreaterThan(0);
+  });
+
+  it('resolves mentions into chat context before sending', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.readFile.mockResolvedValue({ content: '## README\\nProject notes', error: null });
+    const workspace = {
+      id: 'ws-real',
+      name: 'Spec Workspace',
+      path: 'C:\\spec-workspace',
+      inventory: [
+        { name: 'README.md', path: 'C:\\spec-workspace\\README.md', ext: 'md' },
+      ],
+    };
+    window.electronAPI.listWorkspaces.mockResolvedValue([workspace]);
+    window.electronAPI.getActiveWorkspace.mockResolvedValue(workspace);
+
+    render(<App />);
+    await user.type(await screen.findByPlaceholderText(/Ask Meg anything/i), '/search @clipboard @file(README.md) release notes{enter}');
+
+    await waitFor(() => {
+      expect(window.electronAPI.sendChat).toHaveBeenCalled();
+    });
+    expect(window.electronAPI.readFile).toHaveBeenCalledWith('C:\\spec-workspace\\README.md');
+    const sentMessages = window.electronAPI.sendChat.mock.calls.at(-1)[0];
+    expect(sentMessages.some((msg) => msg.role === 'system' && msg.content.includes('The user invoked /search.'))).toBe(true);
+    expect(sentMessages.some((msg) => msg.role === 'system' && msg.content.includes('README.md'))).toBe(true);
+    expect(sentMessages.some((msg) => msg.role === 'user' && msg.content === 'release notes')).toBe(true);
   });
 
   it('surfaces approval events and approves from the tray', async () => {
@@ -341,6 +602,40 @@ describe('App smoke flows', () => {
     });
   });
 
+  it('launches the workspace header assistant action as a backend run', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listWorkspaces.mockResolvedValue([
+      { id: 'ws-real', name: 'Spec Workspace', path: 'C:\\spec-workspace', branch: 'main' },
+    ]);
+    window.electronAPI.createAgentRun.mockResolvedValue({
+      ok: true,
+      run: {
+        id: 'run-workspace-header',
+        name: 'workspace-next-step-Spec Workspace',
+        status: 'queued',
+        workspaceId: 'ws-real',
+        workspacePath: 'C:\\spec-workspace',
+      },
+    });
+
+    render(<App />);
+    await user.click(screen.getByTitle('Workspace'));
+    expect((await screen.findAllByText('Spec Workspace')).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByText('Ask Meg'));
+
+    await waitFor(() => {
+      expect(window.electronAPI.createAgentRun).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'workspace-next-step-Spec Workspace',
+        source: 'workspace-header-action',
+        sourceId: 'workspace:ws-real:next-step',
+        workspaceId: 'ws-real',
+        workspacePath: 'C:\\spec-workspace',
+      }));
+    });
+    expect(window.electronAPI.sendChat).not.toHaveBeenCalled();
+  });
+
   it('opens the workspace terminal flow into chat split view', async () => {
     const user = userEvent.setup();
     window.electronAPI.listWorkspaces.mockResolvedValue([
@@ -383,6 +678,40 @@ describe('App smoke flows', () => {
     expect(window.electronAPI.sendChat).toHaveBeenCalled();
   });
 
+  it('launches workspace workflow quick actions as backend agent runs', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listWorkspaces.mockResolvedValue([
+      { id: 'ws-real', name: 'Spec Workspace', path: 'C:\\spec-workspace' },
+    ]);
+    window.electronAPI.createAgentRun.mockResolvedValue({
+      ok: true,
+      run: {
+        id: 'run-workspace-review',
+        name: 'workspace-review-Spec Workspace',
+        status: 'queued',
+        workspaceId: 'ws-real',
+        workspacePath: 'C:\\spec-workspace',
+      },
+    });
+
+    render(<App />);
+    await user.click(screen.getByTitle('Workspace'));
+    expect((await screen.findAllByText('Spec Workspace')).length).toBeGreaterThan(0);
+
+    await user.click(screen.getByText('Code review'));
+
+    await waitFor(() => {
+      expect(window.electronAPI.createAgentRun).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'workspace-review-Spec Workspace',
+        source: 'workspace-quick-action',
+        sourceId: 'workspace:ws-real:code-review',
+        workspaceId: 'ws-real',
+        workspacePath: 'C:\\spec-workspace',
+      }));
+    });
+    expect(window.electronAPI.sendChat).not.toHaveBeenCalled();
+  });
+
   it('derives workspace files and linked chats from real app state', async () => {
     const user = userEvent.setup();
     window.electronAPI.listWorkspaces.mockResolvedValue([
@@ -398,22 +727,17 @@ describe('App smoke flows', () => {
         ],
       },
     ]);
-    window.electronAPI.dbLoad.mockImplementation(async (key) => {
-      if (key === 'threads') {
-        return [{
-          id: 'thread-ws-1',
-          iconName: 'chat',
-          title: 'Workspace thread',
-          subtitle: 'linked to workspace',
-          messages: [{ id: 1, role: 'meg', text: 'linked to workspace' }],
-          workspaceId: 'ws-real',
-          workspacePath: 'C:\\spec-workspace',
-          createdAt: '2026-04-29T09:00:00.000Z',
-          updatedAt: '2026-04-29T10:00:00.000Z',
-        }];
-      }
-      return [];
-    });
+    window.electronAPI.listThreads.mockResolvedValue([{
+      id: 'thread-ws-1',
+      iconName: 'chat',
+      title: 'Workspace thread',
+      subtitle: 'linked to workspace',
+      messages: [{ id: 1, role: 'meg', text: 'linked to workspace' }],
+      workspaceId: 'ws-real',
+      workspacePath: 'C:\\spec-workspace',
+      createdAt: '2026-04-29T09:00:00.000Z',
+      updatedAt: '2026-04-29T10:00:00.000Z',
+    }]);
 
     render(<App />);
     await user.click(screen.getByTitle('Workspace'));
@@ -463,37 +787,32 @@ describe('App smoke flows', () => {
   });
 
   it('restores the last active persisted thread on load', async () => {
-    window.electronAPI.dbLoad.mockImplementation(async (key) => {
-      if (key === 'threads') {
-        return [
-          {
-            id: 'persisted-a',
-            iconName: 'chat',
-            title: 'Persisted A',
-            subtitle: 'older',
-            time: '1m',
-            unread: false,
-            messages: [{ id: 1, role: 'meg', text: 'inactive thread body' }],
-            files: [],
-            tools: {},
-            memory: '',
-          },
-          {
-            id: 'persisted-b',
-            iconName: 'chat',
-            title: 'Persisted B',
-            subtitle: 'active',
-            time: 'now',
-            unread: false,
-            messages: [{ id: 2, role: 'meg', text: 'restored active thread body' }],
-            files: [],
-            tools: {},
-            memory: '',
-          },
-        ];
-      }
-      return [];
-    });
+    window.electronAPI.listThreads.mockResolvedValue([
+      {
+        id: 'persisted-a',
+        iconName: 'chat',
+        title: 'Persisted A',
+        subtitle: 'older',
+        time: '1m',
+        unread: false,
+        messages: [{ id: 1, role: 'meg', text: 'inactive thread body' }],
+        files: [],
+        tools: {},
+        memory: '',
+      },
+      {
+        id: 'persisted-b',
+        iconName: 'chat',
+        title: 'Persisted B',
+        subtitle: 'active',
+        time: 'now',
+        unread: false,
+        messages: [{ id: 2, role: 'meg', text: 'restored active thread body' }],
+        files: [],
+        tools: {},
+        memory: '',
+      },
+    ]);
     window.electronAPI.getSetting.mockImplementation(async (key) => {
       if (key === 'lastActiveThreadId') return 'persisted-b';
       if (key === 'toolPermissions') return null;
@@ -569,6 +888,158 @@ describe('App smoke flows', () => {
     expect((await screen.findAllByText('backend-review')).length).toBeGreaterThan(0);
     expect(screen.getByText('Inspect files')).toBeInTheDocument();
     expect(screen.getByText('Summarize risks')).toBeInTheDocument();
+  });
+
+  it('opens backend-written files from the agent dashboard into the split pane', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listAgentRuns.mockResolvedValue([
+      {
+        id: 'run-write-1',
+        name: 'write-auth-fix',
+        status: 'done',
+        parentThreadId: 'thread-1',
+        model: 'gpt-4o',
+        createdAt: '2026-04-28T12:00:00.000Z',
+        completedAt: '2026-04-28T12:01:00.000Z',
+        steps: [{ label: 'Write src/auth.js', status: 'done' }],
+        logs: [{ level: 'info', message: 'Tool call: write_file' }],
+        toolActivity: [
+          {
+            id: 'tool-1',
+            name: 'write_file',
+            status: 'done',
+            args: { path: 'src/auth.js' },
+            result: { ok: true, path: 'C:\\repo\\src\\auth.js' },
+          },
+        ],
+      },
+    ]);
+    window.electronAPI.readFile.mockResolvedValue({ content: 'export const auth = true;', error: null });
+
+    render(<App />);
+    await user.click(screen.getByTitle('Agents'));
+    await user.click(await screen.findByText('Review'));
+
+    await waitFor(() => {
+      expect(window.electronAPI.readFile).toHaveBeenCalledWith('C:\\repo\\src\\auth.js');
+    });
+    expect(await screen.findByText('export const auth = true;')).toBeInTheDocument();
+  });
+
+  it('opens staged backend write approvals from the agent dashboard as review diffs', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listAgentRuns.mockResolvedValue([
+      {
+        id: 'run-stage-1',
+        name: 'stage-auth-fix',
+        status: 'done',
+        parentThreadId: 'thread-1',
+        model: 'gpt-4o',
+        createdAt: '2026-04-28T12:00:00.000Z',
+        completedAt: '2026-04-28T12:01:00.000Z',
+        steps: [{ label: 'Write src/auth.js', status: 'done' }],
+        logs: [{ level: 'info', message: 'Tool call: write_file' }],
+        toolActivity: [
+          {
+            id: 'tool-1',
+            name: 'write_file',
+            status: 'staged',
+            args: { path: 'src/auth.js', content: 'export const auth = false;' },
+            result: {
+              approvalRequired: true,
+              error: 'File write requires approval. Approval ID: approval-1',
+              approval: {
+                id: 'approval-1',
+                tool: 'write_file',
+                rawArgs: { path: 'src/auth.js', content: 'export const auth = false;' },
+                result: {
+                  staged: true,
+                  path: 'C:\\repo\\src\\auth.js',
+                  originalContent: 'export const auth = true;',
+                },
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    render(<App />);
+    await user.click(screen.getByTitle('Agents'));
+    await user.click(await screen.findByText('Review Draft'));
+
+    expect(await screen.findByText(/Unsaved changes:/)).toBeInTheDocument();
+    expect(screen.getAllByText('export const auth = true;').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('export const auth = false;').length).toBeGreaterThan(0);
+  });
+
+  it('shows honest empty tool logs in the agent dashboard when no runtime logs exist', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listAgentRuns.mockResolvedValue([
+      {
+        id: 'run-empty-log',
+        name: 'empty-log-agent',
+        status: 'running',
+        parentThreadId: 'thread-1',
+        model: 'gpt-4o',
+        createdAt: '2026-04-28T12:00:00.000Z',
+        steps: [{ label: 'Inspect files', status: 'active' }],
+        logs: [],
+      },
+    ]);
+
+    render(<App />);
+    await user.click(screen.getByTitle('Agents'));
+
+    expect(await screen.findByText('No tool activity recorded yet.')).toBeInTheDocument();
+    expect(screen.getByText('No tools used yet.')).toBeInTheDocument();
+    expect(screen.queryByText(/middleware\/auth\.ts/i)).not.toBeInTheDocument();
+  });
+
+  it('shows automation run history with action and log detail', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listAutomationConfigs.mockResolvedValue([
+      {
+        id: 'auto-1',
+        name: 'Deploy report',
+        trigger: { type: 'manual', detail: 'Run from the app' },
+        actions: [
+          { id: 'action-1', type: 'command', label: 'Run tests', target: 'npm test' },
+          { id: 'action-2', type: 'document', label: 'Write report', target: 'reports/weekly.md' },
+        ],
+        enabled: false,
+      },
+    ]);
+    window.electronAPI.listAutomationRuns.mockResolvedValue([
+      {
+        id: 'automation-run-1',
+        sourceId: 'auto-1',
+        automationId: 'auto-1',
+        name: 'Deploy report',
+        status: 'done',
+        createdAt: '2026-04-29T09:00:00.000Z',
+        startedAt: '2026-04-29T09:00:05.000Z',
+        completedAt: '2026-04-29T09:01:00.000Z',
+        updatedAt: '2026-04-29T09:01:00.000Z',
+        actions: [
+          { id: 'action-1', type: 'command', label: 'Run tests', target: 'npm test', status: 'done', result: { ok: true, stdout: 'tests ok' } },
+          { id: 'action-2', type: 'document', label: 'Write report', target: 'reports/weekly.md', status: 'done', result: { ok: true, path: 'reports/weekly.md' } },
+        ],
+        logs: [
+          { ts: '2026-04-29T09:00:05.000Z', level: 'info', message: 'Automation started.' },
+          { ts: '2026-04-29T09:00:20.000Z', level: 'info', message: 'Completed action: Run tests' },
+        ],
+      },
+    ]);
+
+    render(<App />);
+    await user.click(screen.getByTitle('Automations'));
+
+    expect(await screen.findByText('Run history')).toBeInTheDocument();
+    expect(screen.getAllByText('Deploy report').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Run tests').length).toBeGreaterThan(0);
+    expect(screen.getByText(/"stdout": "tests ok"/)).toBeInTheDocument();
+    expect(screen.getByText(/Automation started\./)).toBeInTheDocument();
   });
 
   it('handles chat resume and error events', async () => {
@@ -655,22 +1126,17 @@ describe('App smoke flows', () => {
   });
 
   it('renders persisted Telegram messages in the mobile view without demo boot data', async () => {
-    window.electronAPI.dbLoad.mockImplementation(async (key) => {
-      if (key === 'telegramMessages') {
-        return [
-          {
-            id: 'tg-1',
-            direction: 'inbound',
-            from: 'Nat',
-            text: 'Deployment is green',
-            chatId: '42',
-            createdAt: '2026-04-29T05:00:00.000Z',
-            status: 'received',
-          },
-        ];
-      }
-      return [];
-    });
+    window.electronAPI.listTelegramMessages.mockResolvedValue([
+      {
+        id: 'tg-1',
+        direction: 'inbound',
+        from: 'Nat',
+        text: 'Deployment is green',
+        chatId: '42',
+        createdAt: '2026-04-29T05:00:00.000Z',
+        status: 'received',
+      },
+    ]);
     window.electronAPI.getSetting.mockImplementation(async (key) => {
       if (key === 'telegramToken') return 'token';
       if (key === 'telegramChatId') return '42';
@@ -741,6 +1207,72 @@ describe('App smoke flows', () => {
     expect(await screen.findByText('Version 0.6.0 is available to download.')).toBeInTheDocument();
   });
 
+  it('shows updater failures in the updates settings section', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByTitle('Settings'));
+    await user.click(await screen.findByText('Updates'));
+
+    await act(async () => {
+      window.electronAPI.__emit('update:error', 'Network unavailable');
+    });
+
+    expect(await screen.findByText('Updater error')).toBeInTheDocument();
+    expect(screen.getAllByText('Network unavailable').length).toBeGreaterThan(0);
+    expect(screen.getByText('Updater state: error')).toBeInTheDocument();
+  });
+
+  it('shows persisted runtime diagnostics and appends live entries in settings', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listRuntimeDiagnostics.mockResolvedValue([
+      {
+        ts: '2026-04-29T12:00:00.000Z',
+        type: 'app:ready',
+        level: 'info',
+        detail: { packaged: false },
+      },
+    ]);
+
+    render(<App />);
+
+    await user.click(screen.getByTitle('Settings'));
+    await user.click(await screen.findByText('Diagnostics'));
+    expect(await screen.findByText('app:ready')).toBeInTheDocument();
+    expect(screen.getByText(/"packaged": false/)).toBeInTheDocument();
+
+    await act(async () => {
+      window.electronAPI.__emit('runtime:diagnostic', {
+        ts: '2026-04-29T12:01:00.000Z',
+        type: 'renderer:process-gone',
+        level: 'error',
+        detail: { reason: 'crashed' },
+      });
+    });
+
+    expect(await screen.findByText('renderer:process-gone')).toBeInTheDocument();
+    expect(screen.getByText(/"reason": "crashed"/)).toBeInTheDocument();
+  });
+
+  it('surfaces startup diagnostics in the updates section', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.listRuntimeDiagnostics.mockResolvedValue([
+      {
+        ts: '2026-04-29T12:00:00.000Z',
+        type: 'renderer:did-fail-load',
+        level: 'error',
+        detail: { errorDescription: 'load failed' },
+      },
+    ]);
+
+    render(<App />);
+
+    await user.click(screen.getByTitle('Settings'));
+    await user.click(await screen.findByText('Updates'));
+    expect(await screen.findByText('Recent startup/runtime issue')).toBeInTheDocument();
+    expect(screen.getByText('renderer:did-fail-load: load failed')).toBeInTheDocument();
+  });
+
   it('routes onboarding setup work into settings instead of fake permission toggles', async () => {
     const user = userEvent.setup();
     localStorage.removeItem('meg:onboarded');
@@ -782,10 +1314,9 @@ describe('App smoke flows', () => {
 
     await user.click(toggleButton);
     await waitFor(() => {
-      const saveCalls = window.electronAPI.dbSaveAll.mock.calls.filter(([table]) => table === 'threads');
-      expect(saveCalls.length).toBeGreaterThan(0);
-      const latestThreads = saveCalls[saveCalls.length - 1][1];
-      expect(latestThreads[0].tools['File system']).toBe(true);
+      expect(window.electronAPI.upsertThread).toHaveBeenCalledWith(expect.objectContaining({
+        tools: expect.objectContaining({ 'File system': true }),
+      }));
     });
   });
 });

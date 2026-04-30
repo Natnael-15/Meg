@@ -45,5 +45,11 @@ export const IC = {
   timeline:(s,c)=><svg width={s} height={s} viewBox="0 0 16 16" fill="none"><circle cx="4" cy="4" r="1.5" stroke={c} strokeWidth="1.2"/><circle cx="4" cy="8" r="1.5" stroke={c} strokeWidth="1.2"/><circle cx="4" cy="12" r="1.5" stroke={c} strokeWidth="1.2"/><path d="M7 4h7M7 8h5M7 12h3" stroke={c} strokeWidth="1.2" strokeLinecap="round"/></svg>,
   tray:(s,c)=><svg width={s} height={s} viewBox="0 0 16 16" fill="none"><rect x="1.5" y="4" width="13" height="9" rx="1.5" stroke={c} strokeWidth="1.2"/><path d="M5 4V3a3 3 0 016 0v1" stroke={c} strokeWidth="1.2" strokeLinecap="round"/><circle cx="8" cy="8.5" r="1.5" fill={c}/></svg>,
   stop:(s,c)=><svg width={s} height={s} viewBox="0 0 16 16" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" fill={c}/></svg>,
+  logo:(s,c)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+    <path d="M12 2L4 7v10l8 5 8-5V7l-8-5z" fill={c} fillOpacity="0.15"/>
+    <path d="M12 2L4 7v10l8 5 8-5V7l-8-5z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/>
+    <path d="M12 22V12M12 12L4 7M12 12l8-5" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="12" r="2.5" fill={c}/>
+  </svg>,
 };
 export const Icon = ({name,size=16,color='currentColor'}) => IC[name] ? IC[name](size,color) : null;

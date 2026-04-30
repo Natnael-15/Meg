@@ -1,3 +1,18 @@
+const deriveTools = (run = {}) => {
+  const seen = new Set();
+  const tools = [];
+  (Array.isArray(run.logs) ? run.logs : []).forEach((entry) => {
+    const message = entry?.message || '';
+    const match = message.match(/^Tool call:\s+(.+)$/i);
+    if (!match) return;
+    const name = match[1].trim();
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    tools.push(name);
+  });
+  return tools;
+};
+
 export const mapAgentRun = (run) => {
   const steps = run.steps || [];
   const doneSteps = steps.filter(s => s.status === 'done').length;
@@ -21,6 +36,13 @@ export const mapAgentRun = (run) => {
     steps: Math.max(steps.length, 1),
     liveSteps: steps.map(s => ({ label: s.label, status: s.status })),
     logs: run.logs || [],
-    tools: ['terminal', 'fs'],
+    toolActivity: Array.isArray(run.toolActivity) ? run.toolActivity : [],
+    tools: deriveTools(run),
+    source: run.source || null,
+    sourceId: run.sourceId || null,
+    output: run.output || null,
+    error: run.error || null,
+    createdAt: run.createdAt || null,
+    updatedAt: run.updatedAt || null,
   };
 };
