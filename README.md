@@ -1,126 +1,185 @@
-<p align="center">
-  <img src="src/renderer/assets/logo.svg" width="52" height="52" alt="Meg">
-</p>
-<h1 align="center">Meg</h1>
-<p align="center"><b>Local-First AI Desktop Assistant</b></p>
+<div align="center">
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0--beta.6-blueviolet?style=for-the-badge&logo=electron" alt="Version">
-  <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
-  <img src="https://img.shields.io/badge/Model-LM_Studio-ff6b35?style=for-the-badge" alt="LM Studio">
-</p>
+# ✦ Meg ✦
+
+### Local-first AI desktop assistant for coding, projects, automations, and everyday work
+
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.6-7c3aed?style=for-the-badge&logo=electron&logoColor=white)](https://github.com/Natnael-15/Meg/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
+[![Runtime](https://img.shields.io/badge/runtime-LM_Studio-ff6b35?style=for-the-badge)](#requirements)
+[![License](https://img.shields.io/badge/license-MIT-111827?style=for-the-badge)](#license)
+
+<br />
+
+<a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.6/Meg-Setup-1.0.0-beta.6.exe">
+  <img src="https://img.shields.io/badge/Download_Meg-v1.0.0--beta.6-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="48" alt="Download Meg for Windows" />
+</a>
+
+<br />
+<br />
+
+**Private by default. Workspace-aware. Tool-using. Skill-driven. Built for local models.**
+
+</div>
+
+---
+
+## Overview
+
+**Meg** is a local-first AI desktop assistant built with Electron, React, and LM Studio. It is designed to give a local model a proper working environment: project context, file access, terminal execution, tool permissions, background agents, automations, and domain-specific skill prompts.
+
+Instead of treating the model like a plain chatbot, Meg wraps it in a desktop operating layer so it can help with real work across code, design, product, research, writing, debugging, planning, and automation.
 
 > [!IMPORTANT]
-> **v1.0.0-beta.6 — Skills System & AI Quality Overhaul.** Meg now carries 55 expert skill profiles across 13 domains. She auto-detects the right skill from your message and injects it as a structured system prompt — so whether you are asking about a Python script, a marketing plan, or a database schema, she answers as a domain expert, not a generalist.
+> **v1.0.0-beta.6 — Skills System & AI Quality Overhaul**  
+> Meg now includes a broad skill system with expert profiles across software, design, infrastructure, AI, product, research, and business domains. Skills can be selected manually or auto-detected from the user's message, then injected into the model context as structured guidance.
 
 ---
 
-<p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.6/Meg-Setup-1.0.0-beta.6.exe">
-    <img src="https://img.shields.io/badge/DOWNLOAD_v1.0.0--beta.6-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
-  </a>
-</p>
+## What Meg Can Do
 
----
-
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Lightbulb/SVG/ic_fluent_lightbulb_24_regular.svg" width="20"> What's New in beta.6
-
-| Area | Change |
+| Area | Capability |
 | :--- | :--- |
-| **Skills System** | 55 expert skill profiles across 13 categories. Select manually or let Meg auto-detect from your message. |
-| **Auto-Detection** | Meg reads your message and activates the best-matching skill automatically — Python, DevOps, SEO, Game Dev, and more. |
-| **Skill Categories** | Language, Frontend, Backend, Architecture, Quality, Infra, AI & Data, Security, Design, Docs, Product, Research, Specialist. |
-| **Workspace Switcher** | Switch active workspace directly from the chat header without leaving the conversation. |
-| **Workspace Management** | Delete workspaces from the UI. Active workspace badge shown at all times. |
-| **Think Toggle** | Fixed. Qwen3 now correctly enables and disables thinking mode via `enable_thinking`. |
-| **Tool Permissions** | Bypass mode now respected end-to-end. Permission settings apply correctly. |
-| **Output Quality** | Overhauled system prompt with concrete output standards and domain-expert skill injection. |
-| **Thinking Pipeline** | Native `reasoning_content` and `<think>` tags both handled. Thinking streams separately and collapses when done. |
+| **Local AI Chat** | Streams responses from LM Studio with thinking support, abort controls, and tool call cards. |
+| **Skills Engine** | Uses expert profiles such as Senior Web Developer, UI/UX Expert, Software Architect, DevOps Engineer, Research Analyst, Product Manager, and more. |
+| **Auto Skill Detection** | Reads the user's request and activates the most relevant skill automatically. |
+| **Workspace Awareness** | Keeps the active project visible and uses workspace context for file and tool operations. |
+| **File Operations** | Reads, writes, creates, renames, deletes, and searches files through a permission-aware tool layer. |
+| **Terminal Tools** | Runs commands, captures output, and feeds results back into the assistant workflow. |
+| **Code Assistance** | Helps explain, debug, refactor, review, document, and improve code across full-stack projects. |
+| **Agent Runs** | Supports multi-step background agent execution with run status and logs. |
+| **Automations** | Runs structured workflows through a local automation runner and scheduler. |
+| **Approval Queue** | Lets the user control sensitive actions with manual approvals or configurable bypass modes. |
+| **Mobile Link** | Includes Telegram integration for mobile notifications and remote control workflows. |
+| **Diagnostics** | Writes runtime diagnostics for startup, updater, renderer, and process-level failures. |
 
 ---
 
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Architecture/SVG/ic_fluent_architecture_24_regular.svg" width="20"> Core Architecture
+## Skills System
 
-- **Local by default.** Meg runs entirely on your machine via LM Studio. No cloud, no subscriptions, no data leaving your device.
-- **Skills engine.** On every message, the active skill's prompt is injected as a structured system message before your conversation history — giving the model expert-level context for the domain at hand.
-- **Tool access.** Meg can read and write files, run shell commands, search the web, manage workspaces, and more — all with a configurable approval queue.
-- **Workspace scoped.** All autonomous actions are resolved relative to your active project folder.
-- **Streaming.** Responses stream token by token with live thinking display, tool call cards, and a proper abort control.
+Meg's skill system is built around broad expert roles, not tiny single-purpose commands. The goal is to let the same local model answer with the mindset of the right specialist for the task.
 
----
-
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Apps/SVG/ic_fluent_apps_24_regular.svg" width="20"> Skills
-
-Meg ships with 55 skills. Select one from the toolbar or leave it on auto-detect.
-
-| Category | Skills |
+| Category | Example Skills |
 | :--- | :--- |
-| **Language** | Python, Node / API, TypeScript, React, Electron |
-| **Frontend** | Web / UI, Senior Web Dev, Frontend Arch, Full-Stack |
-| **Backend** | Backend Arch, API Design, Database |
-| **Architecture** | Software Architect, Tech Lead, Systems Thinker |
-| **Quality** | Testing, QA Engineer, Code Review, Debugging, Performance, A11y |
-| **Infra** | DevOps, Git / GitHub, Release Manager, Automation, PowerShell |
-| **AI & Data** | Data / ML, Data Analyst, AI Agent Builder, Prompt Engineer, Local AI |
+| **Languages** | Python, Node / API, TypeScript, React, Electron |
+| **Frontend** | Web / UI, Senior Web Developer, Frontend Architect, Full-Stack Engineer |
+| **Backend** | Backend Architect, API Designer, Database Designer |
+| **Architecture** | Software Architect, Technical Lead, Systems Thinker |
+| **Quality** | Testing Specialist, QA Engineer, Code Reviewer, Debugging Expert, Performance Engineer, Accessibility Expert |
+| **Infrastructure** | DevOps Engineer, Git / GitHub Expert, Release Manager, Automation Engineer, PowerShell Expert |
+| **AI & Data** | Data / ML Specialist, Data Analyst, AI Agent Builder, Prompt Engineer, Local AI Specialist |
 | **Security** | Security Engineer |
-| **Design** | UX/UI, Product Design, Design System, Visual Design, Motion, Creative Director, Mobile UX |
-| **Docs** | Documentation Writer, Technical Writer |
-| **Product** | Product Manager, Startup Advisor, Business Strategy, Brand Strategy, Marketing, SEO, Copywriter, CRO, App Launch |
-| **Research** | Research, Research Analyst, Problem Solver |
-| **Specialist** | Game Dev, CX Designer, Project Planner |
+| **Design** | UI/UX Designer, Product Designer, Design Systems Expert, Visual Designer, Motion Designer, Creative Director, Mobile UX Expert |
+| **Documentation** | Documentation Writer, Technical Writer |
+| **Product & Growth** | Product Manager, Startup Advisor, Business Strategist, Brand Strategist, Marketing Strategist, SEO Specialist, Copywriter, CRO Expert, App Launch Strategist |
+| **Research** | Research Specialist, Research Analyst, Problem Solver |
+| **Specialist** | Game Developer, Customer Experience Designer, Project Planner |
 
 ---
 
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Feature/SVG/ic_fluent_feature_search_24_regular.svg" width="20"> Full Feature Set
+## beta.6 Highlights
 
-| Surface | Capability |
-| :--- | :--- |
-| **Chat** | Streaming responses, thinking display, tool call cards, auto-scroll, abort control |
-| **Skills** | 55 expert domains, auto-detected or manually selected per conversation |
-| **Workspaces** | Create, switch, and delete project workspaces with active context shown in the chat header |
-| **File Browser** | Full-featured browser with create, rename, move, and recursive search |
-| **Split View** | Side-by-side code editor and terminal |
-| **Automations** | Persistent background workflows that run on a schedule |
-| **Agent Dashboard** | Monitor and manage multi-step background agent runs with logs |
-| **Mobile Link** | Telegram integration for remote control and notifications |
-| **Tool Permissions** | Configurable approval queue — bypass, auto-approve, or manual per tool |
+- **Skill profiles** for broad expert roles across engineering, design, product, business, research, and AI.
+- **Auto-detection** that chooses a skill from the user's message instead of requiring manual setup every time.
+- **Improved model guidance** with stronger system prompts and concrete output standards.
+- **Workspace switcher** in the chat header so the active project is always clear.
+- **Workspace management** for creating, switching, and deleting workspaces from the UI.
+- **Qwen thinking support** through `enable_thinking`, `reasoning_content`, and `<think>` parsing.
+- **Tool permission improvements** so bypass and approval settings are respected consistently.
+- **Streaming thinking pipeline** with separate thinking display and cleaner collapse behavior.
 
 ---
 
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Settings/SVG/ic_fluent_settings_24_regular.svg" width="20"> Setup
+## Architecture
 
-**Requirements:**
+```text
+Meg Desktop App
+├─ Renderer UI
+│  ├─ Chat surface
+│  ├─ Skills selector
+│  ├─ Workspace views
+│  ├─ File browser
+│  ├─ Split editor / terminal view
+│  ├─ Agent dashboard
+│  └─ Automation builder
+│
+├─ Electron Main Process
+│  ├─ LM Studio client
+│  ├─ Tool layer
+│  ├─ Approval queue
+│  ├─ Workspace service
+│  ├─ Agent runner
+│  ├─ Automation runner / scheduler
+│  ├─ Settings and stores
+│  └─ Diagnostics
+│
+└─ Local Model Runtime
+   └─ LM Studio OpenAI-compatible server
+```
 
-1. [LM Studio](https://lmstudio.ai/) running on `http://127.0.0.1:1234`
-2. Any OpenAI-compatible local model — `Qwen3-8B` and `DeepSeek-R1` recommended
-3. Windows 10 or 11
-
-Meg auto-detects whichever model is active in LM Studio on launch. No config needed.
+Meg is intentionally local-first: the model runs through LM Studio, app data is handled on the user's machine, and tool execution is scoped through the desktop app rather than delegated blindly to the model.
 
 ---
 
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Developer/SVG/ic_fluent_developer_board_24_regular.svg" width="20"> Development
+## Requirements
+
+- Windows 10 or Windows 11
+- [LM Studio](https://lmstudio.ai/) running locally
+- LM Studio local server available at:
+
+```text
+http://127.0.0.1:1234
+```
+
+Recommended local models:
+
+- Qwen3-8B or similar Qwen coding/reasoning model
+- DeepSeek-R1 distilled models
+- Any OpenAI-compatible local model exposed by LM Studio
+
+---
+
+## Development
 
 ```bash
 # Install dependencies
 npm install
 
-# Start dev environment (Vite + Electron)
+# Start the Vite + Electron dev environment
 npm run dev
 
 # Run tests
 npm test
 
-# Build installer
+# Build the Windows installer
 npm run build
 ```
 
+Useful scripts are defined in `package.json`:
+
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Starts Vite and Electron together. |
+| `npm run renderer:dev` | Starts only the renderer dev server. |
+| `npm run electron:dev` | Starts Electron with logging enabled. |
+| `npm test` | Runs the Vitest test suite. |
+| `npm run build` | Builds the renderer and packages the Windows app. |
+| `npm run release` | Builds and publishes through electron-builder. |
+
 ---
 
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/License/SVG/ic_fluent_certificate_24_regular.svg" width="20"> License
+## Project Status
 
-MIT — see `LICENSE`.
+Meg is in beta. The current focus is turning the app from a polished local AI shell into a reliable local AI operating layer: stronger workspace context, safer tools, better automation execution, cleaner diagnostics, and more capable skill-guided responses.
 
-<p align="center">
-  <sub>Developed by <a href="https://github.com/Natnael-15">Natnael-15</a></sub>
-</p>
+---
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
+
+<div align="center">
+
+Built by [Natnael-15](https://github.com/Natnael-15)
+
+</div>
