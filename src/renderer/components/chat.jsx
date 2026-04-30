@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from './icons.jsx';
 import { StatusBadge } from './primitives.jsx';
 
@@ -150,7 +150,7 @@ export const renderMarkdown = (raw, prefix = 'md') => {
 };
 
 export const ToolCallCard = ({msg}) => {
-  const [open,setOpen] = useState(false);
+  const [open,setOpen] = useState(!!msg.pending);
   const TOOL_ICONS = {run_command:'terminal',read_file:'files',write_file:'save',list_directory:'folder',search_files:'search',web_search:'web',send_telegram:'sms',spawn_subagent:'agent'};
   
   const actionLabel = msg.name === 'write_file' ? `Writing ${msg.args.path?.split(/[\/\\]/).pop() || 'file'}` 
@@ -197,23 +197,45 @@ export const ToolCallCard = ({msg}) => {
   );
 };
 
-const ThinkBlock = ({text}) => {
-  const [open,setOpen] = useState(false);
+const ThinkBlock = ({text, unfinished}) => {
+  const [open,setOpen] = useState(!!unfinished);
+  const [seconds,setSeconds] = useState(0);
+  const timerRef = React.useRef(null);
+
+  useEffect(() => {
+    if (unfinished && !timerRef.current) {
+      timerRef.current = setInterval(() => setSeconds(s => s + 0.1), 100);
+    } else if (!unfinished && timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [unfinished]);
+
+  useEffect(() => {
+    if (!unfinished) {
+      const t = setTimeout(() => setOpen(false), 800);
+      return () => clearTimeout(t);
+    }
+  }, [unfinished]);
+
   return (
     <div style={{marginBottom:6}}>
-      <button onClick={()=>setOpen(o=>!o)} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:'var(--text-3)',background:'var(--bg-active)',border:'1px solid var(--border)',borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:500,transition:'color 0.12s'}} onMouseEnter={e=>e.currentTarget.style.color='var(--text-2)'} onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}>
+      <button onClick={()=>setOpen(o=>!o)} style={{display:'flex',alignItems:'center',gap:5,fontSize:11,color:unfinished?'var(--accent)':'var(--text-3)',background:'var(--bg-active)',border:`1px solid ${unfinished?'var(--accent-border)':'var(--border)'}`,borderRadius:99,padding:'2px 8px',cursor:'pointer',fontWeight:500,transition:'color 0.12s,border-color 0.12s'}} onMouseEnter={e=>e.currentTarget.style.color='var(--text-2)'} onMouseLeave={e=>e.currentTarget.style.color=unfinished?'var(--accent)':'var(--text-3)'}>
+        {unfinished && <span style={{display:'inline-flex',animation:'spin 1.2s linear infinite'}}><Icon name="spinner" size={9} color="var(--accent)"/></span>}
         <Icon name={open?'chevronDown':'chevronRight'} size={10}/>
-        {open?'Hide thinking':'Show thinking'}
+        {unfinished ? 'Thinking…' : open ? 'Hide thinking' : 'Show thinking'}
+        {seconds > 0 && <span style={{marginLeft:2,opacity:0.55,fontWeight:400}}>{unfinished ? `${seconds.toFixed(1)}s` : `${seconds.toFixed(1)}s`}</span>}
       </button>
-      {open && <div style={{marginTop:6,padding:'10px 14px',background:'var(--bg-active)',border:'1px solid var(--border-light)',borderRadius:8,fontSize:12,color:'var(--text-3)',lineHeight:1.6}}>{renderMarkdown(text.trim())}</div>}
+      {open && <div style={{marginTop:6,padding:'10px 14px',background:'var(--bg-active)',border:'1px solid var(--border-light)',borderRadius:8,fontSize:12,color:'var(--text-3)',lineHeight:1.6,fontStyle:'italic'}}>{renderMarkdown(text.trim()||'...')}</div>}
     </div>
   );
 };
 
 export const Message = ({msg,isUser,accent}) => {
-  const renderBody = (text) => (text||'').split(/(<think>[\s\S]*?<\/think>)/g).map((p,i)=>
+  const renderBody = (text, streaming) => (text||'').split(/(<think>[\s\S]*?<\/think>)/g).map((p,i)=>
     p.startsWith('<think>')&&p.endsWith('<\/think>')
-      ?<ThinkBlock key={`think-${i}`} text={p.slice(7,-8)}/>
+      ?<ThinkBlock key={`think-${i}`} text={p.slice(7,-8)} unfinished={streaming}/>
       :<React.Fragment key={`text-${i}`}>{renderMarkdown(p)}</React.Fragment>
   );
   if(isUser) return (
@@ -223,7 +245,7 @@ export const Message = ({msg,isUser,accent}) => {
       </div>
     </div>
   );
-  if(!msg.text && !isUser) return null; // Don't render empty meg messages
+  if(!msg.text && !msg.streaming && !isUser) return null; // Don't render empty non-streaming meg messages
   return (
     <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
       <div style={{width:26,height:26,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
@@ -232,7 +254,14 @@ export const Message = ({msg,isUser,accent}) => {
       <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
         <div style={{fontSize:11,color:'var(--text-3)',marginBottom:4,fontWeight:500}}>Meg</div>
         <div style={{padding:'10px 14px',background:'var(--bg-2)',color:'var(--text)',borderRadius:'3px 10px 10px 10px',border:'1px solid var(--border-light)',boxShadow:'0 1px 2px var(--shadow)',maxWidth:'90%',width:'fit-content',display:'inline-block',minHeight:36,overflowWrap:'anywhere'}}>
-          {renderBody(msg.text)}
+          {msg.thinking && <ThinkBlock text={msg.thinking} unfinished={msg.streaming && !msg.text}/>}
+          {renderBody(msg.text, msg.streaming)}
+          {msg.streaming && !msg.text && !msg.thinking && (
+            <div style={{display:'flex',gap:4,alignItems:'center',height:20}}>
+              <div style={{width:8,height:8,borderRadius:'50%',border:'2px solid var(--accent)',borderTopColor:'transparent',animation:'spin 0.7s linear infinite'}}/>
+              <span style={{fontSize:12,color:'var(--text-3)',fontStyle:'italic'}}>Thinking…</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

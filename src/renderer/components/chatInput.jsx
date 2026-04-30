@@ -56,6 +56,16 @@ const VoiceInput = ({onTranscribe}) => {
 export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThinking}) => {
   const [val,setVal] = useState('');
   const [hint,setHint] = useState(null);
+  const textareaRef = useRef(null);
+  const handleChange = e => {
+    setVal(e.target.value);
+    const ta = textareaRef.current;
+    if (ta) {
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+    }
+  };
+  const resetHeight = () => { if (textareaRef.current) textareaRef.current.style.height = 'auto'; };
   const attachFiles = async () => {
     const result = await window.electronAPI?.openFile?.();
     const names = result?.filePaths?.map(p => p.split(/[\\/]/).pop()).filter(Boolean) || [];
@@ -68,7 +78,7 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
     if (e.key==='Enter'&&!e.shiftKey){
       e.preventDefault();
       if(typing) return; // Prevent double send
-      if(val.trim()){onSend(val.trim());setVal('');setHint(null);}
+      if(val.trim()){onSend(val.trim());setVal('');setHint(null);resetHeight();}
     }
     if (e.key==='@') setHint('@');
     else if (e.key==='/') setHint('/');
@@ -97,12 +107,12 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           <VoiceInput onTranscribe={t=>{setVal(t);setHint(null);}}/>
           {onToggleThinking && <button onClick={onToggleThinking} title={thinking?'Thinking on — click to disable':'Thinking off — click to enable'} style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${thinking?'var(--accent-border)':'var(--border)'}`,background:thinking?'var(--accent-bg)':'transparent',color:thinking?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}><Icon name="zap" size={11} color={thinking?'var(--accent)':'var(--text-3)'}/>Think</button>}
         </div>
-        <textarea value={val} onChange={e=>setVal(e.target.value)} onKeyDown={handleKey} placeholder={placeholder||'Ask Meg anything… (⌘K for commands)'} rows={1}
-          style={{flex:1,resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)'}}
+        <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} placeholder={placeholder||'Ask Meg anything… (⌘K for commands)'} rows={1}
+          style={{flex:1,resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)',overflowY:'auto'}}
           onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
         <button onClick={()=>{
           if(typing) onAbort?.();
-          else if(val.trim()){onSend(val.trim());setVal('');setHint(null);}
+          else if(val.trim()){onSend(val.trim());setVal('');setHint(null);resetHeight();}
         }} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':(val.trim()?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s'}}
           onMouseDown={e=>e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
           <Icon name={typing?'close':'send'} size={typing?12:15} color={typing||val.trim()?'#fff':'var(--text-3)'}/>

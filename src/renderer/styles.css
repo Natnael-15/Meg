@@ -1,6 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; overflow: hidden; }
-body { font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; transition: background 0.3s; }
+body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; transition: background 0.3s; }
 
 /* ── Light theme ── */
 :root {
@@ -28,9 +29,10 @@ body.dark {
   --code-bg: #0d0b14; --code-border: #1e1c2a; --code-text: #8090a8;
   --code-green: #7ab87a; --code-blue: #5ea4c4; --code-orange: #c58a60;
 }
-::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; transition: background 0.15s; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
 button { cursor: pointer; border: none; background: none; font-family: inherit; color: inherit; }
 
 /* ── Keyframes ── */

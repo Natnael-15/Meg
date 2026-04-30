@@ -567,6 +567,9 @@ const App = () => {
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
   const dbLoaded = useRef(false);
   const messagesEndRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const isAutoScrollingRef = useRef(false);
   const activeIdRef = useRef(activeId);
   useEffect(()=>{ activeIdRef.current = activeId; }, [activeId]);
 
@@ -665,12 +668,26 @@ const App = () => {
     return ()=>window.removeEventListener('keydown',h);
   },[]);
 
-  // ── Auto-scroll to bottom ──
+  // ── Smart scroll: track whether user has scrolled up ──
+  const handleScroll = useCallback(() => {
+    if (isAutoScrollingRef.current) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setUserScrolledUp(distFromBottom > 120);
+  }, []);
+
+  // ── Auto-scroll to bottom (only when user is near bottom) ──
   useEffect(()=>{
-    if(nav === 'chat' && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    if(nav === 'chat' && messagesEndRef.current && !userScrolledUp) {
+      isAutoScrollingRef.current = true;
+      const el = scrollContainerRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+      setTimeout(() => { isAutoScrollingRef.current = false; }, 80);
     }
-  },[activeId, threads, typing, nav]);
+  },[activeId, threads, typing, nav, userScrolledUp]);
 
   const [version, setVersion] = useState('1.0.0-beta.5'); // Fallback
   const isPreviewMode = !window.electronAPI;
@@ -929,6 +946,18 @@ const App = () => {
       }));
     });
 
+    api.onThinking(({chunk, threadId})=>{
+      updateThreads(ts=>ts.map(t=>{
+        if(t.id!==threadId) return t;
+        const msgs=[...t.messages];
+        const last=msgs[msgs.length-1];
+        if(last&&last.role==='meg'&&last.streaming){
+          msgs[msgs.length-1]={...last, thinking:(last.thinking||'')+chunk};
+        }
+        return {...t,messages:msgs, unread: threadId !== activeIdRef.current || t.unread};
+      }));
+    });
+
     api.onDone(({threadId})=>{
       setTyping(false);
       updateThreads(ts=>ts.map(t=>{
@@ -1018,11 +1047,12 @@ const App = () => {
       }));
     });
 
-    return ()=>api.removeListeners('chat:chunk','chat:done','chat:error','chat:tool_call','chat:tool_result','chat:resume');
+    return ()=>api.removeListeners('chat:chunk','chat:done','chat:error','chat:tool_call','chat:tool_result','chat:resume','chat:thinking');
   }, []);
 
   const addMessage = text => {
     const api = window.electronAPI;
+    setUserScrolledUp(false);
     let tid = activeIdRef.current;
     if(!tid) {
       tid = 'chat-' + Date.now();
@@ -1047,27 +1077,55 @@ const App = () => {
       const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const dateStr = now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-      const systemPrompt = { 
-        role: 'system', 
-        content: `You are Meg, a highly capable local AI assistant. 
+      const systemPrompt = {
+        role: 'system',
+        content: `You are Meg, a precise and capable AI assistant running directly on the user's Windows machine with full tool access.
 
-CURRENT CONTEXT:
-- Date: ${dateStr}
-- Time: ${timeStr}
-- Operating System: Windows
-- Terminal/Shell: PowerShell (Primary) / CMD
-- Active Workspace: ${activeWorkspace?.name || 'None selected'}
-- Workspace Path: ${activeWorkspace?.path || 'No workspace selected'}
+OPERATING CONTEXT:
+- Date: ${dateStr}, Time: ${timeStr}
+- OS: Windows 11 | Shell: PowerShell (primary)
+- Active Workspace: ${activeWorkspace?.name || 'None'} | Path: ${activeWorkspace?.path || 'Not set'}
 
-OPERATIONAL GUIDELINES:
-1. CONCISETY: Be brief, technical, and direct. Avoid conversational filler.
-2. WINDOWS AWARENESS: You are running on Windows. Use Windows-native commands. (e.g., use 'systeminfo' or 'wmic' instead of 'uname', 'dir' instead of 'ls', 'type' instead of 'cat').
-3. TOOL USE: When performing complex tasks, prefer specialized tools (web_search for instant-answer lookups, send_telegram, search_files, list_directory) over raw shell commands where possible. Use spawn_subagent with 'wait: true' to delegate sub-tasks and block until they report back.
-4. ERROR RECOVERY: If a command or tool returns an error, analyze the stderr, understand the failure, and try an alternative approach. DO NOT repeat the same failed command.
-5. PATHS: Use backslashes '\\' for Windows paths in commands, but ensure strings are escaped correctly.
-6. FINAL RESPONSE: ALWAYS provide a final, clear answer to the user's question after you have obtained the necessary information via tools. Do not just stop after the tool result.
+━━━ CORE RULES — NEVER VIOLATE THESE ━━━
 
-${memoryPrompt}` 
+1. VERIFY OR DON'T CLAIM: After writing a file, immediately run list_directory or read_file to confirm it exists. Never say "I've created X" without proof from a tool result. If the directory listing doesn't show your file, the file does NOT exist — try again with correct syntax.
+
+2. EXECUTE FIRST, REPORT AFTER: When given a task, use tools to do the work. Do NOT describe what you plan to do — just do it. End with a concise report of what was actually accomplished.
+
+3. BUILD VERIFIED LAYERS: In multi-step projects, fully verify each component before building the next. If step 1 fails, fix it before doing step 2. Never build on a broken foundation.
+
+4. WINDOWS/POWERSHELL SYNTAX — MANDATORY:
+   - Comments: # (NEVER use C-style //)
+   - Write files: Set-Content, Out-File -Encoding utf8
+   - Read files: Get-Content
+   - Random numbers: (New-Object Random).NextDouble()
+   - Check existence: Test-Path
+   - Paths: backslashes, properly escaped
+   - NEVER use Unix commands (ls, cat, touch, mkdir -p, grep)
+
+5. ERROR RECOVERY: When a tool returns an error, read the FULL error message, identify the root cause, and try a DIFFERENT approach. Do not repeat the same failing command. Do not give up after one failure.
+
+6. CONCISE AND DIRECT: Be technical and precise. No filler phrases like "Certainly!" or "Great question!". Show results, not intentions.
+
+━━━ TOOL STRATEGY ━━━
+- write_file → always follow with list_directory to verify the file appears
+- run_command → execute scripts, check stdout/stderr, verify state changes
+- list_directory → confirm files exist before referencing them
+- read_file → inspect file content after writing to verify correctness
+- search_files → find patterns across the workspace
+- web_search → current docs, API references, syntax verification
+- spawn_subagent → parallel background tasks only; not for sequential steps
+
+━━━ COMMON MISTAKES TO AVOID ━━━
+- NEVER output code in a chat message and call it "done." Use write_file to actually create the file.
+- NEVER hallucinate a tool result. If you didn't call a tool, you don't know the outcome.
+- NEVER assume a file was created successfully — verify with list_directory.
+- When writing multi-file projects: create files ONE AT A TIME, verify EACH ONE, then proceed.
+- If run_command returns exitCode != 0, that means it FAILED. Read stderr, diagnose, and fix.
+- When writing PowerShell scripts: test small pieces first with run_command before building complex scripts.
+- NEVER say "I'll create..." or "Let me set up..." — just DO IT with tools, then report what happened.
+
+${memoryPrompt}`
       };
 
       // ── Auto-Context ──
@@ -1168,7 +1226,7 @@ ${memoryPrompt}`
   ];
 
   return (
-      <div style={{display:'flex',height:'100vh',background:'var(--bg)',overflow:'hidden',fontFamily:'"Segoe UI Variable","Segoe UI",system-ui,-apple-system,sans-serif',WebkitFontSmoothing:'antialiased',color:'var(--text)',transition:'background 0.3s,color 0.3s',flexDirection:'column'}}>
+      <div style={{display:'flex',height:'100vh',background:'var(--bg)',overflow:'hidden',fontFamily:'"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',WebkitFontSmoothing:'antialiased',color:'var(--text)',transition:'background 0.3s,color 0.3s',flexDirection:'column'}}>
 
         {isPreviewMode && (
           <TweaksPanel>
@@ -1328,7 +1386,7 @@ ${memoryPrompt}`
             </div>
           </div>
           <div style={{flex:1,display:'flex',overflow:'hidden'}}>
-            <div style={{flex:1,overflowY:'auto',padding:'18px 20px'}}>
+            <div ref={scrollContainerRef} onScroll={handleScroll} style={{flex:1,overflowY:'auto',padding:'18px 20px',position:'relative'}}>
               {isPreviewMode && (
                 <div style={{marginBottom:12,padding:'10px 12px',borderRadius:8,border:'1px solid var(--orange-border)',background:'var(--orange-bg)',fontSize:12,color:'var(--text-2)'}}>
                   Preview mode only. The desktop backend is unavailable in this browser render, so chat execution, tools, and persisted app state are disabled.
@@ -1352,6 +1410,16 @@ ${memoryPrompt}`
                 return <Message key={msg.id} msg={msg} accent={accent}/>;
               })}
               {typing && <TypingIndicator/>}
+              {userScrolledUp && typing && (
+                <div style={{position:'sticky',bottom:12,display:'flex',justifyContent:'flex-end',paddingRight:8,pointerEvents:'none'}}>
+                  <button
+                    onClick={()=>{ setUserScrolledUp(false); messagesEndRef.current?.scrollIntoView({behavior:'smooth'}); }}
+                    style={{pointerEvents:'all',height:28,padding:'0 12px',borderRadius:99,background:'var(--accent)',color:'#fff',border:'none',fontSize:11.5,fontWeight:600,cursor:'pointer',boxShadow:'0 2px 8px var(--shadow-lg)',display:'flex',alignItems:'center',gap:5,animation:'fadeUp 0.15s ease'}}
+                  >
+                    <Icon name="chevronDown" size={11} color="#fff"/> new message
+                  </button>
+                </div>
+              )}
               <div ref={messagesEndRef}/>
             </div>
             {splitOpen && <SplitPane activeFile={activeFile} activeWorkspace={activeWorkspace}/>}
