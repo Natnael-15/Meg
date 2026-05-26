@@ -5,25 +5,25 @@
 <p align="center"><b>Local-First AI Desktop Assistant</b></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-1.0.0--beta.6-blueviolet?style=for-the-badge&logo=electron" alt="Version">
+  <img src="https://img.shields.io/badge/Version-1.0.0--beta.7-blueviolet?style=for-the-badge&logo=electron" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows-0078D4?style=for-the-badge&logo=windows" alt="Windows">
   <img src="https://img.shields.io/badge/Model-LM_Studio-ff6b35?style=for-the-badge" alt="LM Studio">
 </p>
 
 > [!IMPORTANT]
-> **v1.0.0-beta.6 — Skills System & AI Quality Overhaul.** Meg now carries 55 expert skill profiles across 13 domains. She auto-detects the right skill from your message and injects it as a structured system prompt — so whether you are asking about a Python script, a marketing plan, or a database schema, she answers as a domain expert, not a generalist.
+> **v1.0.0-beta.7 — Skills System & AI Quality Overhaul.** Meg now carries 55 expert skill profiles across 13 domains. She auto-detects the right skill from your message and injects it as a structured system prompt — so whether you are asking about a Python script, a marketing plan, or a database schema, she answers as a domain expert, not a generalist.
 
 ---
 
 <p align="center">
-  <a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.6/Meg-Setup-1.0.0-beta.6.exe">
-    <img src="https://img.shields.io/badge/DOWNLOAD_v1.0.0--beta.6-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
+  <a href="https://github.com/Natnael-15/Meg/releases/download/v1.0.0-beta.7/Meg-Setup-1.0.0-beta.7.exe">
+    <img src="https://img.shields.io/badge/DOWNLOAD_v1.0.0--beta.7-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="50">
   </a>
 </p>
 
 ---
 
-## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Lightbulb/SVG/ic_fluent_lightbulb_24_regular.svg" width="20"> What's New in beta.6
+## <img src="https://raw.githubusercontent.com/microsoft/fluentui-system-icons/master/assets/Lightbulb/SVG/ic_fluent_lightbulb_24_regular.svg" width="20"> What's New in beta.7
 
 | Area | Change |
 | :--- | :--- |

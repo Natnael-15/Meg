@@ -3,4 +3,11 @@ dist/
 .env
 *.log
 .claude/
-C:\Users\natna\.gemini\tmp\
+C:\Users\natna\.gemini\tmp/
+meg.db
+meg.db-shm
+meg.db-wal
+_lmstudio_smoke.js
+convo with meg.txt
+meg-tool-audit.jsonl
+megtest1/

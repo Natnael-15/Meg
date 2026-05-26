@@ -7,7 +7,7 @@ const { getStatus } = require('./git');
 const settings = require('./settings');
 const db = require('./db');
 const workspace = require('./workspace');
-const { executeTool } = require('./tools');
+const { executeTool, prepareStagedWrite } = require('./tools');
 const agentRunner = require('./agentRunner');
 const automationRunner = require('./automationRunner');
 const automationScheduler = require('./automationScheduler');
@@ -90,14 +90,22 @@ function setupIPC(win) {
   ipcMain.handle('approval:list', () => approvalQueue.list());
   ipcMain.handle('approval:applyStaged', async (_, { id, path: filePath }) => {
     try {
+      console.log('applyStaged', { id, filePath });
       const approval = approvalQueue.get(id);
+      console.log('approval found', !!approval);
       if (!approval) throw new Error(`Approval not found: ${id}`);
       if (filePath) {
         const content = approval.rawArgs?.content || approval.args?.content || '';
+        console.log('writing file', filePath);
         fs.writeFileSync(filePath, content, 'utf8');
       }
-      return { ok: true };
-    } catch (e) { return { ok: false, error: e.message }; }
+      const result = { ...(approval.result || {}), ok: true, applied: true };
+      console.log('marking approved');
+      return { ok: true, approval: approvalQueue.markApproved(id, result), result };
+    } catch (e) {
+      console.error('applyStaged error', e);
+      return { ok: false, error: e.message };
+    }
   });
   ipcMain.handle('approval:deny', (_, id) => {
     try { return { ok: true, approval: approvalQueue.deny(id) }; }
@@ -109,6 +117,14 @@ function setupIPC(win) {
       if (!approval) throw new Error(`Approval not found: ${id}`);
       if (approval.status !== 'pending') throw new Error(`Approval is already ${approval.status}`);
       approvalQueue.markRunning(id);
+      if (approval.tool === 'write_file') {
+        const result = prepareStagedWrite(approval.rawArgs || approval.args, {
+          threadId: approval.threadId,
+          agentRunId: approval.agentRunId,
+          workspacePath: approval.workspacePath,
+        });
+        return { ok: true, approval: approvalQueue.markStaged(id, result), result };
+      }
       const result = await executeTool(approval.tool, approval.rawArgs || approval.args, {
         threadId: approval.threadId,
         agentRunId: approval.agentRunId,
@@ -137,37 +153,37 @@ function setupIPC(win) {
 
   // ── Threads ──────────────────────────────────────────────
   ipcMain.handle('thread:list',    ()           => threadStore.list());
-  ipcMain.handle('thread:upsert',  (_, item)    => threadStore.upsert(item));
-  ipcMain.handle('thread:delete',  (_, id)      => threadStore.remove(id));
-  ipcMain.handle('thread:saveAll', (_, items)   => threadStore.saveAll(items));
+  ipcMain.handle('thread:upsert',  (_, item)    => ({ ok: true, item: threadStore.upsert(item) }));
+  ipcMain.handle('thread:delete',  (_, id)      => ({ ok: true, items: threadStore.remove(id) }));
+  ipcMain.handle('thread:saveAll', (_, items)   => ({ ok: true, items: threadStore.saveAll(items) }));
 
   // ── Activity ─────────────────────────────────────────────
   ipcMain.handle('activity:listNotifications',     ()       => activityStore.listNotifications());
-  ipcMain.handle('activity:upsertNotification',    (_, item)=> activityStore.upsertNotification(item));
-  ipcMain.handle('activity:dismissNotification',   (_, id)  => activityStore.dismissNotification(id));
-  ipcMain.handle('activity:markAllNotificationsRead', ()    => activityStore.markAllNotificationsRead());
-  ipcMain.handle('activity:saveNotifications',     (_, items)=> activityStore.saveNotifications(items));
+  ipcMain.handle('activity:upsertNotification',    (_, item)=> ({ ok: true, item: activityStore.upsertNotification(item) }));
+  ipcMain.handle('activity:dismissNotification',   (_, id)  => ({ ok: true, items: activityStore.dismissNotification(id) }));
+  ipcMain.handle('activity:markAllNotificationsRead', ()    => ({ ok: true, items: activityStore.markAllNotificationsRead() }));
+  ipcMain.handle('activity:saveNotifications',     (_, items)=> ({ ok: true, items: activityStore.saveNotifications(items) }));
   ipcMain.handle('activity:listEvents',            ()       => activityStore.listEvents());
-  ipcMain.handle('activity:upsertEvent',           (_, item)=> activityStore.upsertEvent(item));
-  ipcMain.handle('activity:saveEvents',            (_, items)=> activityStore.saveEvents(items));
+  ipcMain.handle('activity:upsertEvent',           (_, item)=> ({ ok: true, item: activityStore.upsertEvent(item) }));
+  ipcMain.handle('activity:saveEvents',            (_, items)=> ({ ok: true, items: activityStore.saveEvents(items) }));
 
   // ── Telegram state ───────────────────────────────────────
   ipcMain.handle('telegramState:listMessages',  ()        => telegramStore.listMessages());
-  ipcMain.handle('telegramState:upsertMessage', (_, item) => telegramStore.upsertMessage(item));
-  ipcMain.handle('telegramState:deleteMessage', (_, id)   => telegramStore.removeMessage(id));
-  ipcMain.handle('telegramState:saveMessages',  (_, items)=> telegramStore.saveMessages(items));
+  ipcMain.handle('telegramState:upsertMessage', (_, item) => ({ ok: true, item: telegramStore.upsertMessage(item) }));
+  ipcMain.handle('telegramState:deleteMessage', (_, id)   => ({ ok: true, items: telegramStore.removeMessage(id) }));
+  ipcMain.handle('telegramState:saveMessages',  (_, items)=> ({ ok: true, items: telegramStore.saveMessages(items) }));
 
   // ── Agent configs ────────────────────────────────────────
   ipcMain.handle('agentConfig:list',    ()         => agentConfigs.list());
-  ipcMain.handle('agentConfig:upsert',  (_, item)  => agentConfigs.upsert(item));
-  ipcMain.handle('agentConfig:delete',  (_, id)    => agentConfigs.remove(id));
-  ipcMain.handle('agentConfig:saveAll', (_, items) => agentConfigs.saveAll(items));
+  ipcMain.handle('agentConfig:upsert',  (_, item)  => ({ ok: true, item: agentConfigs.upsert(item) }));
+  ipcMain.handle('agentConfig:delete',  (_, id)    => ({ ok: true, items: agentConfigs.remove(id) }));
+  ipcMain.handle('agentConfig:saveAll', (_, items) => ({ ok: true, items: agentConfigs.saveAll(items) }));
 
   // ── Automation configs ────────────────────────────────────
   ipcMain.handle('automationConfig:list',    ()         => automationConfigs.list());
-  ipcMain.handle('automationConfig:upsert',  (_, item)  => automationConfigs.upsert(item));
-  ipcMain.handle('automationConfig:delete',  (_, id)    => automationConfigs.remove(id));
-  ipcMain.handle('automationConfig:saveAll', (_, items) => { automationConfigs.saveAll(items); automationScheduler.reload(); return true; });
+  ipcMain.handle('automationConfig:upsert',  (_, item)  => ({ ok: true, item: automationConfigs.upsert(item) }));
+  ipcMain.handle('automationConfig:delete',  (_, id)    => ({ ok: true, items: automationConfigs.remove(id) }));
+  ipcMain.handle('automationConfig:saveAll', (_, items) => { const res = automationConfigs.saveAll(items); automationScheduler.reload(); return { ok: true, items: res }; });
 
   // ── Runtime diagnostics ─────────────────────────────────
   ipcMain.handle('diagnostics:list', (_, limit) => readRecentDiagnostics(limit || 100));

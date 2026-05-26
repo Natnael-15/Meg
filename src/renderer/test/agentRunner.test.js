@@ -43,7 +43,7 @@ describe('agentRunner', () => {
     vi.useFakeTimers();
     settingsState = {
       agentRuns: [],
-      model: 'qwen/qwen3.5-9b',
+      model: 'qwen/qwen3-8b',
       lmStudioUrl: 'http://127.0.0.1:1234',
     };
     activeWorkspace = { id: 'ws-1', path: 'C:\\repo' };

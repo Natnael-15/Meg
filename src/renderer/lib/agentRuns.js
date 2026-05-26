@@ -30,7 +30,7 @@ export const mapAgentRun = (run) => {
     task: run.name || 'agent',
     status: run.status,
     thread: run.parentThreadId || 'Backend run',
-    model: run.model || 'qwen/qwen3.5-9b',
+    model: run.model || 'qwen/qwen3-8b',
     duration,
     doneSteps,
     steps: Math.max(steps.length, 1),

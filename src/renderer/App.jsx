@@ -465,7 +465,7 @@ const App = () => {
   const [themeChoice, setThemeChoice] = useState('light');
   const dark = resolveThemeDarkMode(themeChoice);
 
-  const [showOnboarding, setShowOnboarding] = useState(() => readPreviewStorage('meg:onboarded', 'false') !== 'true');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [quickCapOpen, setQuickCapOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
@@ -482,6 +482,15 @@ const App = () => {
   const [events, setEvents] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
   const [activeWorkspace, setActiveWorkspace] = useState(null);
+  const [terminalHistory, setTerminalHistory] = useState([]);
+
+  const onTerminalHistoryChange = useCallback((updater) => {
+    setTerminalHistory(curr => {
+      const next = typeof updater === 'function' ? updater(curr) : updater;
+      window.electronAPI?.setSetting?.('splitTerminalHistory', next);
+      return next;
+    });
+  }, []);
   const [activeAgents, setActiveAgents] = useState([]);
   const [typing, setTyping] = useState(false);
   const [lmStatus, setLmStatus] = useState(undefined);
@@ -575,6 +584,12 @@ const App = () => {
   const isAutoScrollingRef = useRef(false);
   const activeIdRef = useRef(activeId);
   useEffect(()=>{ activeIdRef.current = activeId; }, [activeId]);
+  const activeFileRef = useRef(activeFile);
+  useEffect(()=>{ activeFileRef.current = activeFile; }, [activeFile]);
+  const activeWorkspaceRef = useRef(activeWorkspace);
+  useEffect(()=>{ activeWorkspaceRef.current = activeWorkspace; }, [activeWorkspace]);
+  const threadsRef = useRef(threads);
+  useEffect(()=>{ threadsRef.current = threads; }, [threads]);
 
   const upsertAgentRun = useCallback((run) => {
     if(!run) return;
@@ -625,7 +640,7 @@ const App = () => {
     api.onUpdateError(err => { 
       setIsCheckingUpdate(false);
       console.error('Update error:', err); 
-      setUpdateInfo(null); 
+      setUpdateInfo({ status: 'error', error: err });
     });
   }, []);
 
@@ -641,6 +656,9 @@ const App = () => {
     });
     window.electronAPI.getSetting('splitOpen').then((value) => {
       setSplitOpen(typeof value === 'boolean' ? value : false);
+    });
+    window.electronAPI.getSetting('splitTerminalHistory').then((value) => {
+      setTerminalHistory(value || []);
     });
     window.electronAPI.getSetting('theme').then((value) => {
       if (typeof value === 'string' && value.trim()) {
@@ -692,7 +710,7 @@ const App = () => {
     }
   },[activeId, threads, typing, nav, userScrolledUp]);
 
-  const [version, setVersion] = useState('1.0.0-beta.5'); // Fallback
+  const [version, setVersion] = useState('1.0.0-beta.7'); // Fallback
   const isPreviewMode = !window.electronAPI;
 
   useEffect(() => {
@@ -788,6 +806,14 @@ const App = () => {
         setNotifs((current) => upsertNotification(current, buildApprovalNotification(approval)));
         setTrayOpen(true);
       }
+      if(type==='approval:staged' && approval.tool === 'write_file') {
+        window.dispatchEvent(new CustomEvent('meg:action', { 
+          detail: { 
+            action: 'reviewFile', 
+            value: { approval } 
+          } 
+        }));
+      }
     });
     return ()=>window.electronAPI.removeListeners('approval:change');
   },[]);
@@ -869,14 +895,20 @@ const App = () => {
     };
     const handle = e => {
       const {action, text, screen, value} = e.detail || {};
-      if(action==='sendToChat') { setNav('chat'); if(text) addMessageRef.current?.(text); }
+      if(action==='sendToChat' || action==='appendCommandResultToChat') { setNav('chat'); if(text) addMessageRef.current?.(text); }
       if(action==='navigate')   setNav(screen);
         if(action==='setModel')   { setActiveModel(value); window.electronAPI?.setSetting?.('model', value); }
         if(action==='setDark')    applyThemeChoice(value ? 'dark' : 'light');
         if(action==='setTheme')   applyThemeChoice(value);
         if(action==='lmPing')     window.electronAPI?.ping().then(r=>setLmStatus(r.ok));
         if(action==='openSplit')  setSplitOpen(true);
-      if(action==='openFile')   setActiveFile(value);
+      if(action==='openFile')   { setActiveFile(value); activeFileRef.current = value; }
+      if(action==='reviewFile') {
+        const { approval, path: fp } = value;
+        if (approval) { const n = { approvalId: approval.id, name: (approval.result?.path || approval.rawArgs?.path || 'file').split(/[\/\\]/).pop(), path: approval.result?.path || approval.rawArgs?.path, content: approval.result?.originalContent || '', draftContent: approval.rawArgs?.content || '', ext: (approval.result?.path || approval.rawArgs?.path || '').split('.').pop() }; setActiveFile(n); activeFileRef.current = n; setSplitOpen(true); }
+        else if (fp) { window.electronAPI?.readFile(fp).then(r => { const n = { name: fp.split(/[\/\\]/).pop(), path: fp, content: r.content || '', ext: fp.split('.').pop() }; setActiveFile(n); activeFileRef.current = n; setSplitOpen(true); }); }
+      }
+      if(action==='applyCode') { if (!activeFileRef.current) return; window.electronAPI?.readFile(activeFileRef.current.path).then(r => { const n = { ...activeFileRef.current, content: r.content || activeFileRef.current.content, draftContent: value }; setActiveFile(n); activeFileRef.current = n; setSplitOpen(true); }); }
       if(action==='setActiveWorkspace') {
         setActiveWorkspace(value);
         if(value?.path) window.electronAPI?.setActiveWorkspace(value);
@@ -889,8 +921,8 @@ const App = () => {
           model: value.model,
           source: value.source || null,
           sourceId: value.sourceId || null,
-          workspaceId: activeWorkspace?.id || null,
-          workspacePath: activeWorkspace?.path || null,
+          workspaceId: value.workspaceId || value.workspace?.id || activeWorkspaceRef.current?.id || null,
+          workspacePath: value.workspacePath || value.workspace?.path || activeWorkspaceRef.current?.path || null,
           parentThreadId: activeIdRef.current,
         }).then(r=>r?.run&&upsertAgentRun(r.run));
       }
@@ -1053,7 +1085,7 @@ const App = () => {
     return ()=>api.removeListeners('chat:chunk','chat:done','chat:error','chat:tool_call','chat:tool_result','chat:resume','chat:thinking');
   }, []);
 
-  const addMessage = text => {
+  const addMessage = async (text) => {
     const api = window.electronAPI;
     setUserScrolledUp(false);
     let tid = activeIdRef.current;
@@ -1061,7 +1093,7 @@ const App = () => {
       tid = 'chat-' + Date.now();
       const newThread = normalizeThread({
         ...createThreadRecord(tid),
-        ...getWorkspaceThreadFields(activeWorkspace),
+        ...getWorkspaceThreadFields(activeWorkspaceRef.current),
       });
       updateThreads(ts=>[...ts,newThread]);
       setActiveId(tid);
@@ -1071,6 +1103,33 @@ const App = () => {
     const megMsgId  = Date.now()+1;
 
     if(api){
+      const trimmed = text.trim();
+      const systemMessages = [];
+      let resolvedText = text;
+
+      if (trimmed.startsWith('/agent ')) {
+        const ins = trimmed.slice(7).trim();
+        const r = await api.createAgentRun?.({ instruction: ins, workspacePath: activeWorkspaceRef.current?.path, source: 'slash-command', parentThreadId: tid });
+        if (r?.ok) {
+          updateThreads(ts=>ts.map(t=>t.id!==tid?t:{...t, messages:[...t.messages,{id:userMsgId,role:'user',text},{id:megMsgId,role:'meg',text:`Queued agent run for: ${ins}`,status:'done'}]}));
+          if (r.run) upsertAgentRun(r.run);
+        }
+        return;
+      }
+
+      if (trimmed.startsWith('/search ')) { systemMessages.push({ role:'system', content:'The user invoked /search.' }); resolvedText = trimmed.slice(8).trim(); }
+      else if (trimmed.startsWith('/fix ')) { systemMessages.push({ role:'system', content:'The user invoked /fix.' }); resolvedText = trimmed.slice(5).trim(); }
+      else if (trimmed.startsWith('/explain ')) { systemMessages.push({ role:'system', content:'The user invoked /explain.' }); resolvedText = trimmed.slice(9).trim(); }
+      else if (trimmed.startsWith('/code ')) { systemMessages.push({ role:'system', content:'The user invoked /code.' }); resolvedText = trimmed.slice(6).trim(); }
+      
+      const fileMatches = resolvedText.matchAll(/@file\(([^)]+)\)/g);
+      for (const match of fileMatches) {
+        let fp = match[1]; if (activeWorkspaceRef.current?.path && !/^[a-zA-Z]:/.test(fp) && !fp.startsWith('/')) fp = activeWorkspaceRef.current.path + (activeWorkspaceRef.current.path.endsWith('\\')||activeWorkspaceRef.current.path.endsWith('/')?'':'\\') + fp;
+        const res = await api.readFile(fp); if (res.content !== null && !res.error) systemMessages.push({ role:'system', content: `The user is referencing a file. Referenced file context: ${fp}: ${res.content}` });
+        resolvedText = resolvedText.replace(match[0], '').trim();
+      }
+      if (resolvedText.includes('@clipboard')) { const clip = await navigator.clipboard.readText(); systemMessages.push({ role:'system', content: `The user is referencing the clipboard. Clipboard content: ${clip}` }); resolvedText = resolvedText.replace('@clipboard','').trim(); }
+
       // ── Inject Memories ──
       const memoryPrompt = (memoryEnabled && memories.length) 
         ? `\n\nUSER PREFERENCES & MEMORIES:\n- ${memories.join('\n- ')}`
@@ -1087,7 +1146,7 @@ const App = () => {
 OPERATING CONTEXT:
 - Date: ${dateStr}, Time: ${timeStr}
 - OS: Windows 11 | Shell: PowerShell (primary)
-- Active Workspace: ${activeWorkspace?.name || 'None'} | Path: ${activeWorkspace?.path || 'Not set'}
+- Active Workspace: ${activeWorkspaceRef.current?.name || 'None'} | Path: ${activeWorkspaceRef.current?.path || 'Not set'}
 
 ━━━ CORE RULES — NEVER VIOLATE THESE ━━━
 
@@ -1143,15 +1202,15 @@ ${memoryPrompt}`
 
       // ── Auto-Context ──
       let contextMsg = null;
-      if (activeFile && (splitOpen || nav === 'filebrowser')) {
+      if (activeFileRef.current && (splitOpen || nav === 'filebrowser')) {
         contextMsg = {
           role: 'system',
-          content: `Current Context (The file you are looking at/editing):\nFile: ${activeFile.name}\nPath: ${activeFile.path}\nContent:\n\`\`\`${activeFile.ext || ''}\n${activeFile.content}\n\`\`\``
+          content: `Current Context (The file you are looking at/editing):\nFile: ${activeFileRef.current.name}\nPath: ${activeFileRef.current.path}\nContent:\n\`\`\`${activeFileRef.current.ext || ''}\n${activeFileRef.current.content}\n\`\`\``
         };
       }
 
       // Snapshot history before state update
-      const hist = (threads.find(t=>t.id===tid)?.messages||[])
+      const hist = (threadsRef.current.find(t=>t.id===tid)?.messages||[])
         .filter(m=>m.role==='user'||m.role==='meg')
         .map(m=>({role:m.role==='meg'?'assistant':'user', content:m.text}));
       
@@ -1167,17 +1226,18 @@ ${memoryPrompt}`
         const skill = SKILLS.find(s => s.id === resolvedSkill);
         if (skill) apiMessages.push({ role: 'system', content: skill.prompt });
       }
+      if (systemMessages.length) apiMessages.push(...systemMessages);
       if (contextMsg) apiMessages.push(contextMsg);
-      apiMessages.push(...hist, {role:'user', content:text});
+      apiMessages.push(...hist, {role:'user', content:resolvedText});
 
       // Add user msg + empty streaming placeholder atomically
       updateThreads(ts=>ts.map(t=>t.id!==tid?t:{
         ...t,
-        ...getWorkspaceThreadFields(activeWorkspace),
+        ...getWorkspaceThreadFields(activeWorkspaceRef.current),
         updatedAt: new Date().toISOString(),
         unread: false,
         messages:[...t.messages,
-          {id:userMsgId,role:'user',text},
+          {id:userMsgId,role:'user',text:resolvedText},
           {id:megMsgId,role:'meg',text:'',streaming:true},
         ]
       }));
@@ -1187,7 +1247,7 @@ ${memoryPrompt}`
       // Explicit limited preview when the Electron bridge is unavailable.
       updateThreads(ts=>ts.map(t=>t.id!==tid?t:{
         ...t,
-        ...getWorkspaceThreadFields(activeWorkspace),
+        ...getWorkspaceThreadFields(activeWorkspaceRef.current),
         updatedAt: new Date().toISOString(),
         unread: false,
         messages:[...t.messages,
@@ -1276,7 +1336,7 @@ ${memoryPrompt}`
       {showOnboarding && <Onboarding onDone={()=>setOnboardingCompleted(true)} onModelChange={m=>{setActiveModel(m);window.electronAPI?.setSetting?.('model',m);}} onOpenSettings={()=>{setOnboardingCompleted(true); setNav('settings');}} currentModel={activeModel} telegramConnected={telegramConnected} lmStatus={lmStatus}/>}
       {cmdOpen && <CommandPalette onClose={()=>setCmdOpen(false)} onAction={handleCmd} threads={threads} workspaces={workspaces} activeFile={activeFile}/>}
       {quickCapOpen && <QuickCapture onClose={()=>setQuickCapOpen(false)} onSend={(t)=>{setNav('chat');addMessage(t);}} recentItems={quickCaptureItems}/>}
-      {trayOpen && <TrayFlyout notifs={notifs} approvals={approvals} onApprove={approveTool} onDeny={denyTool} onClose={()=>setTrayOpen(false)} onMarkAllRead={()=>setNotifs(n=>markAllNotificationsRead(n))} onOpenMeg={openMegFromTray} onNewTask={createTaskFromTray}/>}
+      {trayOpen && <TrayFlyout notifs={notifs} approvals={approvals} onApprove={approveTool} onDeny={denyTool} onClose={()=>setTrayOpen(false)} onMarkAllRead={()=>{ setNotifs(current => { const next = markAllNotificationsRead(current); next.filter(n => n.read && !current.find(c => c.id === n.id)?.read).forEach(n => window.electronAPI?.upsertNotification?.(n)); return next; }); }} onOpenMeg={openMegFromTray} onNewTask={createTaskFromTray}/>}
 
       {/* Windows title bar */}
       <WinTitleBar 
@@ -1383,7 +1443,7 @@ ${memoryPrompt}`
       {nav==='workspace' && <NavSection id="workspace"><WorkspaceView events={events} threads={threads} agentRuns={activeAgents} workspaces={workspaces} setWorkspaces={setWorkspaces} onActiveWorkspace={setActiveWorkspace}/></NavSection>}
       {nav==='timeline' && <NavSection id="timeline"><TimelineView events={events}/></NavSection>}
       {nav==='automations' && <NavSection id="automations"><AutomationsView/></NavSection>}
-      {nav==='agent' && <NavSection id="agent"><AgentDashboard activeAgents={activeAgents}/></NavSection>}
+      {nav==='agent' && <NavSection id="agent"><AgentDashboard activeAgents={activeAgents} onReviewFile={(target)=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'reviewFile',value:target}}))}/></NavSection>}
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion messages={telegramMessages} connected={telegramConnected} contactName={telegramContactName} onSend={sendTelegramMessage} sendError={telegramSendError}/></NavSection>}
@@ -1489,7 +1549,6 @@ ${memoryPrompt}`
               )}
               <div ref={messagesEndRef}/>
             </div>
-            {splitOpen && <SplitPane activeFile={activeFile} activeWorkspace={activeWorkspace}/>}
           </div>
           <InputBar
             onSend={addMessage}
@@ -1504,13 +1563,21 @@ ${memoryPrompt}`
           
           {notifOpen && (
             <div style={{position:'absolute',top:44,right:0,zIndex:200}}>
-              <NotifPanel notifs={notifs} onClose={()=>setNotifOpen(false)} onMarkAllRead={()=>setNotifs(n=>markAllNotificationsRead(n))} onDismiss={id=>setNotifs(n=>dismissNotification(n, id))}/>
+              <NotifPanel notifs={notifs} onClose={()=>setNotifOpen(false)} onMarkAllRead={()=>{ setNotifs(current => { const next = markAllNotificationsRead(current); next.filter(n => n.read && !current.find(c => c.id === n.id)?.read).forEach(n => window.electronAPI?.upsertNotification?.(n)); return next; }); }} onDismiss={id=>{ setNotifs(curr => { const n = dismissNotification(curr, id); window.electronAPI?.deleteNotification?.(id); return n; }); }}/>
             </div>
           )}
         </div>
       )}
 
-      {nav==='chat' && thread && !splitOpen && <ContextPanel thread={thread} onAddFiles={names=>updateThreads(ts=>ts.map(t=>t.id!==activeId?t:{...t,updatedAt:new Date().toISOString(),files:[...new Set([...(t.files||[]),...names])]}))} onToggleTool={(toolName, nextValue)=>updateThreads(ts=>ts.map(t=>t.id!==activeId?t:{...t,updatedAt:new Date().toISOString(),tools:{...(t.tools||DEFAULT_THREAD_TOOLS),[toolName]:nextValue}}))}/>}
+      {nav==='chat' && thread && !splitOpen && <ContextPanel thread={thread} onAddFiles={names=>updateThreads(ts=>ts.map(t=>t.id!==activeId?t:{...t,updatedAt:new Date().toISOString(),files:[...new Set([...(t.files||[]),...names])]}))} onToggleTool={(toolName, nextValue)=>{
+        updateThreads(ts=>ts.map(t=>{
+          if(t.id!==activeId) return t;
+          const next = {...t,updatedAt:new Date().toISOString(),tools:{...(t.tools||DEFAULT_THREAD_TOOLS),[toolName]:nextValue}};
+          window.electronAPI?.upsertThread?.(next);
+          return next;
+        }));
+      }}/>}
+      {splitOpen && <SplitPane activeFile={activeFile} activeWorkspace={activeWorkspace} terminalHistory={terminalHistory} onTerminalHistoryChange={onTerminalHistoryChange}/>}
       </div>{/* end main body */}
     </div>
   );

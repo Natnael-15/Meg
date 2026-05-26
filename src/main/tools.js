@@ -297,7 +297,15 @@ function assertToolPermission(name, context = {}) {
   if (context.skipApproval) return;
   if (approvalKey && p[approvalKey] !== false) {
     const approvalQueue = require('./approvalQueue');
-    const approval = approvalQueue.create({ tool: name, args: context.currentArgs || {}, context, reason: approvalMessage });
+    let result = null;
+    if (name === 'write_file') {
+      try {
+        result = prepareStagedWrite(context.currentArgs || {}, context);
+      } catch {
+        // Fallback if staging fails early
+      }
+    }
+    const approval = approvalQueue.create({ tool: name, args: context.currentArgs || {}, context, reason: approvalMessage, result });
     const err = new Error(`${approvalMessage} Approval ID: ${approval.id}`);
     err.approvalRequired = true;
     err.approval = approval;
@@ -515,9 +523,24 @@ function summarizeToolResult(result, args = {}) {
   return result;
 }
 
+function prepareStagedWrite(args, context = {}) {
+  const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
+  assertWriteAllowed(fullPath, context);
+  const existed = fs.existsSync(fullPath);
+  const originalContent = existed ? fs.readFileSync(fullPath, 'utf8') : null;
+  return {
+    ok: true,
+    staged: true,
+    path: fullPath,
+    existed,
+    originalContent,
+  };
+}
+
 module.exports = {
   TOOL_DEFINITIONS,
   executeTool,
   summarizeToolResult,
   validateCommand,
+  prepareStagedWrite,
 };

@@ -2,7 +2,7 @@ const OpenAI = require('openai');
 const { TOOL_DEFINITIONS, executeTool, summarizeToolResult } = require('./tools');
 
 const DEFAULT_URL   = 'http://127.0.0.1:1234';
-const DEFAULT_MODEL = 'qwen/qwen3.5-9b';
+const DEFAULT_MODEL = 'qwen/qwen3-8b';
 
 function getClient(baseUrl = DEFAULT_URL) {
   return new OpenAI({ baseURL: `${baseUrl}/v1`, apiKey: 'lm-studio' });
@@ -36,7 +36,7 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       model,
       messages: history,
       stream: true,
-      temperature: 0.4,
+      temperature: 0.3,
       tools: TOOL_DEFINITIONS,
       tool_choice: 'auto',
       extra_body: /qwen3|deepseek.?r1|thinking/i.test(model)
