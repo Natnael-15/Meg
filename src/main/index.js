@@ -96,6 +96,7 @@ function createWindow() {
 registerUpdaterIpc({
   ipcMain,
   autoUpdater,
+  appRef: app,
   reportRuntime: createDiagnosticReporter(),
 });
 
