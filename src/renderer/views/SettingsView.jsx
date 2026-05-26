@@ -7,6 +7,7 @@ export const SettingsView = ({
   isCheckingUpdate,
   updateInfo,
   version,
+  onCheckForUpdates,
   tgStatus,
   setTgStatus,
   integrations,
@@ -507,7 +508,7 @@ export const SettingsView = ({
               )}
               <button 
                 disabled={isCheckingUpdate || updateInfo?.status === 'downloading'}
-                onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'checkForUpdates'}}))} 
+                onClick={()=>onCheckForUpdates?.()} 
                 style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:isCheckingUpdate?'var(--text-3)':'var(--text-2)',background:isCheckingUpdate?'var(--bg-active)':'var(--bg)',cursor:isCheckingUpdate?'default':'pointer',display:'flex',alignItems:'center',gap:6,transition:'border-color 0.12s'}}
               >
                 {isCheckingUpdate && <span style={{display:'inline-flex',animation:'spin 1s linear infinite'}}><Icon name="spinner" size={12}/></span>}

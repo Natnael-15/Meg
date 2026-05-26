@@ -509,6 +509,27 @@ describe('App smoke flows', () => {
     expect((await screen.findAllByText('Queued agent run for: review the auth flow')).length).toBeGreaterThan(0);
   });
 
+  it('resolves /goal into a goal-mode backend run instead of chat send', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.createAgentRun.mockResolvedValue({
+      ok: true,
+      run: { id: 'run-goal-1', name: 'slash-goal', status: 'queued', goal: true },
+    });
+
+    render(<App />);
+    await user.type(await screen.findByPlaceholderText(/Ask Meg anything/i), '/goal create a small python adder{enter}');
+
+    await waitFor(() => {
+      expect(window.electronAPI.createAgentRun).toHaveBeenCalledWith(expect.objectContaining({
+        goal: true,
+        instruction: 'create a small python adder',
+        source: 'slash-command',
+      }));
+    });
+    expect(window.electronAPI.sendChat).not.toHaveBeenCalled();
+    expect((await screen.findAllByText('Queued autonomous goal planner & runner for: create a small python adder')).length).toBeGreaterThan(0);
+  });
+
   it('resolves mentions into chat context before sending', async () => {
     const user = userEvent.setup();
     window.electronAPI.readFile.mockResolvedValue({ content: '## README\\nProject notes', error: null });

@@ -8,6 +8,11 @@ const timers = new Map();
 const activeControllers = new Map();
 const MAX_AGENT_RUNS = 200;
 const MAX_AGENT_LOGS = 200;
+const DEFAULT_GOAL_STEPS = [
+  { label: 'Analyze codebase and requirements', type: 'research' },
+  { label: 'Implement requirements in workspace', type: 'implementation' },
+  { label: 'Verify correct implementation and polish', type: 'verification' },
+];
 
 function now() {
   return new Date().toISOString();
@@ -29,14 +34,22 @@ function cleanupStaleRuns() {
       let changed = false;
       const cleaned = runs.map(run => {
         if (run.status === 'running' || run.status === 'queued') {
+          const stamp = now();
           changed = true;
           const msg = run.status === 'running' ? 'Agent run interrupted on app close.' : 'Agent run cancelled on startup.';
           return {
             ...run,
             status: 'cancelled',
-            completedAt: now(),
-            updatedAt: now(),
-            logs: [...(run.logs || []), { ts: now(), level: 'warn', message: msg }].slice(-MAX_AGENT_LOGS),
+            completedAt: stamp,
+            updatedAt: stamp,
+            steps: Array.isArray(run.steps)
+              ? run.steps.map((step) => ({
+                  ...step,
+                  status: step.status === 'done' ? 'done' : 'cancelled',
+                  at: step.at || stamp,
+                }))
+              : run.steps,
+            logs: [...(run.logs || []), { ts: stamp, level: 'warn', message: msg }].slice(-MAX_AGENT_LOGS),
           };
         }
         return run;
@@ -58,6 +71,57 @@ function emit(type, run) {
 
 function normalizeStep(label, status = 'waiting') {
   return { label, status, at: null };
+}
+
+function parsePlannedSteps(content) {
+  const raw = String(content || '').trim();
+  if (!raw) return [];
+  const unwrapped = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  const arrayStart = unwrapped.indexOf('[');
+  const arrayEnd = unwrapped.lastIndexOf(']');
+  const candidate = arrayStart !== -1 && arrayEnd !== -1
+    ? unwrapped.slice(arrayStart, arrayEnd + 1)
+    : unwrapped;
+  const parsed = JSON.parse(candidate);
+  const steps = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.steps) ? parsed.steps : [];
+  return steps
+    .map((step) => ({
+      label: step?.label || step?.description || step?.title || '',
+      type: step?.type || 'task',
+    }))
+    .filter((step) => step.label);
+}
+
+function buildGoalSteps(plannedSteps) {
+  const planned = Array.isArray(plannedSteps) && plannedSteps.length ? plannedSteps : DEFAULT_GOAL_STEPS;
+  const generatedSteps = planned.map((step, index) => normalizeStep(step.label, index === 0 ? 'active' : 'waiting'));
+  if (generatedSteps[0]) generatedSteps[0].at = now();
+  return [
+    { label: 'Queued', status: 'done', at: now() },
+    { label: 'Planning workflow', status: 'done', at: now() },
+    ...generatedSteps,
+    { label: 'Verifying and iterating on results', status: 'waiting', at: null },
+  ];
+}
+
+function advanceGoalStepState(currentSteps, activeStepNum) {
+  if (!Array.isArray(currentSteps) || !Number.isInteger(activeStepNum) || activeStepNum < 1) {
+    return currentSteps;
+  }
+  return currentSteps.map((step, index) => {
+    const generatedStart = 2;
+    const verificationIndex = currentSteps.length - 1;
+    if (index < generatedStart || index >= verificationIndex) return step;
+    const stepNum = index - generatedStart + 1;
+    if (stepNum < activeStepNum) {
+      return step.status === 'done' ? step : { ...step, status: 'done', at: step.at || now() };
+    }
+    if (stepNum === activeStepNum) {
+      return step.status === 'active' ? step : { ...step, status: 'active', at: step.at || now() };
+    }
+    if (step.status === 'waiting') return step;
+    return { ...step, status: 'waiting', at: step.at };
+  });
 }
 
 function createRun(input = {}) {
@@ -232,6 +296,7 @@ async function runAgentStream(run) {
   const baseUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
   let isStructured = Array.isArray(run.plannedSteps);
   let plannedSteps = run.plannedSteps;
+  let lastAnnouncedStep = 0;
 
   if (run.goal) {
     updateRun(run.id, current => ({
@@ -271,42 +336,25 @@ Respond with ONLY the JSON array. Do not include markdown code block formatting 
         temperature: 0.1
       });
 
-      let content = comp.choices[0]?.message?.content || '';
-      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-      const parsed = JSON.parse(content);
-      const stepsList = Array.isArray(parsed) ? parsed : Array.isArray(parsed.steps) ? parsed.steps : [];
+      const content = comp.choices[0]?.message?.content || '';
+      const stepsList = parsePlannedSteps(content);
       if (stepsList.length > 0) {
-        plannedSteps = stepsList.map(s => ({
-          label: s.label || s.description || 'Step',
-          type: s.type || 'task'
-        }));
+        plannedSteps = stepsList;
       }
     } catch (e) {
       appendLog(run.id, `Planning phase failed or returned invalid JSON: ${e.message}. Using default workflow.`, 'warn');
     }
 
     if (!plannedSteps || plannedSteps.length === 0) {
-      plannedSteps = [
-        { label: 'Analyze codebase and requirements', type: 'research' },
-        { label: 'Implement requirements in workspace', type: 'implementation' },
-        { label: 'Verify correct implementation and polish', type: 'verification' }
-      ];
+      plannedSteps = DEFAULT_GOAL_STEPS;
     }
 
     isStructured = true;
-    
-    // Set steps in db
+
     updateRun(run.id, current => {
-      const generatedSteps = plannedSteps.map(s => normalizeStep(s.label));
-      if (generatedSteps[0]) generatedSteps[0].status = 'active';
       return {
         plannedSteps: plannedSteps,
-        steps: [
-          { label: 'Queued', status: 'done', at: now() },
-          { label: 'Planning workflow', status: 'done', at: now() },
-          ...generatedSteps,
-          { label: 'Verifying and iterating on results', status: 'waiting', at: null }
-        ],
+        steps: buildGoalSteps(plannedSteps),
         logs: [...(current.logs || []), { ts: now(), level: 'info', message: `Planned ${plannedSteps.length} workflow steps successfully.` }].slice(-MAX_AGENT_LOGS)
       };
     });
@@ -397,27 +445,12 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
         if (matches.length > 0) {
           const lastMatch = matches[matches.length - 1];
           const activeStepNum = parseInt(lastMatch[1], 10);
-          updateRun(run.id, current => {
-            let changed = false;
-            const nextSteps = current.steps.map((s, i) => {
-              if (i >= 2 && i < current.steps.length - 1) {
-                const stepIdx = i - 2;
-                if (stepIdx === activeStepNum - 1) {
-                  if (s.status !== 'active') {
-                    changed = true;
-                    return { ...s, status: 'active', at: now() };
-                  }
-                } else if (stepIdx < activeStepNum - 1) {
-                  if (s.status !== 'done') {
-                    changed = true;
-                    return { ...s, status: 'done', at: s.at || now() };
-                  }
-                }
-              }
-              return s;
-            });
-            return changed ? { steps: nextSteps } : {};
-          });
+          if (activeStepNum > lastAnnouncedStep) {
+            lastAnnouncedStep = activeStepNum;
+            updateRun(run.id, current => ({
+              steps: advanceGoalStepState(current.steps, activeStepNum),
+            }));
+          }
         }
       }
     } else if (item.type === 'tool_call') {
@@ -434,12 +467,14 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
           result: null,
         },
       ]);
-      updateRun(run.id, current => {
-        const toolLabel = `${item.name}: ${item.args.path || item.args.command || ''}`;
-        return {
-          steps: [...current.steps.map(s => s.status === 'active' ? { ...s, status: 'done' } : s), { label: toolLabel, status: 'active', at: now() }]
-        };
-      });
+      if (!run.goal) {
+        updateRun(run.id, current => {
+          const toolLabel = `${item.name}: ${item.args.path || item.args.command || ''}`;
+          return {
+            steps: [...current.steps.map(s => s.status === 'active' ? { ...s, status: 'done' } : s), { label: toolLabel, status: 'active', at: now() }]
+          };
+        });
+      }
     } else if (item.type === 'tool_result') {
       const approvalPending = item.result?.approvalRequired && item.result?.approval?.tool === 'write_file';
       const status = approvalPending
@@ -478,9 +513,11 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
           },
         ];
       });
-      updateRun(run.id, current => ({
-        steps: current.steps.map(s => s.status === 'active' ? { ...s, status: approvalPending ? 'done' : item.result?.error ? 'error' : 'done', at: now() } : s)
-      }));
+      if (!run.goal) {
+        updateRun(run.id, current => ({
+          steps: current.steps.map(s => s.status === 'active' ? { ...s, status: approvalPending ? 'done' : item.result?.error ? 'error' : 'done', at: now() } : s)
+        }));
+      }
     }
   }
 
@@ -543,12 +580,6 @@ Once you are absolutely sure the goal has been fully met, provide a final confir
             result: null,
           },
         ]);
-        updateRun(run.id, current => {
-          const toolLabel = `[Verify] ${item.name}: ${item.args.path || item.args.command || ''}`;
-          return {
-            steps: [...current.steps.map(s => s.status === 'active' ? { ...s, status: 'done' } : s), { label: toolLabel, status: 'active', at: now() }]
-          };
-        });
       } else if (item.type === 'tool_result') {
         const status = item.result?.error ? `failed: ${item.result.error}` : 'completed';
         appendLog(run.id, `Verification tool result: ${item.name} ${status}`, item.result?.error ? 'warn' : 'info');
@@ -580,9 +611,6 @@ Once you are absolutely sure the goal has been fully met, provide a final confir
             },
           ];
         });
-        updateRun(run.id, current => ({
-          steps: current.steps.map(s => s.status === 'active' ? { ...s, status: item.result?.error ? 'error' : 'done', at: now() } : s)
-        }));
       }
     }
     output += '\n\n[VERIFICATION REPORT]\n' + verifyOutput;
@@ -600,6 +628,7 @@ module.exports = {
   listRuns,
   createRun,
   cancelRun,
+  cleanupStaleRuns,
   appendLog,
   completeRun,
   failRun,
