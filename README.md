@@ -4,7 +4,7 @@
 
 ### Local-first AI desktop assistant for coding, projects, automations, and everyday work
 
-[![Version](https://img.shields.io/badge/version-1.0.0--beta.7-7c3aed?style=for-the-badge&logo=electron&logoColor=white)](https://github.com/Natnael-15/Meg/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.8-7c3aed?style=for-the-badge&logo=electron&logoColor=white)](https://github.com/Natnael-15/Meg/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Runtime](https://img.shields.io/badge/runtime-LM_Studio-ff6b35?style=for-the-badge)](#requirements)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=for-the-badge)](#license)
@@ -31,7 +31,7 @@
 Instead of treating the model like a plain chatbot, Meg wraps it in a desktop operating layer so it can help with real work across code, design, product, research, writing, debugging, planning, and automation.
 
 > [!IMPORTANT]
-> **v1.0.0-beta.7 — Stability, State Sync & AI Quality Overhaul**  
+> **v1.0.0-beta.8 — Stability, State Sync & AI Quality Overhaul**  
 > Meg now features a fully stabilized test suite (143/143 tests passing), resolved stale closures on active workspaces, auto-collapsing tool cards upon completion, integrated CLI output routing to chat, and wired file saving/reviews in the approval queue.
 
 ---
@@ -77,14 +77,14 @@ Meg's skill system is built around broad expert roles, not tiny single-purpose c
 
 ---
 
-## beta.7 Highlights
+## beta.8 Highlights
 
 - **Unit Test Suite Stability**: Fixed race conditions and asynchronous setups in tests so all 143 test cases build and pass reliably.
 - **Improved Workspace Closures**: Resolved stale React state closures when spawning agents, ensuring files and operations map to the correct active workspace.
 - **Command Output Integration**: Integrated terminal command outputs to route directly back into the conversational chat stream.
 - **Tool Card Lifecycle**: Added dynamic collapsible states for tool call cards to close automatically when pending agent actions complete.
 - **Approval Queue Wiring**: Correctly mapped approval IDs to review file objects for staged saves.
-- **Version Bump & Production Packaging**: Packaged `v1.0.0-beta.7` into a production-ready Windows installer.
+- **Version Bump & Production Packaging**: Packaged `v1.0.0-beta.8` into a production-ready Windows installer.
 
 ---
 
