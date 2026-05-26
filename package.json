@@ -21,9 +21,20 @@
     "directories": {
       "output": "dist"
     },
+    "files": [
+      "package.json",
+      "src/main/**/*",
+      "src/preload/**/*",
+      "dist/renderer/**/*"
+    ],
     "win": {
       "icon": "build/icons/meg-icon.ico",
       "target": "nsis"
+    },
+    "nsis": {
+      "artifactName": "Meg-Setup.${ext}",
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false
     },
     "publish": [
       {
