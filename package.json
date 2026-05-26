@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "electron:dev": "electron . --enable-logging",
     "build": "npm run renderer:build && electron-builder build --win --publish never",
-    "release": "npm run renderer:build && electron-builder build --win --publish always"
+    "release": "npm run renderer:build && electron-builder build --win --publish always",
+    "release:upload": "node scripts/upload-release.js"
   },
   "build": {
     "appId": "com.meg.ai",
