@@ -14,7 +14,7 @@ const DEFAULTS = {
   telegramToken: '',
   telegramChatId: '',
   githubToken: '',
-  apiKeys: { Anthropic: '', OpenAI: '', Google: '' },
+  apiKeys: { Anthropic: '', OpenAI: '', Google: '', DeepSeek: '' },
   integrations: { Telegram: false, GitHub: false },
   memoryEnabled: true,
   memories: [],

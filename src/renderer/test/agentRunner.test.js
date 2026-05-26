@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-function loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient }) {
+function loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel }) {
   const source = fs.readFileSync(path.resolve(__dirname, '../../main/agentRunner.js'), 'utf8');
   const module = { exports: {} };
   const runModule = new Function('require', 'module', 'exports', '__dirname', '__filename', source);
@@ -25,7 +25,7 @@ function loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient
       };
     }
     if (id === './lmstudio') {
-      return { streamChat, getClient };
+      return { streamChat, getClient, getClientForModel };
     }
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/agentRunner.js'));
@@ -38,6 +38,7 @@ describe('agentRunner', () => {
   let activeWorkspace;
   let streamChat;
   let getClient;
+  let getClientForModel;
   let agentRunner;
 
   beforeEach(() => {
@@ -70,7 +71,8 @@ describe('agentRunner', () => {
         },
       },
     }));
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    getClientForModel = getClient;
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
   });
 
   afterEach(() => {
@@ -133,7 +135,7 @@ describe('agentRunner', () => {
     streamChat = vi.fn(async function* () {
       throw new Error('model crashed');
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
     const run = agentRunner.createRun({
       name: 'unstable-run',
@@ -154,7 +156,7 @@ describe('agentRunner', () => {
       yield { type: 'tool_result', id: 'tool-1', name: 'write_file', result: { ok: true, path: 'C:\\repo\\src\\draft.js' } };
       yield { type: 'text', content: 'Wrote the requested file.' };
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
     const run = agentRunner.createRun({
       name: 'write-draft',
@@ -200,7 +202,7 @@ describe('agentRunner', () => {
       };
       yield { type: 'text', content: 'Prepared a draft for review.' };
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
     const run = agentRunner.createRun({
       name: 'stage-draft',
@@ -240,7 +242,7 @@ describe('agentRunner', () => {
         logs: Array.from({ length: 250 }, (__unused, logIndex) => ({ ts: `log-${logIndex}`, level: 'info', message: `line ${logIndex}` })),
       })),
     ];
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
     const run = agentRunner.createRun({
       name: 'retention-check',
@@ -266,7 +268,7 @@ describe('agentRunner', () => {
       model: 'qwen/qwen3-8b',
       lmStudioUrl: 'http://127.0.0.1:1234',
     };
-    const runner = loadAgentRunner({ settingsState: customSettingsState, activeWorkspace, streamChat, getClient });
+    const runner = loadAgentRunner({ settingsState: customSettingsState, activeWorkspace, streamChat, getClient, getClientForModel });
     const runs = customSettingsState.agentRuns;
     const staleRunning = runs.find(r => r.id === 'stale-running');
     const staleQueued = runs.find(r => r.id === 'stale-queued');
@@ -291,7 +293,7 @@ describe('agentRunner', () => {
       yield { type: 'tool_result', id: 'tool-1', name: 'read_file', result: { ok: true, content: 'ok' } };
       yield { type: 'text', content: '[STEP] Starting: Step 2\nImplementing.\n[STEP] Starting: Step 3\nWrapping up.' };
     });
-    getClient = vi.fn(() => ({
+    getClientForModel = vi.fn(() => ({
       chat: {
         completions: {
           create: vi.fn(async () => ({
@@ -306,7 +308,7 @@ describe('agentRunner', () => {
         },
       },
     }));
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
     const run = agentRunner.createRun({
       name: 'goal-run',
@@ -318,7 +320,7 @@ describe('agentRunner', () => {
     await Promise.resolve();
 
     const completed = agentRunner.listRuns().find((item) => item.id === run.id);
-    expect(getClient).toHaveBeenCalledWith('http://127.0.0.1:1234');
+    expect(getClientForModel).toHaveBeenCalledWith('qwen/qwen3-8b', 'http://127.0.0.1:1234');
     expect(completed.status).toBe('done');
     expect(completed.steps.map((step) => step.label)).toEqual([
       'Queued',
@@ -340,7 +342,7 @@ describe('agentRunner', () => {
   });
 
   it('falls back to default goal workflow when planning JSON is invalid', async () => {
-    getClient = vi.fn(() => ({
+    getClientForModel = vi.fn(() => ({
       chat: {
         completions: {
           create: vi.fn(async () => ({
@@ -357,7 +359,7 @@ describe('agentRunner', () => {
       }
       yield { type: 'text', content: 'Finished execution.' };
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
     const run = agentRunner.createRun({
       name: 'goal-fallback',

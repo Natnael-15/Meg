@@ -131,6 +131,7 @@ describe('store/settings/db persistence', () => {
 
     expect(loaded.apiKeys).toMatchObject({
       Anthropic: '',
+      DeepSeek: '',
       OpenAI: 'sk-test',
       Google: '',
     });

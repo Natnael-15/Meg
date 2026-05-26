@@ -37,8 +37,9 @@ export const SettingsView = ({
   const [toolPerms,setToolPerms] = useState(DEFAULT_TOOL_PERMS);
   const [runtimeDiagnostics, setRuntimeDiagnostics] = useState([]);
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
-  const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro'];
+  const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro','deepseek-chat','deepseek-reasoner'];
   const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
+  const modelProvider = (m) => m.startsWith('claude') ? 'Anthropic' : m.startsWith('gpt') ? 'OpenAI' : m.startsWith('deepseek') ? 'DeepSeek' : 'Google';
   const accentChoice = rendererTweaks?.accentColor || 'blue';
   const sidebarChoice = rendererTweaks?.sidebarWidth || 'comfortable';
   const latestUpdateDiagnostic = runtimeDiagnostics.find((entry) => String(entry?.type || '').startsWith('updater:'));
@@ -203,7 +204,7 @@ export const SettingsView = ({
                   {model===m && <div style={{width:7,height:7,borderRadius:'50%',background:'var(--accent)'}}/>}
                 </div>
                 <span style={{fontFamily:'"JetBrains Mono",monospace',fontSize:12.5,color:model===m?'var(--accent)':'var(--text-2)',fontWeight:model===m?500:400,transition:'color 0.15s'}}>{m}</span>
-                <span style={{marginLeft:'auto',fontSize:10.5,color:'var(--text-3)',background:'var(--bg-active)',padding:'1px 7px',borderRadius:99,flexShrink:0}}>{m.startsWith('claude')?'Anthropic':m.startsWith('gpt')?'OpenAI':'Google'}</span>
+                <span style={{marginLeft:'auto',fontSize:10.5,color:'var(--text-3)',background:'var(--bg-active)',padding:'1px 7px',borderRadius:99,flexShrink:0}}>{modelProvider(m)}</span>
               </label>
             ))}
           </div>
@@ -216,6 +217,7 @@ export const SettingsView = ({
               {provider:'Anthropic',placeholder:'sk-ant-api03-…',color:'#d97706',models:['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus']},
               {provider:'OpenAI',placeholder:'sk-proj-…',color:'#10a37f',models:['gpt-4o','gpt-4o-mini']},
               {provider:'Google',placeholder:'AIzaSy…',color:'#4285f4',models:['gemini-1.5-pro']},
+              {provider:'DeepSeek',placeholder:'sk-…',color:'#2563eb',models:['deepseek-chat','deepseek-reasoner']},
             ].map(({provider,placeholder,color,models:provModels},i)=>{
               const isRelevant = provModels.includes(model);
               return (

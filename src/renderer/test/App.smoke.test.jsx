@@ -147,6 +147,29 @@ describe('App smoke flows', () => {
     expect(window.electronAPI.sendChat.mock.calls[0][2]).toBe('gpt-4o');
   });
 
+  it('supports persisted DeepSeek models for chat execution', async () => {
+    const user = userEvent.setup();
+    window.electronAPI.getSetting.mockImplementation(async (key) => {
+      if (key === 'model') return 'deepseek-chat';
+      if (key === 'toolPermissions') return null;
+      if (key === 'lastActiveThreadId') return null;
+      if (key === 'onboardingCompleted') return true;
+      if (key === 'splitOpen') return false;
+      if (key === 'theme') return 'light';
+      return null;
+    });
+
+    render(<App />);
+
+    await user.type(await screen.findByPlaceholderText(/Ask Meg anything/i), 'use deepseek');
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(window.electronAPI.sendChat).toHaveBeenCalled();
+    });
+    expect(window.electronAPI.sendChat.mock.calls[0][2]).toBe('deepseek-chat');
+  });
+
   it('shows explicit preview limits instead of fabricating backend chat when electronAPI is missing', async () => {
     const user = userEvent.setup();
     delete window.electronAPI;
@@ -1130,6 +1153,17 @@ describe('App smoke flows', () => {
       expect(window.electronAPI.setSetting).toHaveBeenCalledWith('theme', 'dark');
     });
     expect(document.body.classList.contains('dark')).toBe(true);
+  });
+
+  it('shows DeepSeek models and API key configuration in settings', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(screen.getByTitle('Settings'));
+    expect(await screen.findByText('deepseek-chat')).toBeInTheDocument();
+    expect(screen.getByText('deepseek-reasoner')).toBeInTheDocument();
+    expect(screen.getAllByText('DeepSeek').length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText('sk-…')).toBeInTheDocument();
   });
 
   it('persists appearance tweaks through the renderer settings record', async () => {
