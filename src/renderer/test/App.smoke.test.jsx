@@ -63,6 +63,8 @@ const createElectronApiMock = () => {
   onToolCall: register('chat:tool_call'),
   onToolResult: register('chat:tool_result'),
   onResume: register('chat:resume'),
+  onThinking: register('chat:thinking'),
+  onWaitingApproval: register('chat:waiting_approval'),
   ping: vi.fn(async () => ({ ok: true })),
   removeListeners: vi.fn((...names) => {
     names.forEach((name) => listeners.delete(name));
@@ -422,6 +424,7 @@ describe('App smoke flows', () => {
   it('opens staged write approvals as review diffs and marks them applied on save', async () => {
     const user = userEvent.setup();
     render(<App />);
+    expect(await screen.findByText('Chats')).toBeInTheDocument();
 
     await act(async () => {
       window.electronAPI.__emit('approval:change', {

@@ -102,6 +102,9 @@ export const SKILLS = [
 - Responsive: mobile-first, use media queries at 768px and 1024px breakpoints
 - Accessibility: semantic HTML (button not div, nav, main, section), aria-label on icons
 - Dark mode: CSS variables make this trivial — define both :root and [data-theme="dark"]
+- Simulations and visualizations: use canvas or SVG, model multiple moving parts, expose controls (start/stop/speed), live metrics, and a legend
+- Default layout for small static web projects: index.html, styles.css, script.js — avoid duplicate variants unless asked
+- If the request implies multiple files, split HTML/CSS/JS into separate files and link them correctly
 - Complete project means: full HTML structure, comprehensive CSS (200+ lines), functional JS (200+ lines)`
   },
   {

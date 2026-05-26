@@ -125,7 +125,7 @@ export const TrayFlyout = ({notifs, approvals, onApprove, onDeny, onClose, onMar
             <Icon name="logo" size={12} color="#fff"/>
           </div>
           <span style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Meg</span>
-          {unread.length>0 && <span style={{fontSize:10.5,background:'var(--orange)',color:'#fff',padding:'1px 6px',borderRadius:99,fontWeight:600}}>{unread.length} new</span>}
+          {unread.length>0 && <span style={{fontSize:10.5,background:'var(--orange)',color:'#fff',padding:'1px 6px',borderRadius:99,fontWeight:600}}>{`${unread.length} notifications`}</span>}
           {pendingApprovals.length>0 && <span style={{fontSize:10.5,background:'var(--accent)',color:'#fff',padding:'1px 6px',borderRadius:99,fontWeight:600}}>{pendingApprovals.length} approval</span>}
         </div>
         <button onClick={onClose} style={{color:'var(--text-3)',display:'flex'}} onMouseEnter={e=>e.currentTarget.style.color='var(--text)'} onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}><Icon name="close" size={13}/></button>
@@ -300,8 +300,11 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
       appendTerminalEntry({ id:`term-preview-${Date.now()}`, type:'out', text:'(terminal only available in Electron)', command:cmd, cwd:activeWorkspace?.path || null, createdAt:new Date().toISOString() });
     }
   };
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedCode, setEditedCode] = useState('');
+
+  const initialDraftForState = typeof activeFile?.draftContent === 'string' ? activeFile.draftContent : null;
+  const initialHasDraftForState = initialDraftForState !== null && initialDraftForState !== (activeFile?.content || '');
+  const [isEditing, setIsEditing] = useState(initialHasDraftForState);
+  const [editedCode, setEditedCode] = useState(initialHasDraftForState ? initialDraftForState : (activeFile?.content || ''));
 
   useEffect(() => {
     const nextPath = activeFile?.path || null;

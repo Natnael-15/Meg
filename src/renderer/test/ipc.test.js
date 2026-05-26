@@ -103,7 +103,16 @@ function createIpcHarness() {
         app: { getVersion: () => '0.5.0' },
       };
     }
-    if (id === 'fs') return require('fs');
+    if (id === 'fs') return {
+      writeFileSync: vi.fn(),
+      readFileSync: vi.fn((p) => {
+        if (p.endsWith('ipc.js')) return source;
+        return '';
+      }),
+      existsSync: vi.fn(() => true),
+      mkdirSync: vi.fn(),
+      readdirSync: vi.fn(() => []),
+    };
     if (id === 'path') return require('path');
     if (id === './lmstudio') return { getModels: vi.fn(), ping: vi.fn(), streamChat };
     if (id === './telegram') return { getBot: vi.fn(() => bot), validate: vi.fn(), findChatId: vi.fn() };

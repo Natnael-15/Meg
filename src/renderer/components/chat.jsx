@@ -52,13 +52,21 @@ export const AgentCard = ({step}) => {
 export const CodeBlock = ({lang,code}) => {
   const [copied,setCopied] = useState(false);
   const copy = () => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(()=>setCopied(false),1500); };
+  const apply = () => {
+    window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'applyCode', value: code } }));
+  };
   return (
     <div style={{margin:'8px 0',borderRadius:8,overflow:'hidden',border:'1px solid var(--border)'}}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 12px',background:'var(--bg-active)',borderBottom:'1px solid var(--border)'}}>
         <span style={{fontSize:11,fontFamily:'"JetBrains Mono",monospace',color:'var(--text-3)',fontWeight:500}}>{lang||'code'}</span>
-        <button onClick={copy} style={{fontSize:11,color:copied?'var(--green)':'var(--text-3)',border:'none',background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:0}}>
-          <Icon name={copied?'check':'doc'} size={11} color={copied?'var(--green)':'var(--text-3)'}/>{copied?'Copied':'Copy'}
-        </button>
+        <div style={{display:'flex',gap:12}}>
+          <button onClick={apply} style={{fontSize:11,color:'var(--accent)',border:'none',background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:0}}>
+            <Icon name="plus" size={11} color="var(--accent)"/>Apply to open file
+          </button>
+          <button onClick={copy} style={{fontSize:11,color:copied?'var(--green)':'var(--text-3)',border:'none',background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:0}}>
+            <Icon name={copied?'check':'doc'} size={11} color={copied?'var(--green)':'var(--text-3)'}/>{copied?'Copied':'Copy'}
+          </button>
+        </div>
       </div>
       <pre style={{margin:0,padding:'12px 14px',fontSize:12.5,fontFamily:'"JetBrains Mono",monospace',lineHeight:1.55,overflowX:'auto',background:'var(--bg-2)',color:'var(--text)',whiteSpace:'pre'}}><code>{code}</code></pre>
     </div>
@@ -151,6 +159,13 @@ export const renderMarkdown = (raw, prefix = 'md') => {
 
 export const ToolCallCard = ({msg}) => {
   const [open,setOpen] = useState(!!msg.pending);
+  useEffect(() => {
+    if (msg.pending) {
+      setOpen(true);
+    } else {
+      setOpen(false);
+    }
+  }, [msg.pending]);
   const TOOL_ICONS = {run_command:'terminal',read_file:'files',write_file:'save',list_directory:'folder',search_files:'search',web_search:'web',send_telegram:'sms',spawn_subagent:'agent'};
   
   const actionLabel = msg.name === 'write_file' ? `Writing ${msg.args.path?.split(/[\/\\]/).pop() || 'file'}` 
@@ -179,6 +194,15 @@ export const ToolCallCard = ({msg}) => {
             {msg.pending && <div style={{fontSize:10,color:'var(--accent)',background:'var(--accent-bg)',padding:'1px 6px',borderRadius:4,fontWeight:600}}>RUNNING</div>}
             <Icon name={open?'chevronDown':'chevronRight'} size={10} color="var(--text-3)"/>
           </button>
+          {msg.name === 'write_file' && msg.result?.staged && (
+            <div style={{padding:'0 12px 8px'}}>
+              <button onClick={() => window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'reviewFile', value: { approval: { rawArgs: msg.args, result: msg.result } } } }))} 
+                style={{width:'100%',padding:'6px',borderRadius:6,border:'1px solid var(--accent-border)',background:'var(--accent-bg)',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
+                <Icon name="splitH" size={11} color="var(--accent)"/>
+                Review Draft
+              </button>
+            </div>
+          )}
           {open && (
             <div style={{borderTop:'1px solid var(--border-light)',padding:'8px 12px',display:'flex',flexDirection:'column',gap:6,background:'var(--code-bg)'}}>
               <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase'}}>Input</div>

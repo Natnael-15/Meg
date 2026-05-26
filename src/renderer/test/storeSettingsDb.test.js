@@ -189,13 +189,13 @@ describe('store/settings/db persistence', () => {
 
   it('records skipped-existing legacy settings instead of importing over current data', () => {
     const store = loadStoreModule(userDataPath);
-    store.setAllSettings({ model: 'qwen/qwen3.5-9b' });
+    store.setAllSettings({ model: 'qwen/qwen3-8b' });
 
     const legacyPath = path.join(userDataPath, 'meg-settings.json');
     fs.writeFileSync(legacyPath, JSON.stringify({ model: 'should-not-win' }), 'utf8');
 
     const reloaded = loadStoreModule(userDataPath);
-    expect(reloaded.getSetting('model')).toBe('qwen/qwen3.5-9b');
+    expect(reloaded.getSetting('model')).toBe('qwen/qwen3-8b');
     expect(reloaded.getLegacyMigrationState()).toMatchObject({
       'settings:meg-settings.json:v1': {
         status: 'skipped-existing',

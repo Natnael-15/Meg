@@ -44,7 +44,7 @@ export const AgentDashboard = ({ activeAgents = [], onReviewFile }) => {
           (entry?.result?.approvalRequired && entry?.result?.approval?.result?.path)
         ))
         .reduce((acc, entry) => {
-          const approval = entry?.result?.approval || null;
+          const approval = entry?.result?.approval || (entry?.result?.staged ? { rawArgs: entry.args, result: entry.result } : null);
           const resolvedPath = entry?.result?.path || approval?.result?.path || null;
           if (!resolvedPath || acc.find((item) => item.path === resolvedPath)) {
             return acc;
