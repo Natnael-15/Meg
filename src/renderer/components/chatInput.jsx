@@ -147,7 +147,7 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           {hint==='@'&&['@file','@clipboard','@memory','@web'].map(t=>(
             <span key={t} onClick={()=>{setVal(v=>v+t+' ');setHint(null);}} style={{fontSize:11.5,padding:'3px 8px',background:'var(--accent-bg)',color:'var(--accent)',borderRadius:99,border:'1px solid var(--accent-border)',cursor:'pointer',fontWeight:500}}>{t}</span>
           ))}
-          {hint==='/'&&['/agent','/code','/search','/explain','/fix'].map(t=>(
+          {hint==='/'&&['/agent','/goal','/code','/search','/explain','/fix'].map(t=>(
             <span key={t} onClick={()=>{setVal(v=>v+t+' ');setHint(null);}} style={{fontSize:11.5,padding:'3px 8px',background:'var(--bg-panel)',color:'var(--text-2)',borderRadius:99,border:'1px solid var(--border)',cursor:'pointer',fontWeight:500}}>{t}</span>
           ))}
         </div>

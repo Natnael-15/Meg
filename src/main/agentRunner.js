@@ -22,6 +22,35 @@ function saveRuns(runs) {
   settings.set(RUNS_KEY, pruneRuns(Array.isArray(runs) ? runs : []));
 }
 
+function cleanupStaleRuns() {
+  try {
+    const runs = settings.get(RUNS_KEY);
+    if (Array.isArray(runs)) {
+      let changed = false;
+      const cleaned = runs.map(run => {
+        if (run.status === 'running' || run.status === 'queued') {
+          changed = true;
+          const msg = run.status === 'running' ? 'Agent run interrupted on app close.' : 'Agent run cancelled on startup.';
+          return {
+            ...run,
+            status: 'cancelled',
+            completedAt: now(),
+            updatedAt: now(),
+            logs: [...(run.logs || []), { ts: now(), level: 'warn', message: msg }].slice(-MAX_AGENT_LOGS),
+          };
+        }
+        return run;
+      });
+      if (changed) {
+        settings.set(RUNS_KEY, cleaned);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to cleanup stale agent runs:', e);
+  }
+}
+cleanupStaleRuns();
+
 function emit(type, run) {
   events.emit(type, run);
   events.emit('change', { type, run });
@@ -34,13 +63,19 @@ function normalizeStep(label, status = 'waiting') {
 function createRun(input = {}) {
   const activeWorkspace = workspace.getActive();
   const createdAt = now();
-  const initialSteps = Array.isArray(input.steps) 
-    ? input.steps.map(s => normalizeStep(s.label || s.type || 'Untitled step'))
-    : [
+  const isGoal = !!input.goal;
+  const initialSteps = isGoal
+    ? [
         normalizeStep('Queued'),
-        normalizeStep('Preparing workspace context'),
-        normalizeStep(input.instruction || 'Run task'),
-      ];
+        normalizeStep('Planning workflow'),
+      ]
+    : Array.isArray(input.steps) 
+      ? input.steps.map(s => normalizeStep(s.label || s.type || 'Untitled step'))
+      : [
+          normalizeStep('Queued'),
+          normalizeStep('Preparing workspace context'),
+          normalizeStep(input.instruction || 'Run task'),
+        ];
 
   const run = {
     id: input.id || `agent-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -51,6 +86,7 @@ function createRun(input = {}) {
     name: input.name || 'sub-agent',
     instruction: input.instruction || '',
     plannedSteps: input.steps || null, // Store the raw structured steps
+    goal: isGoal,
     model: input.model || settings.get('model') || '',
     workspaceId: activeWorkspace?.id || null,
     workspacePath: activeWorkspace?.path || null,
@@ -193,33 +229,120 @@ async function runAgentStream(run) {
   const ctrl = { cancelled: false };
   activeControllers.set(run.id, ctrl);
 
-  const isStructured = Array.isArray(run.plannedSteps);
+  const baseUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
+  let isStructured = Array.isArray(run.plannedSteps);
+  let plannedSteps = run.plannedSteps;
 
-  updateRun(run.id, current => {
-    const nextSteps = [...current.steps];
-    if (!isStructured) {
-      if (nextSteps[1]) nextSteps[1] = { ...nextSteps[1], status: 'done', at: now() };
-      if (nextSteps[2]) nextSteps[2] = { ...nextSteps[2], status: 'active', at: now() };
-    } else if (nextSteps[0]) {
-      nextSteps[0] = { ...nextSteps[0], status: 'active', at: now() };
+  if (run.goal) {
+    updateRun(run.id, current => ({
+      steps: current.steps.map((s, i) => i === 1 ? { ...s, status: 'active', at: now() } : s),
+      logs: [...(current.logs || []), { ts: now(), level: 'info', message: 'Initiating planning phase with local model...' }].slice(-MAX_AGENT_LOGS)
+    }));
+
+    try {
+      const { getClient } = require('./lmstudio');
+      const client = getClient(baseUrl);
+      const planModel = run.model || settings.get('model') || 'qwen/qwen3-8b';
+
+      const planPrompt = `You are a structured planning assistant.
+The user wants to accomplish the following goal in their codebase workspace:
+"${run.instruction}"
+
+Please break down this goal into a list of 3 to 6 logical, sequential execution steps.
+Output must be a valid JSON array of step objects, where each object has:
+- "label": a short description of what to do (e.g. "Find all button references", "Add styles to buttons", "Test changes").
+- "type": the action type, one of: "research", "implementation", "integration", "verification".
+
+Example output format:
+[
+  {"label": "Analyze workspace structure", "type": "research"},
+  {"label": "Implement button component", "type": "implementation"},
+  {"label": "Verify implementation matches", "type": "verification"}
+]
+
+Respond with ONLY the JSON array. Do not include markdown code block formatting (\`\`\`json) or additional text.`;
+
+      const comp = await client.chat.completions.create({
+        model: planModel,
+        messages: [
+          { role: 'system', content: 'You respond only with raw JSON. No explanations, no markdown formatting.' },
+          { role: 'user', content: planPrompt }
+        ],
+        temperature: 0.1
+      });
+
+      let content = comp.choices[0]?.message?.content || '';
+      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(content);
+      const stepsList = Array.isArray(parsed) ? parsed : Array.isArray(parsed.steps) ? parsed.steps : [];
+      if (stepsList.length > 0) {
+        plannedSteps = stepsList.map(s => ({
+          label: s.label || s.description || 'Step',
+          type: s.type || 'task'
+        }));
+      }
+    } catch (e) {
+      appendLog(run.id, `Planning phase failed or returned invalid JSON: ${e.message}. Using default workflow.`, 'warn');
     }
-    return {
-      steps: nextSteps,
-      logs: [
-        ...(current.logs || []),
-        { ts: now(), level: 'info', message: current.workspacePath ? `Workspace scoped to ${current.workspacePath}.` : 'No active workspace selected.' },
-        { ts: now(), level: 'info', message: `Running model ${current.model || 'auto-detected'}.` },
-        { ts: now(), level: 'info', message: isStructured ? 'Starting structured workflow.' : 'Starting general instruction.' },
-      ].slice(-MAX_AGENT_LOGS),
-    };
-  });
+
+    if (!plannedSteps || plannedSteps.length === 0) {
+      plannedSteps = [
+        { label: 'Analyze codebase and requirements', type: 'research' },
+        { label: 'Implement requirements in workspace', type: 'implementation' },
+        { label: 'Verify correct implementation and polish', type: 'verification' }
+      ];
+    }
+
+    isStructured = true;
+    
+    // Set steps in db
+    updateRun(run.id, current => {
+      const generatedSteps = plannedSteps.map(s => normalizeStep(s.label));
+      if (generatedSteps[0]) generatedSteps[0].status = 'active';
+      return {
+        plannedSteps: plannedSteps,
+        steps: [
+          { label: 'Queued', status: 'done', at: now() },
+          { label: 'Planning workflow', status: 'done', at: now() },
+          ...generatedSteps,
+          { label: 'Verifying and iterating on results', status: 'waiting', at: null }
+        ],
+        logs: [...(current.logs || []), { ts: now(), level: 'info', message: `Planned ${plannedSteps.length} workflow steps successfully.` }].slice(-MAX_AGENT_LOGS)
+      };
+    });
+  } else {
+    updateRun(run.id, current => {
+      const nextSteps = [...current.steps];
+      if (!isStructured) {
+        if (nextSteps[1]) nextSteps[1] = { ...nextSteps[1], status: 'done', at: now() };
+        if (nextSteps[2]) nextSteps[2] = { ...nextSteps[2], status: 'active', at: now() };
+      } else if (nextSteps[0]) {
+        nextSteps[0] = { ...nextSteps[0], status: 'active', at: now() };
+      }
+      return {
+        steps: nextSteps,
+        logs: [
+          ...(current.logs || []),
+          { ts: now(), level: 'info', message: current.workspacePath ? `Workspace scoped to ${current.workspacePath}.` : 'No active workspace selected.' },
+          { ts: now(), level: 'info', message: `Running model ${current.model || 'auto-detected'}.` },
+          { ts: now(), level: 'info', message: isStructured ? 'Starting structured workflow.' : 'Starting general instruction.' },
+        ].slice(-MAX_AGENT_LOGS),
+      };
+    });
+  }
 
   const { streamChat } = require('./lmstudio');
-  const baseUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
 
   let stepContext = '';
-  if (isStructured) {
-    stepContext = `\nPLANNED WORKFLOW:\nYou MUST follow these steps sequentially:\n${run.plannedSteps.map((s, i) => `${i + 1}. ${s.label} (Type: ${s.type}${s.target ? `, Target: ${s.target}` : ''})`).join('\n')}\n`;
+  if (isStructured && plannedSteps) {
+    stepContext = `\nPLANNED WORKFLOW:\nYou MUST follow these steps sequentially:\n${plannedSteps.map((s, i) => `${i + 1}. ${s.label} (Type: ${s.type || 'task'})`).join('\n')}
+
+MANDATORY STEP REPORTING:
+When you transition to a new step in the workflow, you MUST output a line of text in this exact format:
+[STEP] Starting: Step <number>
+For example, when you begin the first step, output: "[STEP] Starting: Step 1"
+When you start the second step, output: "[STEP] Starting: Step 2"
+`;
   }
 
   const messages = [
@@ -259,13 +382,43 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
     workspacePath: run.workspacePath,
     agentRunId: run.id,
     ctrl,
-    allowedTools
+    allowedTools,
+    skipApproval: !!run.goal
   })) {
     if (ctrl.cancelled || getRun(run.id)?.status === 'cancelled') return;
     if (item.type === 'text') {
       output += item.content;
       if (output.length % 400 < item.content.length) {
         appendLog(run.id, `Model output: ${output.slice(-300)}`);
+      }
+
+      if (isStructured && plannedSteps) {
+        const matches = [...output.matchAll(/\[STEP\]\s*(?:Starting|Now starting):\s*(?:Step\s*)?(\d+)/gi)];
+        if (matches.length > 0) {
+          const lastMatch = matches[matches.length - 1];
+          const activeStepNum = parseInt(lastMatch[1], 10);
+          updateRun(run.id, current => {
+            let changed = false;
+            const nextSteps = current.steps.map((s, i) => {
+              if (i >= 2 && i < current.steps.length - 1) {
+                const stepIdx = i - 2;
+                if (stepIdx === activeStepNum - 1) {
+                  if (s.status !== 'active') {
+                    changed = true;
+                    return { ...s, status: 'active', at: now() };
+                  }
+                } else if (stepIdx < activeStepNum - 1) {
+                  if (s.status !== 'done') {
+                    changed = true;
+                    return { ...s, status: 'done', at: s.at || now() };
+                  }
+                }
+              }
+              return s;
+            });
+            return changed ? { steps: nextSteps } : {};
+          });
+        }
       }
     } else if (item.type === 'tool_call') {
       appendLog(run.id, `Tool call: ${item.name}`);
@@ -329,6 +482,110 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
         steps: current.steps.map(s => s.status === 'active' ? { ...s, status: approvalPending ? 'done' : item.result?.error ? 'error' : 'done', at: now() } : s)
       }));
     }
+  }
+
+  if (run.goal && !ctrl.cancelled) {
+    updateRun(run.id, current => {
+      const nextSteps = current.steps.map((s, i) => {
+        if (i === current.steps.length - 1) {
+          return { ...s, status: 'active', at: now() };
+        } else if (i >= 2) {
+          return { ...s, status: 'done', at: s.at || now() };
+        }
+        return s;
+      });
+      return {
+        steps: nextSteps,
+        logs: [...(current.logs || []), { ts: now(), level: 'info', message: 'Entering Verification and Iteration phase.' }].slice(-MAX_AGENT_LOGS)
+      };
+    });
+
+    messages.push({
+      role: 'assistant',
+      content: output
+    });
+    messages.push({
+      role: 'system',
+      content: `VERIFICATION AND ITERATION PHASE:
+Review the user's initial goal: "${run.instruction}".
+Verify that the implementation is complete, correct, and matches the requirements.
+Feel free to read files, run tests, or execute commands to verify.
+If you find any bugs, incomplete parts, or improvements, use your tools to fix them.
+Do not stop until the goal is fully and perfectly met.
+Once you are absolutely sure the goal has been fully met, provide a final confirmation report to the user.`
+    });
+
+    let verifyOutput = '';
+    for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, {
+      workspacePath: run.workspacePath,
+      agentRunId: run.id,
+      ctrl,
+      allowedTools,
+      skipApproval: true
+    })) {
+      if (ctrl.cancelled || getRun(run.id)?.status === 'cancelled') return;
+      if (item.type === 'text') {
+        verifyOutput += item.content;
+        if (verifyOutput.length % 400 < item.content.length) {
+          appendLog(run.id, `Verification output: ${verifyOutput.slice(-300)}`);
+        }
+      } else if (item.type === 'tool_call') {
+        appendLog(run.id, `Verification tool call: ${item.name}`);
+        upsertToolActivity(run.id, (entries) => [
+          ...entries,
+          {
+            id: item.id || `tool-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+            name: item.name,
+            args: item.args || {},
+            status: 'running',
+            startedAt: now(),
+            completedAt: null,
+            result: null,
+          },
+        ]);
+        updateRun(run.id, current => {
+          const toolLabel = `[Verify] ${item.name}: ${item.args.path || item.args.command || ''}`;
+          return {
+            steps: [...current.steps.map(s => s.status === 'active' ? { ...s, status: 'done' } : s), { label: toolLabel, status: 'active', at: now() }]
+          };
+        });
+      } else if (item.type === 'tool_result') {
+        const status = item.result?.error ? `failed: ${item.result.error}` : 'completed';
+        appendLog(run.id, `Verification tool result: ${item.name} ${status}`, item.result?.error ? 'warn' : 'info');
+        upsertToolActivity(run.id, (entries) => {
+          const targetId = item.id || null;
+          let matched = false;
+          const nextEntries = entries.map((entry) => {
+            const sameEntry = targetId ? entry.id === targetId : entry.name === item.name && entry.status === 'running';
+            if (!sameEntry || matched) return entry;
+            matched = true;
+            return {
+              ...entry,
+              status: item.result?.error ? 'error' : 'done',
+              completedAt: now(),
+              result: item.result || null,
+            };
+          });
+          if (matched) return nextEntries;
+          return [
+            ...nextEntries,
+            {
+              id: targetId || `tool-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+              name: item.name,
+              args: item.args || {},
+              status: item.result?.error ? 'error' : 'done',
+              startedAt: null,
+              completedAt: now(),
+              result: item.result || null,
+            },
+          ];
+        });
+        updateRun(run.id, current => ({
+          steps: current.steps.map(s => s.status === 'active' ? { ...s, status: item.result?.error ? 'error' : 'done', at: now() } : s)
+        }));
+      }
+    }
+    output += '\n\n[VERIFICATION REPORT]\n' + verifyOutput;
   }
 
   activeControllers.delete(run.id);

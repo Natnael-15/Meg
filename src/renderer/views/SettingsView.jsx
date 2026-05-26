@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../components/icons.jsx';
 import { Toggle } from '../components/primitives.jsx';
+import logoImg from '../assets/logo-m.jpg';
 
 export const SettingsView = ({
   isCheckingUpdate,
@@ -466,8 +467,13 @@ export const SettingsView = ({
           </div>
         </div>}
         {section==='updates' && <div>
-          <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Software Updates</h2>
-          <p style={{fontSize:12.5,color:'var(--text-3)',marginBottom:20,lineHeight:1.6}}>Check for new versions and manage app updates.</p>
+          <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:20}}>
+            <img src={logoImg} alt="Meg Logo" style={{width:56,height:56,borderRadius:12,boxShadow:'0 4px 12px var(--shadow)',objectFit:'cover'}} />
+            <div>
+              <h2 style={{fontSize:15,fontWeight:700,margin:0,color:'var(--text)'}}>Software Updates</h2>
+              <p style={{fontSize:12,color:'var(--text-3)',margin:0,lineHeight:1.4}}>Check for new versions and manage app updates.</p>
+            </div>
+          </div>
           
           <div style={{padding:'16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)',display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
             <div>
@@ -482,15 +488,51 @@ export const SettingsView = ({
                   'No update check has run in this session.'}
               </div>
             </div>
-            <button 
-              disabled={isCheckingUpdate}
-              onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'checkForUpdates'}}))} 
-              style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:isCheckingUpdate?'var(--text-3)':'var(--text-2)',background:isCheckingUpdate?'var(--bg-active)':'var(--bg)',cursor:isCheckingUpdate?'default':'pointer',display:'flex',alignItems:'center',gap:6,transition:'border-color 0.12s'}}
-            >
-              {isCheckingUpdate && <span style={{display:'inline-flex',animation:'spin 1s linear infinite'}}><Icon name="spinner" size={12}/></span>}
-              {isCheckingUpdate ? 'Checking…' : 'Check now'}
-            </button>
+            <div style={{display:'flex',gap:8}}>
+              {updateInfo?.status === 'available' && (
+                <button 
+                  onClick={()=>window.electronAPI?.downloadUpdate?.()} 
+                  style={{padding:'6px 12px',borderRadius:6,background:'var(--accent)',color:'#fff',border:'none',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:'0 2px 6px rgba(59,110,255,0.2)'}}
+                >
+                  <Icon name="bolt" size={12} color="#fff"/> Download now
+                </button>
+              )}
+              {updateInfo?.status === 'ready' && (
+                <button 
+                  onClick={()=>window.electronAPI?.installUpdate?.()} 
+                  style={{padding:'6px 12px',borderRadius:6,background:'var(--green)',color:'#fff',border:'none',fontSize:12,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',gap:6,boxShadow:'0 2px 6px rgba(34,197,94,0.2)'}}
+                >
+                  <Icon name="check" size={12} color="#fff"/> Restart & Install
+                </button>
+              )}
+              <button 
+                disabled={isCheckingUpdate || updateInfo?.status === 'downloading'}
+                onClick={()=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'checkForUpdates'}}))} 
+                style={{padding:'6px 12px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,color:isCheckingUpdate?'var(--text-3)':'var(--text-2)',background:isCheckingUpdate?'var(--bg-active)':'var(--bg)',cursor:isCheckingUpdate?'default':'pointer',display:'flex',alignItems:'center',gap:6,transition:'border-color 0.12s'}}
+              >
+                {isCheckingUpdate && <span style={{display:'inline-flex',animation:'spin 1s linear infinite'}}><Icon name="spinner" size={12}/></span>}
+                {isCheckingUpdate ? 'Checking…' : 'Check now'}
+              </button>
+            </div>
           </div>
+
+          {updateInfo?.status === 'downloading' && (
+            <div style={{padding:'20px',borderRadius:12,border:'1px solid rgba(59,110,255,0.2)',background:'linear-gradient(135deg, rgba(59,110,255,0.04) 0%, rgba(147,51,234,0.04) 100%)',position:'relative',overflow:'hidden',marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--text)',display:'flex',alignItems:'center',gap:8}}>
+                  <span style={{display:'inline-flex',animation:'spin 1.5s linear infinite'}}><Icon name="spinner" size={13} color="var(--accent)"/></span>
+                  Downloading update…
+                </div>
+                <div style={{fontSize:14,fontFamily:'"JetBrains Mono",monospace',fontWeight:700,color:'var(--accent)'}}>{updateInfo.progress}%</div>
+              </div>
+              <div style={{height:6,background:'var(--border-light)',borderRadius:99,overflow:'hidden',boxShadow:'inset 0 1px 2px rgba(0,0,0,0.1)'}}>
+                <div style={{height:'100%',width:`${updateInfo.progress}%`,background:'linear-gradient(90deg, var(--accent) 0%, #a855f7 100%)',borderRadius:99,boxShadow:'0 0 8px var(--accent)',transition:'width 0.4s cubic-bezier(0.1, 0.8, 0.2, 1)'}}/>
+              </div>
+              <div style={{fontSize:11,color:'var(--text-3)',marginTop:8}}>
+                Version {updateInfo.version} is downloading and will be ready to install shortly.
+              </div>
+            </div>
+          )}
 
           {(updateInfo?.status === 'error' || latestUpdateError) && (
             <div style={{padding:'12px 14px',borderRadius:8,border:'1px solid rgba(224,82,82,0.28)',background:'rgba(224,82,82,0.08)',marginBottom:14}}>

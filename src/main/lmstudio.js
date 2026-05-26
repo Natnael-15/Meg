@@ -224,4 +224,4 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
   }
 }
 
-module.exports = { getModels, ping, streamChat, DEFAULT_MODEL, DEFAULT_URL };
+module.exports = { getModels, ping, streamChat, getClient, DEFAULT_MODEL, DEFAULT_URL };
