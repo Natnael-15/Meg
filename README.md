@@ -11,7 +11,7 @@
 
 <br />
 
-<a href="https://github.com/Natnael-15/Meg/releases/latest">
+<a href="https://github.com/Natnael-15/Meg/releases/latest/download/Meg-Setup.exe">
   <img src="https://img.shields.io/badge/Download_Meg-Latest-3b6eff?style=for-the-badge&logo=windows&logoColor=white" height="48" alt="Download Meg for Windows" />
 </a>
 
