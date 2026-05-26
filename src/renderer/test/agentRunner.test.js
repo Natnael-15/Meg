@@ -235,4 +235,27 @@ describe('agentRunner', () => {
     const retainedCompleted = runs.find((item) => item.id === 'done-0');
     expect(retainedCompleted.logs.length).toBe(200);
   });
+
+  it('cleans up running and queued agent runs on module initialization', () => {
+    const customSettingsState = {
+      agentRuns: [
+        { id: 'stale-running', status: 'running', logs: [] },
+        { id: 'stale-queued', status: 'queued', logs: [] },
+        { id: 'legit-done', status: 'done', logs: [] }
+      ],
+      model: 'qwen/qwen3-8b',
+      lmStudioUrl: 'http://127.0.0.1:1234',
+    };
+    const runner = loadAgentRunner({ settingsState: customSettingsState, activeWorkspace, streamChat });
+    const runs = customSettingsState.agentRuns;
+    const staleRunning = runs.find(r => r.id === 'stale-running');
+    const staleQueued = runs.find(r => r.id === 'stale-queued');
+    const legitDone = runs.find(r => r.id === 'legit-done');
+
+    expect(staleRunning.status).toBe('cancelled');
+    expect(staleRunning.logs.some(l => l.message.includes('interrupted'))).toBe(true);
+    expect(staleQueued.status).toBe('cancelled');
+    expect(staleQueued.logs.some(l => l.message.includes('cancelled on startup'))).toBe(true);
+    expect(legitDone.status).toBe('done');
+  });
 });

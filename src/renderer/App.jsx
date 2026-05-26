@@ -20,6 +20,8 @@ import { SettingsView } from './views/SettingsView.jsx';
 import { TimelineView } from './views/TimelineView.jsx';
 import { WorkspaceView } from './views/WorkspaceView.jsx';
 import './styles.css';
+import logoImg from './assets/logo-m.jpg';
+import splashImg from './assets/splash-text.jpg';
 
 /* ══════════════════════════════════════════════════════
    WINDOWS TITLE BAR
@@ -252,10 +254,10 @@ const Onboarding = ({onDone, onModelChange, onOpenSettings, currentModel, telegr
 
           {step===0 && (
             <div>
-              <div style={{width:48,height:48,borderRadius:12,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:16,boxShadow:`0 8px 20px rgba(59,110,255,0.35)`}}>
-                <span style={{fontSize:22,color:'#fff',fontWeight:800,letterSpacing:'-0.04em'}}>M</span>
+              <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+                <img src={logoImg} alt="Meg Logo" style={{width:48,height:48,borderRadius:12,boxShadow:`0 4px 12px var(--shadow)`,objectFit:'cover'}} />
+                <h1 style={{fontSize:21,fontWeight:700,color:'var(--text)',margin:0,letterSpacing:'-0.02em'}}>Meet Meg</h1>
               </div>
-              <h1 style={{fontSize:21,fontWeight:700,color:'var(--text)',marginBottom:8,letterSpacing:'-0.02em'}}>Meet Meg</h1>
               <p style={{fontSize:13.5,color:'var(--text-2)',lineHeight:1.7,marginBottom:20}}>
                 Meg runs locally, can work across your files and tools, and can message you through connected integrations.
               </p>
@@ -492,6 +494,17 @@ const App = () => {
     });
   }, []);
   const [activeAgents, setActiveAgents] = useState([]);
+  const [loading, setLoading] = useState(() => {
+    return !(typeof process !== 'undefined' && process.env?.NODE_ENV === 'test');
+  });
+
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, [loading]);
   const [typing, setTyping] = useState(false);
   const [lmStatus, setLmStatus] = useState(undefined);
   const [activeModel, setActiveModel] = useState('qwen/qwen3.5-9b');
@@ -1108,6 +1121,16 @@ const App = () => {
       const systemMessages = [];
       let resolvedText = text;
 
+      if (trimmed.startsWith('/goal ')) {
+        const ins = trimmed.slice(6).trim();
+        const r = await api.createAgentRun?.({ goal: true, instruction: ins, workspacePath: activeWorkspaceRef.current?.path, source: 'slash-command', parentThreadId: tid });
+        if (r?.ok) {
+          updateThreads(ts=>ts.map(t=>t.id!==tid?t:{...t, messages:[...t.messages,{id:userMsgId,role:'user',text},{id:megMsgId,role:'meg',text:`Queued autonomous goal planner & runner for: ${ins}`,status:'done'}]}));
+          if (r.run) upsertAgentRun(r.run);
+        }
+        return;
+      }
+
       if (trimmed.startsWith('/agent ')) {
         const ins = trimmed.slice(7).trim();
         const r = await api.createAgentRun?.({ instruction: ins, workspacePath: activeWorkspaceRef.current?.path, source: 'slash-command', parentThreadId: tid });
@@ -1309,6 +1332,90 @@ ${memoryPrompt}`
     {id:'mobile',icon:'mobile',label:'Telegram'},
     {id:'settings',icon:'settings',label:'Settings'},
   ];
+
+  if (loading) {
+    return (
+      <div style={{
+        position: 'fixed',
+        inset: 0,
+        background: '#09080f',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 9999,
+        color: '#fff',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        userSelect: 'none'
+      }}>
+        {/* Glowing aura background */}
+        <div style={{
+          position: 'absolute',
+          width: 500,
+          height: 500,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(147, 51, 234, 0.12) 0%, rgba(59, 110, 255, 0.04) 50%, transparent 100%)',
+          filter: 'blur(60px)',
+          animation: 'pulseGlow 8s infinite alternate'
+        }} />
+
+        {/* Logo Container */}
+        <div style={{
+          position: 'relative',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 24,
+          animation: 'splashFadeIn 1.8s cubic-bezier(0.16, 1, 0.3, 1) both'
+        }}>
+          <img 
+            src={splashImg} 
+            alt="Meg - Your AI. Your Edge." 
+            style={{
+              width: 260,
+              height: 260,
+              borderRadius: 24,
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 40px rgba(168, 85, 247, 0.15)',
+              objectFit: 'cover',
+              animation: 'zoomSlow 4.5s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+            }} 
+          />
+
+          {/* Minimalist Apple-like progress indicator */}
+          <div style={{
+            width: 140,
+            height: 2,
+            background: 'rgba(255, 255, 255, 0.08)',
+            borderRadius: 99,
+            overflow: 'hidden',
+            marginTop: 16,
+            position: 'relative'
+          }}>
+            <div style={{
+              position: 'absolute',
+              height: '100%',
+              background: 'linear-gradient(90deg, #3b82f6, #a855f7, #ec4899)',
+              borderRadius: 99,
+              animation: 'loadProgress 3.2s cubic-bezier(0.65, 0, 0.35, 1) forwards',
+              boxShadow: '0 0 8px rgba(168, 85, 247, 0.6)'
+            }} />
+          </div>
+
+          <span style={{
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: '0.25em',
+            textTransform: 'uppercase',
+            color: 'rgba(255, 255, 255, 0.3)',
+            marginTop: 10,
+            animation: 'pulseText 2.5s infinite alternate'
+          }}>
+            Initializing System
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
       <div style={{display:'flex',height:'100vh',background:'var(--bg)',overflow:'hidden',fontFamily:'"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif',WebkitFontSmoothing:'antialiased',color:'var(--text)',transition:'background 0.3s,color 0.3s',flexDirection:'column'}}>
