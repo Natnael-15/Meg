@@ -305,9 +305,9 @@ async function runAgentStream(run) {
     }));
 
     try {
-      const { getClient } = require('./lmstudio');
-      const client = getClient(baseUrl);
+      const { getClientForModel } = require('./lmstudio');
       const planModel = run.model || settings.get('model') || 'qwen/qwen3-8b';
+      const client = getClientForModel(planModel, baseUrl);
 
       const planPrompt = `You are a structured planning assistant.
 The user wants to accomplish the following goal in their codebase workspace:

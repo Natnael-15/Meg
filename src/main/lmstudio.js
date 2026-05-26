@@ -1,15 +1,60 @@
 const OpenAI = require('openai');
+const settings = require('./settings');
 const { TOOL_DEFINITIONS, executeTool, summarizeToolResult } = require('./tools');
 
-const DEFAULT_URL   = 'http://127.0.0.1:1234';
+const DEFAULT_URL = 'http://127.0.0.1:1234';
 const DEFAULT_MODEL = 'qwen/qwen3-8b';
+const DEEPSEEK_URL = 'https://api.deepseek.com/v1';
+const DEEPSEEK_MODELS = new Set(['deepseek-chat', 'deepseek-reasoner']);
 
-function getClient(baseUrl = DEFAULT_URL) {
+function isDeepSeekModel(model = '') {
+  return DEEPSEEK_MODELS.has(String(model || '').trim());
+}
+
+function normalizeProviderError(error, provider) {
+  if (provider !== 'deepseek') return error;
+  const status = error?.status || error?.code || error?.response?.status;
+  if (status === 401 || status === 403) {
+    return new Error('DeepSeek API key is missing or invalid.');
+  }
+  return error;
+}
+
+function getLmStudioClient(baseUrl = DEFAULT_URL) {
   return new OpenAI({ baseURL: `${baseUrl}/v1`, apiKey: 'lm-studio' });
 }
 
+function getDeepSeekClient() {
+  const apiKeys = settings.get('apiKeys') || {};
+  const apiKey = apiKeys.DeepSeek || '';
+  if (!apiKey.trim()) {
+    throw new Error('DeepSeek API key is missing or invalid.');
+  }
+  return new OpenAI({ baseURL: DEEPSEEK_URL, apiKey });
+}
+
+function resolveProvider(model = DEFAULT_MODEL) {
+  return isDeepSeekModel(model) ? 'deepseek' : 'lmstudio';
+}
+
+function buildExtraBody(provider, model, thinking) {
+  if (provider !== 'lmstudio') return undefined;
+  return /qwen3|deepseek.?r1|thinking/i.test(model)
+    ? { enable_thinking: !!thinking }
+    : undefined;
+}
+
+function getClient(baseUrl = DEFAULT_URL) {
+  return getLmStudioClient(baseUrl);
+}
+
+function getClientForModel(model = DEFAULT_MODEL, baseUrl = DEFAULT_URL) {
+  const provider = resolveProvider(model);
+  return provider === 'deepseek' ? getDeepSeekClient() : getLmStudioClient(baseUrl);
+}
+
 async function getModels(baseUrl = DEFAULT_URL) {
-  const client = getClient(baseUrl);
+  const client = getLmStudioClient(baseUrl);
   const list = await client.models.list();
   return list.data;
 }
@@ -24,7 +69,8 @@ async function ping(baseUrl = DEFAULT_URL) {
 }
 
 async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking = true, baseUrl = DEFAULT_URL, toolContext = {}) {
-  const client = getClient(baseUrl);
+  const provider = resolveProvider(model);
+  const client = getClientForModel(model, baseUrl);
   const history = [...messages];
   const { ctrl } = toolContext;
 
@@ -32,16 +78,20 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
     if (ctrl?.cancelled) break;
 
     const abortCtrl = new AbortController();
-    const stream = await client.chat.completions.create({
-      model,
-      messages: history,
-      stream: true,
+    let stream;
+    try {
+      stream = await client.chat.completions.create({
+        model,
+        messages: history,
+        stream: true,
       temperature: 0.3,
       tools: TOOL_DEFINITIONS,
       tool_choice: 'auto',
-      extra_body: /qwen3|deepseek.?r1|thinking/i.test(model)
-        ? { enable_thinking: !!thinking } : undefined,
+      extra_body: buildExtraBody(provider, model, thinking),
     }, { signal: abortCtrl.signal });
+    } catch (error) {
+      throw normalizeProviderError(error, provider);
+    }
 
     let textBuffer = '';
     const toolCallBuffers = {};
@@ -56,7 +106,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         const delta = chunk.choices[0]?.delta;
         if (!delta) continue;
 
-        // Native reasoning_content from models that support it
         if (delta.reasoning_content) {
           yield { type: 'thinking', content: delta.reasoning_content };
           continue;
@@ -65,7 +114,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         if (delta.content) {
           streamBuffer += delta.content;
 
-          // Parse <think>...</think> tags out of the stream
           while (streamBuffer.length > 0) {
             if (isThinking) {
               const endIdx = streamBuffer.indexOf('</think>');
@@ -106,7 +154,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         }
 
         if (delta.tool_calls) {
-          // Flush stream buffer before tool calls
           if (streamBuffer) {
             if (isThinking) yield { type: 'thinking', content: streamBuffer };
             else {
@@ -120,8 +167,8 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
             if (!toolCallBuffers[idx]) {
               toolCallBuffers[idx] = { id: tc.id || `tc-${idx}`, name: '', arguments: '' };
             }
-            if (tc.id)                  toolCallBuffers[idx].id        = tc.id;
-            if (tc.function?.name)      toolCallBuffers[idx].name      += tc.function.name;
+            if (tc.id) toolCallBuffers[idx].id = tc.id;
+            if (tc.function?.name) toolCallBuffers[idx].name += tc.function.name;
             if (tc.function?.arguments) toolCallBuffers[idx].arguments += tc.function.arguments;
           }
         }
@@ -129,7 +176,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         finishReason = chunk.choices[0]?.finish_reason || finishReason;
       }
 
-      // Final flush
       if (streamBuffer) {
         if (isThinking) yield { type: 'thinking', content: streamBuffer };
         else {
@@ -140,7 +186,7 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       }
     } catch (e) {
       if (e.name === 'AbortError' || ctrl?.cancelled) break;
-      throw e;
+      throw normalizeProviderError(e, provider);
     }
 
     if (ctrl?.cancelled) break;
@@ -153,7 +199,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       const lastMsg = history[history.length - 1];
       const isPostTool = lastMsg && lastMsg.role === 'tool';
 
-      // If the model stopped without producing text after tool results, nudge it
       if (finishReason === 'stop' && !textBuffer && (iteration > 0 || isPostTool)) {
         history.push({
           role: 'system',
@@ -167,7 +212,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       break;
     }
 
-    // Build assistant message with tool calls for history
     history.push({
       role: 'assistant',
       content: textBuffer || null,
@@ -178,7 +222,6 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       })),
     });
 
-    // Execute each tool call sequentially
     for (const tc of pendingCalls) {
       if (ctrl?.cancelled) break;
 
@@ -218,10 +261,19 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
       }
     }
 
-    // Signal the renderer to show a new streaming placeholder
     yield { type: 'resume', threadId };
-    continue;
   }
 }
 
-module.exports = { getModels, ping, streamChat, getClient, DEFAULT_MODEL, DEFAULT_URL };
+module.exports = {
+  getModels,
+  ping,
+  streamChat,
+  getClient,
+  getClientForModel,
+  resolveProvider,
+  isDeepSeekModel,
+  DEFAULT_MODEL,
+  DEFAULT_URL,
+  DEEPSEEK_URL,
+};

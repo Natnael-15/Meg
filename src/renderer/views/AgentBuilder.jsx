@@ -192,7 +192,7 @@ export const AgentBuilder = () => {
     { id: 'browser', icon: 'integration', label: 'Browser' },
     { id: 'telegram', icon: 'sms', label: 'Telegram' },
   ];
-  const models = ['qwen/qwen3-8b', 'claude-3-5-sonnet', 'claude-3-5-haiku', 'gpt-4o', 'gemini-1.5-pro'];
+  const models = ['qwen/qwen3-8b', 'claude-3-5-sonnet', 'claude-3-5-haiku', 'gpt-4o', 'gemini-1.5-pro', 'deepseek-chat', 'deepseek-reasoner'];
   const triggers = ['on commit to main', 'on PR open', 'every Friday 5pm', 'on file change', 'manual only', 'on Telegram keyword'];
 
   const updateAgent = (patch) => {

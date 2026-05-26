@@ -218,6 +218,8 @@ const Onboarding = ({onDone, onModelChange, onOpenSettings, currentModel, telegr
     {id:'claude-3-5-sonnet',label:'claude-3-5-sonnet',tag:'Anthropic',desc:'Best for complex tasks & code'},
     {id:'claude-3-5-haiku',label:'claude-3-5-haiku',tag:'Anthropic',desc:'Quick responses, lower cost'},
     {id:'gpt-4o',label:'gpt-4o',tag:'OpenAI',desc:'Strong general-purpose model'},
+    {id:'deepseek-chat',label:'deepseek-chat',tag:'DeepSeek',desc:'General-purpose cloud model via DeepSeek API'},
+    {id:'deepseek-reasoner',label:'deepseek-reasoner',tag:'DeepSeek',desc:'Reasoning-focused cloud model via DeepSeek API'},
   ];
 
   const animation = dir > 0 ? 'stepFwd 0.28s cubic-bezier(0.22,1,0.36,1) both' : 'stepBack 0.28s cubic-bezier(0.22,1,0.36,1) both';
