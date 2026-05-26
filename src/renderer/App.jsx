@@ -637,6 +637,12 @@ const App = () => {
     }
   }, []);
 
+  const triggerUpdateCheck = useCallback(() => {
+    setIsCheckingUpdate(true);
+    window.electronAPI?.checkForUpdates();
+    setTimeout(() => setIsCheckingUpdate(false), 10000);
+  }, []);
+
   // ── Auto Updater Listeners ──────────────────────────────
   useEffect(()=>{
     if(!window.electronAPI) return;
@@ -941,15 +947,12 @@ const App = () => {
         }).then(r=>r?.run&&upsertAgentRun(r.run));
       }
       if(action==='checkForUpdates') {
-        setIsCheckingUpdate(true);
-        window.electronAPI?.checkForUpdates();
-        // Safety timeout: stop loading after 10s if no response
-        setTimeout(()=>setIsCheckingUpdate(false), 10000);
+        triggerUpdateCheck();
       }
     };
     window.addEventListener('meg:action', handle);
     return ()=>window.removeEventListener('meg:action', handle);
-    }, [applyThemeChoice]);
+    }, [applyThemeChoice, triggerUpdateCheck]);
 
   // ── Telegram incoming messages ────────────────────────────
   useEffect(()=>{
@@ -1121,8 +1124,12 @@ const App = () => {
       const systemMessages = [];
       let resolvedText = text;
 
-      if (trimmed.startsWith('/goal ')) {
-        const ins = trimmed.slice(6).trim();
+      if (trimmed === '/goal' || trimmed.startsWith('/goal ')) {
+        const ins = trimmed.slice(5).trim();
+        if (!ins) {
+          updateThreads(ts=>ts.map(t=>t.id!==tid?t:{...t, messages:[...t.messages,{id:userMsgId,role:'user',text},{id:megMsgId,role:'meg',text:'Usage: /goal <instruction>',status:'done'}]}));
+          return;
+        }
         const r = await api.createAgentRun?.({ goal: true, instruction: ins, workspacePath: activeWorkspaceRef.current?.path, source: 'slash-command', parentThreadId: tid });
         if (r?.ok) {
           updateThreads(ts=>ts.map(t=>t.id!==tid?t:{...t, messages:[...t.messages,{id:userMsgId,role:'user',text},{id:megMsgId,role:'meg',text:`Queued autonomous goal planner & runner for: ${ins}`,status:'done'}]}));
@@ -1131,8 +1138,12 @@ const App = () => {
         return;
       }
 
-      if (trimmed.startsWith('/agent ')) {
-        const ins = trimmed.slice(7).trim();
+      if (trimmed === '/agent' || trimmed.startsWith('/agent ')) {
+        const ins = trimmed.slice(6).trim();
+        if (!ins) {
+          updateThreads(ts=>ts.map(t=>t.id!==tid?t:{...t, messages:[...t.messages,{id:userMsgId,role:'user',text},{id:megMsgId,role:'meg',text:'Usage: /agent <instruction>',status:'done'}]}));
+          return;
+        }
         const r = await api.createAgentRun?.({ instruction: ins, workspacePath: activeWorkspaceRef.current?.path, source: 'slash-command', parentThreadId: tid });
         if (r?.ok) {
           updateThreads(ts=>ts.map(t=>t.id!==tid?t:{...t, messages:[...t.messages,{id:userMsgId,role:'user',text},{id:megMsgId,role:'meg',text:`Queued agent run for: ${ins}`,status:'done'}]}));
@@ -1372,11 +1383,12 @@ ${memoryPrompt}`
             src={splashImg} 
             alt="Meg - Your AI. Your Edge." 
             style={{
-              width: 260,
-              height: 260,
-              borderRadius: 24,
+              width: 'min(68vw, 480px)',
+              height: 'auto',
+              maxHeight: 180,
+              borderRadius: 18,
               boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 40px rgba(168, 85, 247, 0.15)',
-              objectFit: 'cover',
+              objectFit: 'contain',
               animation: 'zoomSlow 4.5s cubic-bezier(0.16, 1, 0.3, 1) forwards'
             }} 
           />
@@ -1555,7 +1567,7 @@ ${memoryPrompt}`
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion messages={telegramMessages} connected={telegramConnected} contactName={telegramContactName} onSend={sendTelegramMessage} sendError={telegramSendError}/></NavSection>}
-      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} updateInfo={updateInfo} version={version} tgStatus={tgStatus} setTgStatus={setTgStatus} integrations={integrations} setIntegrations={setIntegrations} validateTg={validateTg} rendererTweaks={tweaks} onRendererTweakChange={(key, value) => setTweak(key, value)}/></NavSection>}
+      {nav==='settings' && <NavSection id="settings"><SettingsView isCheckingUpdate={isCheckingUpdate} updateInfo={updateInfo} version={version} onCheckForUpdates={triggerUpdateCheck} tgStatus={tgStatus} setTgStatus={setTgStatus} integrations={integrations} setIntegrations={setIntegrations} validateTg={validateTg} rendererTweaks={tweaks} onRendererTweakChange={(key, value) => setTweak(key, value)}/></NavSection>}
 
       {nav==='chat' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative'}}>

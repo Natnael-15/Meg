@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-function loadAgentRunner({ settingsState, activeWorkspace, streamChat }) {
+function loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient }) {
   const source = fs.readFileSync(path.resolve(__dirname, '../../main/agentRunner.js'), 'utf8');
   const module = { exports: {} };
   const runModule = new Function('require', 'module', 'exports', '__dirname', '__filename', source);
@@ -25,7 +25,7 @@ function loadAgentRunner({ settingsState, activeWorkspace, streamChat }) {
       };
     }
     if (id === './lmstudio') {
-      return { streamChat };
+      return { streamChat, getClient };
     }
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/agentRunner.js'));
@@ -37,6 +37,7 @@ describe('agentRunner', () => {
   let settingsState;
   let activeWorkspace;
   let streamChat;
+  let getClient;
   let agentRunner;
 
   beforeEach(() => {
@@ -50,7 +51,26 @@ describe('agentRunner', () => {
     streamChat = vi.fn(async function* () {
       yield { type: 'text', content: 'Working...' };
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+    getClient = vi.fn(() => ({
+      chat: {
+        completions: {
+          create: vi.fn(async () => ({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify([
+                    { label: 'Inspect files', type: 'research' },
+                    { label: 'Implement change', type: 'implementation' },
+                    { label: 'Verify result', type: 'verification' },
+                  ]),
+                },
+              },
+            ],
+          })),
+        },
+      },
+    }));
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
   });
 
   afterEach(() => {
@@ -113,7 +133,7 @@ describe('agentRunner', () => {
     streamChat = vi.fn(async function* () {
       throw new Error('model crashed');
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
 
     const run = agentRunner.createRun({
       name: 'unstable-run',
@@ -134,7 +154,7 @@ describe('agentRunner', () => {
       yield { type: 'tool_result', id: 'tool-1', name: 'write_file', result: { ok: true, path: 'C:\\repo\\src\\draft.js' } };
       yield { type: 'text', content: 'Wrote the requested file.' };
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
 
     const run = agentRunner.createRun({
       name: 'write-draft',
@@ -180,7 +200,7 @@ describe('agentRunner', () => {
       };
       yield { type: 'text', content: 'Prepared a draft for review.' };
     });
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
 
     const run = agentRunner.createRun({
       name: 'stage-draft',
@@ -220,7 +240,7 @@ describe('agentRunner', () => {
         logs: Array.from({ length: 250 }, (__unused, logIndex) => ({ ts: `log-${logIndex}`, level: 'info', message: `line ${logIndex}` })),
       })),
     ];
-    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
 
     const run = agentRunner.createRun({
       name: 'retention-check',
@@ -246,7 +266,7 @@ describe('agentRunner', () => {
       model: 'qwen/qwen3-8b',
       lmStudioUrl: 'http://127.0.0.1:1234',
     };
-    const runner = loadAgentRunner({ settingsState: customSettingsState, activeWorkspace, streamChat });
+    const runner = loadAgentRunner({ settingsState: customSettingsState, activeWorkspace, streamChat, getClient });
     const runs = customSettingsState.agentRuns;
     const staleRunning = runs.find(r => r.id === 'stale-running');
     const staleQueued = runs.find(r => r.id === 'stale-queued');
@@ -257,5 +277,107 @@ describe('agentRunner', () => {
     expect(staleQueued.status).toBe('cancelled');
     expect(staleQueued.logs.some(l => l.message.includes('cancelled on startup'))).toBe(true);
     expect(legitDone.status).toBe('done');
+  });
+
+  it('plans goal runs from markdown-wrapped JSON and advances through reported steps', async () => {
+    streamChat = vi.fn(async function* (messages) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === 'system' && String(lastMessage.content).includes('VERIFICATION AND ITERATION PHASE')) {
+        yield { type: 'text', content: 'Verification complete.' };
+        return;
+      }
+      yield { type: 'text', content: '[STEP] Starting: Step 1\nInspecting.\n' };
+      yield { type: 'tool_call', id: 'tool-1', name: 'read_file', args: { path: 'C:\\repo\\src\\index.js' } };
+      yield { type: 'tool_result', id: 'tool-1', name: 'read_file', result: { ok: true, content: 'ok' } };
+      yield { type: 'text', content: '[STEP] Starting: Step 2\nImplementing.\n[STEP] Starting: Step 3\nWrapping up.' };
+    });
+    getClient = vi.fn(() => ({
+      chat: {
+        completions: {
+          create: vi.fn(async () => ({
+            choices: [
+              {
+                message: {
+                  content: "```json\n[\n  {\"label\":\"Inspect files\",\"type\":\"research\"},\n  {\"label\":\"Implement fix\",\"type\":\"implementation\"},\n  {\"label\":\"Verify result\",\"type\":\"verification\"}\n]\n```",
+                },
+              },
+            ],
+          })),
+        },
+      },
+    }));
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+
+    const run = agentRunner.createRun({
+      name: 'goal-run',
+      instruction: 'Fix the bug end to end',
+      goal: true,
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
+
+    const completed = agentRunner.listRuns().find((item) => item.id === run.id);
+    expect(getClient).toHaveBeenCalledWith('http://127.0.0.1:1234');
+    expect(completed.status).toBe('done');
+    expect(completed.steps.map((step) => step.label)).toEqual([
+      'Queued',
+      'Planning workflow',
+      'Inspect files',
+      'Implement fix',
+      'Verify result',
+      'Verifying and iterating on results',
+    ]);
+    expect(completed.steps.every((step) => step.status === 'done')).toBe(true);
+    expect(completed.toolActivity).toEqual([
+      expect.objectContaining({
+        id: 'tool-1',
+        name: 'read_file',
+        status: 'done',
+      }),
+    ]);
+    expect(completed.output.text).toContain('[VERIFICATION REPORT]');
+  });
+
+  it('falls back to default goal workflow when planning JSON is invalid', async () => {
+    getClient = vi.fn(() => ({
+      chat: {
+        completions: {
+          create: vi.fn(async () => ({
+            choices: [{ message: { content: 'not json at all' } }],
+          })),
+        },
+      },
+    }));
+    streamChat = vi.fn(async function* (messages) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage?.role === 'system' && String(lastMessage.content).includes('VERIFICATION AND ITERATION PHASE')) {
+        yield { type: 'text', content: 'Verified.' };
+        return;
+      }
+      yield { type: 'text', content: 'Finished execution.' };
+    });
+    agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient });
+
+    const run = agentRunner.createRun({
+      name: 'goal-fallback',
+      instruction: 'Do the work',
+      goal: true,
+    });
+
+    await vi.advanceTimersByTimeAsync(300);
+    await Promise.resolve();
+
+    const completed = agentRunner.listRuns().find((item) => item.id === run.id);
+    expect(completed.status).toBe('done');
+    expect(completed.steps.map((step) => step.label)).toEqual([
+      'Queued',
+      'Planning workflow',
+      'Analyze codebase and requirements',
+      'Implement requirements in workspace',
+      'Verify correct implementation and polish',
+      'Verifying and iterating on results',
+    ]);
+    expect(completed.logs.some((entry) => entry.message.includes('Planning phase failed or returned invalid JSON'))).toBe(true);
   });
 });
