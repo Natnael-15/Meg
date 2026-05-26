@@ -40,7 +40,18 @@ export const SettingsView = ({
   const accentChoice = rendererTweaks?.accentColor || 'blue';
   const sidebarChoice = rendererTweaks?.sidebarWidth || 'comfortable';
   const latestUpdateDiagnostic = runtimeDiagnostics.find((entry) => String(entry?.type || '').startsWith('updater:'));
-  const latestUpdateError = runtimeDiagnostics.find((entry) => entry?.type === 'updater:error' || entry?.type === 'process:unhandled-rejection');
+  const firstUpdateIndex = runtimeDiagnostics.findIndex(entry => 
+    entry?.type === 'updater:not-available' || 
+    entry?.type === 'updater:available' || 
+    entry?.type === 'updater:downloaded'
+  );
+  const firstErrorIndex = runtimeDiagnostics.findIndex(entry => 
+    entry?.type === 'updater:error' || 
+    entry?.type === 'process:unhandled-rejection'
+  );
+  const latestUpdateError = (firstErrorIndex !== -1 && (firstUpdateIndex === -1 || firstErrorIndex < firstUpdateIndex))
+    ? runtimeDiagnostics[firstErrorIndex]
+    : null;
   const latestStartupIssue = runtimeDiagnostics.find((entry) => [
     'renderer:did-fail-load',
     'renderer:process-gone',

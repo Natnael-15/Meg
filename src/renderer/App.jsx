@@ -634,6 +634,7 @@ const App = () => {
     });
     api.onUpdateNotAvailable(() => {
       setIsCheckingUpdate(false);
+      setUpdateInfo({ status: 'not-available' });
     });
     api.onUpdateProgress(prog => setUpdateInfo(prev => ({ ...prev, status: 'downloading', progress: Math.round(prog.percent) })));
     api.onUpdateDownloaded(() => setUpdateInfo(prev => ({ ...prev, status: 'ready' })));
