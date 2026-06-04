@@ -253,34 +253,34 @@ function setupIPC(win) {
 
   // ── Terminal ──────────────────────────────────────────────
   ipcMain.handle('terminal:exec', (_, { cmd, cwd }) => {
-    return executeTool('run_command', { command: cmd, cwd }, { threadId: 'terminal', bypassPermissions: true });
+    return executeTool('run_command', { command: cmd, cwd }, { threadId: 'terminal' });
   });
 
   // ── File system ───────────────────────────────────────────
   ipcMain.handle('fs:list', async (_, dirPath) => {
-    const result = await executeTool('list_directory', { path: dirPath }, { threadId: 'manual-fs:list', skipApproval: true });
+    const result = await executeTool('list_directory', { path: dirPath }, { threadId: 'manual-fs:list' });
     return result?.error ? { error: result.error } : result.entries;
   });
 
   ipcMain.handle('fs:read', async (_, filePath) => {
-    const result = await executeTool('read_file', { path: filePath }, { threadId: 'manual-fs:read', skipApproval: true });
+    const result = await executeTool('read_file', { path: filePath }, { threadId: 'manual-fs:read' });
     return result?.error ? { content: null, error: result.error } : { content: result.content, error: null };
   });
 
   ipcMain.handle('fs:write', async (_, { filePath, content }) => {
-    return executeTool('write_file', { path: filePath, content }, { threadId: 'manual-save', skipApproval: true });
+    return executeTool('write_file', { path: filePath, content }, { threadId: 'manual-save' });
   });
 
   ipcMain.handle('fs:rename', async (_, { oldPath, newPath }) => {
-    return executeTool('rename_path', { oldPath, newPath }, { threadId: 'manual-fs:rename', skipApproval: true });
+    return executeTool('rename_path', { oldPath, newPath }, { threadId: 'manual-fs:rename' });
   });
 
   ipcMain.handle('fs:delete', async (_, filePath) => {
-    return executeTool('delete_path', { path: filePath }, { threadId: 'manual-fs:delete', skipApproval: true });
+    return executeTool('delete_path', { path: filePath }, { threadId: 'manual-fs:delete' });
   });
 
   ipcMain.handle('fs:mkdir', async (_, dirPath) => {
-    return executeTool('make_directory', { path: dirPath }, { threadId: 'manual-fs:mkdir', skipApproval: true });
+    return executeTool('make_directory', { path: dirPath }, { threadId: 'manual-fs:mkdir' });
   });
 
   // ── Folder / file dialogs ─────────────────────────────────

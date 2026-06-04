@@ -185,7 +185,7 @@ describe('main ipc contract', () => {
     expect(harness.executeTool).toHaveBeenCalledWith(
       'run_command',
       { command: 'npm test', cwd: 'C:\\repo' },
-      { threadId: 'terminal', bypassPermissions: true },
+      { threadId: 'terminal' },
     );
     expect(result).toEqual({ ok: true, stdout: 'done' });
   });
@@ -533,12 +533,12 @@ describe('main ipc contract', () => {
     expect(await harness.handleMap.get('fs:mkdir')({}, 'C:\\repo\\folder')).toEqual({ ok: true, path: 'C:\\repo\\folder' });
 
     expect(harness.executeTool.mock.calls).toEqual([
-      ['list_directory', { path: 'C:\\repo' }, { threadId: 'manual-fs:list', skipApproval: true }],
-      ['read_file', { path: 'C:\\repo\\readme.txt' }, { threadId: 'manual-fs:read', skipApproval: true }],
-      ['write_file', { path: 'C:\\repo\\notes.txt', content: 'x' }, { threadId: 'manual-save', skipApproval: true }],
-      ['rename_path', { oldPath: 'C:\\repo\\old.txt', newPath: 'C:\\repo\\new.txt' }, { threadId: 'manual-fs:rename', skipApproval: true }],
-      ['delete_path', { path: 'C:\\repo\\old.txt' }, { threadId: 'manual-fs:delete', skipApproval: true }],
-      ['make_directory', { path: 'C:\\repo\\folder' }, { threadId: 'manual-fs:mkdir', skipApproval: true }],
+      ['list_directory', { path: 'C:\\repo' }, { threadId: 'manual-fs:list' }],
+      ['read_file', { path: 'C:\\repo\\readme.txt' }, { threadId: 'manual-fs:read' }],
+      ['write_file', { path: 'C:\\repo\\notes.txt', content: 'x' }, { threadId: 'manual-save' }],
+      ['rename_path', { oldPath: 'C:\\repo\\old.txt', newPath: 'C:\\repo\\new.txt' }, { threadId: 'manual-fs:rename' }],
+      ['delete_path', { path: 'C:\\repo\\old.txt' }, { threadId: 'manual-fs:delete' }],
+      ['make_directory', { path: 'C:\\repo\\folder' }, { threadId: 'manual-fs:mkdir' }],
     ]);
   });
 
