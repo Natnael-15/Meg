@@ -31,8 +31,8 @@
 Instead of treating the model like a plain chatbot, Meg wraps it in a desktop operating layer so it can help with real work across code, design, product, research, writing, debugging, planning, and automation.
 
 > [!IMPORTANT]
-> **v1.0.0-beta.8 — Stability, State Sync & AI Quality Overhaul**  
-> Meg now features a fully stabilized test suite (143/143 tests passing), resolved stale closures on active workspaces, auto-collapsing tool cards upon completion, integrated CLI output routing to chat, and wired file saving/reviews in the approval queue.
+> **v1.0.0-beta.10 — Autocomplete, Cloud Providers & Telegram Responder**  
+> Meg now features dynamic `@` and `/` queries directly in the input bar, context window summarization limits, support for native Anthropic Claude models, per-thread model state persistence, a glassmorphic visual polish, and automated AI Telegram chat responses.
 
 ---
 
@@ -77,14 +77,14 @@ Meg's skill system is built around broad expert roles, not tiny single-purpose c
 
 ---
 
-## beta.8 Highlights
+## beta.10 Highlights
 
-- **Unit Test Suite Stability**: Fixed race conditions and asynchronous setups in tests so all 143 test cases build and pass reliably.
-- **Improved Workspace Closures**: Resolved stale React state closures when spawning agents, ensuring files and operations map to the correct active workspace.
-- **Command Output Integration**: Integrated terminal command outputs to route directly back into the conversational chat stream.
-- **Tool Card Lifecycle**: Added dynamic collapsible states for tool call cards to close automatically when pending agent actions complete.
-- **Approval Queue Wiring**: Correctly mapped approval IDs to review file objects for staged saves.
-- **Version Bump & Production Packaging**: Packaged `v1.0.0-beta.8` into a production-ready Windows installer.
+- **Dynamic Auto-Complete @Mentions & /Commands:** Access and inline-embed workspace files or variables (`@clipboard`, `@memory`, `@web`), and quickly trigger assistant commands directly from the text input field.
+- **Context Token Summarization:** Track estimated token size below the chat and compress chat history automatically when it grows past 8,000 tokens to avoid model size limits.
+- **Multi-Model Provider Integrations:** Mapped key settings for OpenAI, Google Gemini, Anthropic (via native SDK), and DeepSeek.
+- **Per-Thread Model State:** Persists active model selections on a per-thread basis, restoring configured models automatically when switching tabs.
+- **Telegram AI Auto-Responder:** Automatically checks incoming Telegram polling messages and generates conversational replies via the active LLM back to the user's phone.
+- **Glassmorphic UI Design & Rearrangement:** Polished popup palettes, dropdown lists, settings, and onboarding cards with blurred glass backdrops and refined vector icon layouts.
 
 ---
 
