@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '../components/icons.jsx';
 import { Toggle } from '../components/primitives.jsx';
+import { isThinkingModel, modelProvider } from '../lib/models.js';
 import logoImg from '../assets/logo-m.jpg';
 
 export const SettingsView = ({
@@ -38,8 +39,6 @@ export const SettingsView = ({
   const [runtimeDiagnostics, setRuntimeDiagnostics] = useState([]);
   const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro','deepseek-chat','deepseek-reasoner'];
-  const isThinkingModel = m => /qwen3|deepseek.?r1|thinking/i.test(m||'');
-  const modelProvider = (m) => m.startsWith('claude') ? 'Anthropic' : m.startsWith('gpt') ? 'OpenAI' : m.startsWith('deepseek') ? 'DeepSeek' : 'Google';
   const accentChoice = rendererTweaks?.accentColor || 'blue';
   const sidebarChoice = rendererTweaks?.sidebarWidth || 'comfortable';
   const latestUpdateDiagnostic = runtimeDiagnostics.find((entry) => String(entry?.type || '').startsWith('updater:'));
@@ -65,11 +64,10 @@ export const SettingsView = ({
     'process:uncaught-exception',
   ].includes(entry?.type));
   const formatDiagnosticTime = (value) => {
-    try {
-      return new Date(value).toLocaleString();
-    } catch {
-      return value || '';
-    }
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString();
   };
 
   const saveLmUrl = async (url) => {
@@ -170,7 +168,7 @@ export const SettingsView = ({
                 {lmUrlStatus==='checking'?'Testing…':'Test'}
               </button>
             </div>
-            {lmUrlStatus && lmUrlStatus!=='checking' && (
+            {lmUrlStatus && typeof lmUrlStatus === 'object' && (
               <div style={{fontSize:11.5,display:'flex',alignItems:'center',gap:5,color:lmUrlStatus.ok?'var(--green)':'var(--red,#e05252)'}}>
                 <Icon name={lmUrlStatus.ok?'check':'close'} size={11} color={lmUrlStatus.ok?'var(--green)':'var(--red,#e05252)'}/>
                 {lmUrlStatus.ok?`Connected · ${lmUrlStatus.count} model${lmUrlStatus.count!==1?'s':''} found`:lmUrlStatus.error}
@@ -580,7 +578,7 @@ export const SettingsView = ({
           )}
 
           {runtimeDiagnostics.map((entry, index) => (
-            <div key={`${entry.ts || 'ts'}-${entry.type || 'type'}-${index}`} style={{padding:'12px 14px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)',marginBottom:10}}>
+            <div key={entry.id || `${entry.ts || 'ts'}-${entry.type || 'type'}-${index}`} style={{padding:'12px 14px',borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-2)',marginBottom:10}}>
               <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                 <span style={{fontSize:10.5,padding:'2px 6px',borderRadius:99,background:entry.level==='error'?'var(--red-bg, rgba(224,82,82,0.12))':'var(--bg-active)',color:entry.level==='error'?'var(--red,#e05252)':'var(--text-3)',fontWeight:600,textTransform:'uppercase'}}>
                   {entry.level || 'info'}

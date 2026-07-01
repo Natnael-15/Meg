@@ -1,26 +1,78 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 
-export const DialogShell = ({ title, description, onClose, children, footer }) => (
-  <div
-    style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, animation: 'backdropIn 0.15s ease' }}
-    onClick={onClose}
-  >
-    <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,6,18,0.6)', backdropFilter: 'blur(6px)' }} />
+export const DialogShell = ({ title, description, onClose, children, footer }) => {
+  const dialogRef = useRef(null);
+  const previousFocusRef = useRef(null);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const focusable = dialog.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (first) first.focus();
+
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      if (previousFocusRef.current && typeof previousFocusRef.current.focus === 'function') {
+        previousFocusRef.current.focus();
+      }
+    };
+  }, [onClose]);
+
+  return (
     <div
-      style={{ width: 420, maxWidth: '100%', background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--border)', boxShadow: '0 24px 60px var(--shadow-lg)', position: 'relative', overflow: 'hidden', animation: 'modalIn 0.2s cubic-bezier(0.22,1,0.36,1)' }}
-      onClick={(e) => e.stopPropagation()}
+      role="dialog"
+      aria-modal="true"
+      aria-label={typeof title === 'string' ? title : 'Dialog'}
+      style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, animation: 'backdropIn 0.15s ease' }}
+      onClick={onClose}
     >
-      <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid var(--border-light)' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: description ? 4 : 0 }}>{title}</div>
-        {description && <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>{description}</div>}
-      </div>
-      <div style={{ padding: 18 }}>{children}</div>
-      <div style={{ padding: '0 18px 18px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        {footer}
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,6,18,0.6)', backdropFilter: 'blur(6px)' }} />
+      <div
+        ref={dialogRef}
+        style={{ width: 420, maxWidth: '100%', background: 'var(--bg-2)', borderRadius: 12, border: '1px solid var(--border)', boxShadow: '0 24px 60px var(--shadow-lg)', position: 'relative', overflow: 'hidden', animation: 'modalIn 0.2s cubic-bezier(0.22,1,0.36,1)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ padding: '16px 18px 12px', borderBottom: '1px solid var(--border-light)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: description ? 4 : 0 }}>{title}</div>
+          {description && <div style={{ fontSize: 12, color: 'var(--text-3)', lineHeight: 1.6 }}>{description}</div>}
+        </div>
+        <div style={{ padding: 18 }}>{children}</div>
+        <div style={{ padding: '0 18px 18px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          {footer}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const TextEntryDialog = ({
   title,

@@ -57,33 +57,39 @@ const VoiceInput = ({onTranscribe}) => {
 export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThinking,activeSkill,onSkillChange,activeWorkspace}) => {
   const [val,setVal] = useState('');
   const [matchingFiles, setMatchingFiles] = useState([]);
+  const [fileSearchError, setFileSearchError] = useState(false);
   const [skillOpen,setSkillOpen] = useState(false);
   const textareaRef = useRef(null);
 
   // Derived autocomplete state
   const atMatch = val.match(/@([\w/.-]*)$/);
   const slashMatch = val.match(/\/(\w*)$/);
-  const isAt = !!atMatch && (!slashMatch || atMatch.index > slashMatch.index);
+  const isAt = !!atMatch && (!slashMatch || atMatch.index >= slashMatch.index);
   const isSlash = !!slashMatch && (!atMatch || slashMatch.index > atMatch.index);
   const atQuery = atMatch ? atMatch[1] : '';
   const slashQuery = slashMatch ? slashMatch[1] : '';
 
   useEffect(() => {
-    if (isAt && activeWorkspace && window.electronAPI?.searchWorkspaceFiles) {
-      let active = true;
+    if (!isAt || !activeWorkspace || !window.electronAPI?.searchWorkspaceFiles) {
+      setMatchingFiles([]);
+      setFileSearchError(false);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(() => {
       window.electronAPI.searchWorkspaceFiles(activeWorkspace.id, atQuery, 5)
         .then(res => {
           if (!active) return;
+          setFileSearchError(false);
           setMatchingFiles(res?.results || []);
         })
         .catch(() => {
           if (!active) return;
+          setFileSearchError(true);
           setMatchingFiles([]);
         });
-      return () => { active = false; };
-    } else {
-      setMatchingFiles([]);
-    }
+    }, 200);
+    return () => { active = false; clearTimeout(timer); };
   }, [isAt, atQuery, activeWorkspace]);
 
   const handleChange = e => {
@@ -125,11 +131,23 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
 
   const grouped = SKILLS.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {});
 
+  // Close skill picker when clicking outside
+  useEffect(() => {
+    if (!skillOpen) return;
+    const handler = (e) => {
+      if (!e.target.closest('[data-skill-picker]')) {
+        setSkillOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [skillOpen]);
+
   return (
     <div style={{padding:'10px 14px',borderTop:'1px solid var(--border-light)',background:'var(--bg)',flexShrink:0}}>
       {/* Skill picker popover */}
       {skillOpen && (
-        <div style={{marginBottom:8,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid var(--border)',borderRadius:12,padding:'10px',boxShadow:'0 8px 32px var(--shadow-lg)',animation:'slideDown 0.15s ease-out'}}>
+        <div data-skill-picker style={{marginBottom:8,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid var(--border)',borderRadius:12,padding:'10px',boxShadow:'0 8px 32px var(--shadow-lg)',animation:'slideDown 0.15s ease-out'}}>
           <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>
             Skill — auto-detected from message when none selected
           </div>
@@ -174,7 +192,7 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
             <span style={{fontSize:11,padding:'2px 8px',borderRadius:99,background:s.color+'18',border:`1px solid ${s.color}44`,color:s.color,fontWeight:500,display:'flex',alignItems:'center',gap:4}}>
               <span>{s.icon}</span>{s.name} skill active
             </span>
-            <button onClick={()=>onSkillChange?.(null)} style={{fontSize:10,color:'var(--text-3)',background:'none',border:'none',cursor:'pointer',padding:'0 2px'}} title="Clear skill">✕</button>
+            <button onClick={()=>onSkillChange?.(null)} title="Clear skill" aria-label="Clear skill" style={{fontSize:11,color:'var(--text-3)',background:'none',border:'none',cursor:'pointer',padding:'4px 8px',minWidth:24,minHeight:24,display:'inline-flex',alignItems:'center',justifyContent:'center'}}>✕</button>
           </div>
         ) : null;
       })()}
@@ -226,8 +244,11 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
               </button>
             );
           })}
-          {matchingFiles.length === 0 && (!atQuery || !['@clipboard', '@memory', '@web'].some(p => p.includes(atQuery))) && (
+          {matchingFiles.length === 0 && !fileSearchError && (!atQuery || !['@clipboard', '@memory', '@web'].some(p => p.includes(atQuery))) && (
             <div style={{fontSize:11,color:'var(--text-3)',padding:'4px 6px'}}>No matching files found in active workspace</div>
+          )}
+          {fileSearchError && (
+            <div style={{fontSize:11,color:'var(--red)',padding:'4px 6px'}}>Search failed — try again</div>
           )}
         </div>
       )}
@@ -274,7 +295,7 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           ))}
           <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
           {/* Skill picker button */}
-          <button onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
+          <button data-skill-picker onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
             style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${activeSkill?'var(--accent-border)':'var(--border)'}`,background:activeSkill?'var(--accent-bg)':'transparent',color:activeSkill?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
             <span style={{fontSize:12}}>{activeSkill ? (SKILLS.find(s=>s.id===activeSkill)?.icon||'✦') : '✦'}</span>
             Skill

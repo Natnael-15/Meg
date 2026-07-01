@@ -74,16 +74,21 @@ const WinTitleBar = ({dark, onTray, unreadCount, lmStatus, updateInfo, onDownloa
       )}
 
       {/* LM Studio connection dot */}
-      {lmStatus !== undefined && (
+      {lmStatus !== undefined ? (
         <div style={{display:'flex',alignItems:'center',gap:4,marginRight:8}} title={lmStatus ? 'LM Studio connected' : 'LM Studio offline'}>
           <div style={{width:6,height:6,borderRadius:'50%',background:lmStatus?'var(--green)':'var(--red)',flexShrink:0}}/>
           <span style={{fontSize:10.5,color:'var(--text-3)'}}>
             LM Studio: <strong style={{color:lmStatus?'var(--green)':'var(--red)'}}>{lmStatus ? 'online' : 'offline'}</strong>
           </span>
         </div>
+      ) : (
+        <div style={{display:'flex',alignItems:'center',gap:4,marginRight:8}} title="Checking LM Studio…">
+          <div style={{width:6,height:6,borderRadius:'50%',background:'var(--text-3)',flexShrink:0,opacity:0.5}}/>
+          <span style={{fontSize:10.5,color:'var(--text-3)',opacity:0.7}}>LM Studio: checking…</span>
+       </div>
       )}
       {/* Tray indicator */}
-      <button className="titlebar-nodrag win-btn" onClick={onTray} style={{width:36,height:32,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',background:'transparent',border:'none',cursor:'pointer',transition:'background 0.1s',position:'relative'}} title="Tray">
+      <button aria-label="Open tray" className="titlebar-nodrag win-btn" onClick={onTray} style={{width:36,height:32,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',background:'transparent',border:'none',cursor:'pointer',transition:'background 0.1s',position:'relative'}} title="Tray">
         <Icon name="tray" size={14}/>
         {unreadCount>0 && <div style={{position:'absolute',top:6,right:6,width:8,height:8,borderRadius:'50%',background:'var(--orange)',border:'2px solid var(--bg-sidebar)'}}/>}
       </button>
@@ -866,8 +871,10 @@ const App = () => {
   // ── Save state to DB whenever it changes ──
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
-    if(threads.some(t=>t.messages?.some(m=>m.streaming))) return;
-    window.electronAPI.saveThreads(threads);
+    const timer = setTimeout(() => {
+      window.electronAPI.saveThreads(threads);
+    }, 1500);
+    return () => clearTimeout(timer);
   },[threads]);
 
   useEffect(()=>{
@@ -905,13 +912,16 @@ const App = () => {
   // ── LM Studio ping and polling loop ───────────────────────
   useEffect(()=>{
     if(!window.electronAPI) return;
+    const hasActiveWork = threads.some(t => t.messages?.some(m => m.streaming))
+      || activeAgents.some(a => a.status === 'running');
+    if (!hasActiveWork) return;
     const checkPing = () => {
       window.electronAPI.ping().then(r => setLmStatus(r.ok));
     };
     checkPing();
     const interval = setInterval(checkPing, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [threads, activeAgents]);
 
   useEffect(() => {
     if (!window.electronAPI?.getSetting) return;
@@ -1411,7 +1421,7 @@ ${memoryPrompt}`
         }}>
           <img 
             src={splashImg} 
-            alt="Meg - Your AI. Your Edge." 
+            alt="Meg" 
             style={{
               width: 'min(68vw, 480px)',
               height: 'auto',
@@ -1508,7 +1518,7 @@ ${memoryPrompt}`
           <span style={{fontSize:14,color:'#fff',fontWeight:800,letterSpacing:'-0.03em'}}>M</span>
         </div>
         {NAV.map(item=>(
-          <button key={item.id} title={item.label} onClick={()=>setNav(item.id)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:nav===item.id?'var(--bg-active)':'transparent',color:nav===item.id?'var(--text)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative'}}
+          <button key={item.id} title={item.label} aria-label={item.label} onClick={()=>setNav(item.id)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:nav===item.id?'var(--bg-active)':'transparent',color:nav===item.id?'var(--text)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative'}}
             onMouseEnter={e=>{if(nav!==item.id){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
             onMouseLeave={e=>{if(nav!==item.id){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
           >
@@ -1518,13 +1528,13 @@ ${memoryPrompt}`
         ))}
         <div style={{flex:1}}/>
         {/* Dark mode quick toggle */}
-          <button title={dark?'Light mode':'Dark mode'} onClick={()=>applyThemeChoice(dark ? 'light' : 'dark')} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:'transparent',color:'var(--text-3)',transition:'background 0.15s,color 0.15s,transform 0.2s',marginBottom:2,flexShrink:0}}
+          <button title={dark?'Light mode':'Dark mode'} aria-label={dark?'Switch to light mode':'Switch to dark mode'} onClick={()=>applyThemeChoice(dark ? 'light' : 'dark')} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:'transparent',color:'var(--text-3)',transition:'background 0.15s,color 0.15s,transform 0.2s',marginBottom:2,flexShrink:0}}
           onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';e.currentTarget.style.transform='rotate(12deg)';}}
           onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';e.currentTarget.style.transform='rotate(0deg)';}}>
           <Icon name={dark?'sun':'moon'} size={15}/>
         </button>
         {/* Bell */}
-        <button title="Activity" onClick={()=>setNotifOpen(o=>!o)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:notifOpen?'var(--accent-bg)':'transparent',color:notifOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative',marginBottom:2}}
+        <button title="Activity" aria-label="Activity" onClick={()=>setNotifOpen(o=>!o)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:notifOpen?'var(--accent-bg)':'transparent',color:notifOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative',marginBottom:2}}
           onMouseEnter={e=>{if(!notifOpen){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
           onMouseLeave={e=>{if(!notifOpen){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
         >
@@ -1532,7 +1542,7 @@ ${memoryPrompt}`
           {unreadNotifs>0&&<div style={{position:'absolute',top:4,right:4,width:14,height:14,borderRadius:'50%',background:'var(--orange)',border:'2px solid var(--bg-sidebar)',display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:8,color:'#fff',fontWeight:700}}>{unreadNotifs}</span></div>}
         </button>
         {/* SMS */}
-        <button title="SMS" onClick={()=>setSmsOpen(o=>!o)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:smsOpen?'var(--accent-bg)':'transparent',color:smsOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',marginBottom:4}}
+        <button title="SMS" aria-label="Telegram messages" onClick={()=>setSmsOpen(o=>!o)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:smsOpen?'var(--accent-bg)':'transparent',color:smsOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',marginBottom:4}}
           onMouseEnter={e=>{if(!smsOpen){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
           onMouseLeave={e=>{if(!smsOpen){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
         ><Icon name="sms" size={16}/></button>
@@ -1573,7 +1583,7 @@ ${memoryPrompt}`
                 </div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0,minWidth:14}}>
                   {hoveredThread===t.id
-                    ? <button onClick={e=>{e.stopPropagation();const rest=threads.filter(th=>th.id!==t.id);updateThreads(rest);if(activeId===t.id)setActiveId(rest[0]?.id||null);setHoveredThread(null);}} style={{border:'none',background:'transparent',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2,borderRadius:4,transition:'color 0.1s'}} onMouseEnter={e=>e.currentTarget.style.color='#e05252'} onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}><Icon name="trash" size={13}/></button>
+                    ? <button aria-label={`Delete ${t.title || 'chat'}`} onClick={e=>{e.stopPropagation();if(window.confirm(`Delete "${t.title || 'this chat'}"? This cannot be undone.`)){const rest=threads.filter(th=>th.id!==t.id);updateThreads(rest);if(activeId===t.id)setActiveId(rest[0]?.id||null);setHoveredThread(null);}}} style={{border:'none',background:'transparent',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2,borderRadius:4,transition:'color 0.1s'}} onMouseEnter={e=>e.currentTarget.style.color='#e05252'} onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}><Icon name="trash" size={13}/></button>
                     : t.unread&&<div style={{width:7,height:7,borderRadius:'50%',background:'var(--accent)'}}/>
                   }
                 </div>
@@ -1663,7 +1673,7 @@ ${memoryPrompt}`
             </div>
           </div>
           <div style={{flex:1,display:'flex',overflow:'hidden'}}>
-            <div ref={scrollContainerRef} onScroll={handleScroll} style={{flex:1,overflowY:'auto',padding:'18px 20px',position:'relative'}}>
+            <div ref={scrollContainerRef} onScroll={handleScroll} style={{flex:1,overflowY:'auto',padding:'18px 20px',position:'relative'}} aria-live="polite" aria-relevant="additions">
               {isPreviewMode && (
                 <div style={{marginBottom:12,padding:'10px 12px',borderRadius:8,border:'1px solid var(--orange-border)',background:'var(--orange-bg)',fontSize:12,color:'var(--text-2)'}}>
                   Preview mode only. The desktop backend is unavailable in this browser render, so chat execution, tools, and persisted app state are disabled.

@@ -63,13 +63,10 @@ const normalizeAutomation = (automation) => ({
 });
 
 const formatRunTime = (value) => {
-  if (!value) return null;
-  try {
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-  } catch {
-    return value;
-  }
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString();
 };
 
 const AUTOMATION_TEMPLATES = [
@@ -192,7 +189,7 @@ export const AutomationsView = () => {
   const [runStateByAutomation, setRunStateByAutomation] = useState({});
   const [automationRuns, setAutomationRuns] = useState([]);
   const [selectedRunId, setSelectedRunId] = useState(null);
-  const autosFirst = useRef(true);
+  const autosLoaded = useRef(false);
   const persistedAutosRef = useRef([]);
 
   useEffect(() => {
@@ -204,14 +201,15 @@ export const AutomationsView = () => {
         setAutos(normalized);
         setSelected(normalized[0].id);
       }
+      // Mark loaded regardless of whether data is empty — empty state is a real state.
+      autosLoaded.current = true;
     });
   }, []);
 
   useEffect(() => {
-    if (autosFirst.current) {
-      autosFirst.current = false;
-      return;
-    }
+    // Skip until the initial load has settled, so the first effect run
+    // (caused by mount + normalization) doesn't re-save what we just loaded.
+    if (!autosLoaded.current) return;
     const prev = persistedAutosRef.current || [];
     const next = autos.map(stripAutomationRuntimeState);
     const prevMap = new Map(prev.map((item) => [item.id, item]));
@@ -327,7 +325,7 @@ export const AutomationsView = () => {
           onChange={setActionDraft}
           onCancel={() => setActionDraft(null)}
           onConfirm={() => {
-            updateAutomation({ actions: [...auto.actions, createAction(actionDraft.type, actionDraft.label.trim(), actionDraft.target.trim())] });
+            updateAutomation({ actions: [...auto.actions, createAction(actionDraft.type, actionDraft.label.trim(), actionDraft.target?.trim() || '')] });
             setActionDraft(null);
           }}
         />
@@ -395,18 +393,22 @@ export const AutomationsView = () => {
               <button onClick={() => setEditing((current) => !current)} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, color: 'var(--text-2)', background: 'var(--bg)' }}>{editing ? 'Save' : 'Edit'}</button>
               <Toggle on={auto.enabled} onToggle={() => updateAutomation({ enabled: !auto.enabled })} />
               <button onClick={() => {
+                // Look up the current automation at click time, not from the render-time
+                // `auto` variable — it can be stale if the user edited the name since render.
+                const currentAuto = autos.find(a => a.id === selected);
+                if (!currentAuto) return;
                 window.electronAPI?.createAutomationRun?.({
-                  name: auto.name,
-                  trigger: auto.trigger,
-                  actions: auto.actions,
+                  name: currentAuto.name,
+                  trigger: currentAuto.trigger,
+                  actions: currentAuto.actions,
                   source: 'automation-config',
-                  sourceId: auto.id,
+                  sourceId: currentAuto.id,
                 });
-                setRunStateByAutomation((current) => {
-                  const previous = current[auto.id] || { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null };
+                setRunStateByAutomation((currentState) => {
+                  const previous = currentState[currentAuto.id] || { count: 0, lastRunAt: null, lastRunId: null, lastRunStatus: null };
                   return {
-                    ...current,
-                    [auto.id]: {
+                    ...currentState,
+                    [currentAuto.id]: {
                       ...previous,
                       count: previous.count + 1,
                       lastRunAt: new Date().toISOString(),
@@ -531,7 +533,7 @@ export const AutomationsView = () => {
                       <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Logs</div>
                       <div style={{ background: 'var(--code-bg)', borderRadius: 8, border: '1px solid var(--code-border)', padding: '10px 12px' }}>
                         {(selectedRun.logs || []).length ? selectedRun.logs.map((entry, index) => (
-                          <div key={`${entry.ts || 'log'}-${index}`} style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 10.5, color: entry.level === 'error' ? 'var(--red)' : entry.level === 'warn' ? 'var(--orange)' : 'var(--code-blue)', lineHeight: 1.8 }}>
+                          <div key={entry.id || `${entry.ts || 'log'}-${index}`} style={{ fontFamily: '"JetBrains Mono",monospace', fontSize: 10.5, color: entry.level === 'error' ? 'var(--red)' : entry.level === 'warn' ? 'var(--orange)' : 'var(--code-blue)', lineHeight: 1.8 }}>
                             {`${entry.ts ? new Date(entry.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'} ${(entry.level || 'info').toUpperCase()}: ${entry.message || ''}`}
                           </div>
                         )) : <div style={{ fontSize: 11.5, color: 'var(--text-3)' }}>No automation log entries yet.</div>}
