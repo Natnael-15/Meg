@@ -92,6 +92,20 @@ Meg's skill system is built around broad expert roles, not tiny single-purpose c
 - **Telegram AI Auto-Responder:** Automatically checks incoming Telegram polling messages and generates conversational replies via the active LLM back to the user's phone.
 - **Glassmorphic UI Design & Rearrangement:** Polished popup palettes, dropdown lists, settings, and onboarding cards with blurred glass backdrops and refined vector icon layouts.
 
+### beta.10 Stability & Polish Pass
+
+A focused audit of 29 verified findings (1 critical, 9 major, 12 minor, 7 cosmetic) was applied in this release:
+
+- **Safer inputs.** LM Studio URL status is now type-guarded before render; invalid date strings in diagnostics and automation runs return `—` instead of leaking `Invalid Date`.
+- **Autosave you can trust.** Thread persistence debounces 1.5s and no longer permanently bails when a streaming message is never closed — a force-quit mid-stream recovers within ~2s on next launch.
+- **Smarter automations.** First real edit to an automation now actually saves. `Run now` reads the freshest automation state instead of a stale closure.
+- **Sharper autocompletion.** `@`-mentions and `/`-commands are mutually exclusive; workspace file search is debounced 200ms; search errors render distinctly from "no matches".
+- **Skill picker behaves.** Click anywhere outside the popover to dismiss it; the active-skill ✕ button meets the 24×24 tap-target minimum.
+- **Thread deletion is confirmed.** A prompt appears before a chat is dropped.
+- **Telegram finishes multi-step work.** The autonomous responder loops through `[DONE]`-bounded turns up to 10 iterations instead of returning after the first stream.
+- **Accessibility.** Dialogs trap focus, close on `Escape`, and expose `role="dialog" aria-modal`. Screen readers announce new chat content via `aria-live="polite"`. Every icon-only title-bar and sidebar button has an `aria-label`. `prefers-reduced-motion` freezes animations globally.
+- **Performance.** The 5-second LM Studio ping no longer runs while the renderer is idle.
+
 ---
 
 ## Architecture
