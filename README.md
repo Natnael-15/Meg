@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/logo.png" alt="Meg Logo" width="140" style="border-radius: 28px; margin-bottom: 12px;" />
+<img src="./assets/banner.png" alt="Meg Banner" width="500" style="border-radius: 12px; margin-bottom: 12px;" />
 
 # ✦ Meg ✦
 
@@ -29,7 +29,7 @@
 ## Overview
 
 <div align="center">
-  <img src="./assets/banner.png" alt="Meg Banner" width="70%" style="border-radius: 12px; margin-bottom: 24px;" />
+  <img src="./assets/logo.png" alt="Meg Logo" width="350" style="border-radius: 24px; margin-bottom: 24px;" />
 </div>
 
 **Meg** is a local-first AI desktop assistant built with Electron, React, and LM Studio. It is designed to give a local model a proper working environment: project context, file access, terminal execution, tool permissions, background agents, automations, and domain-specific skill prompts.
