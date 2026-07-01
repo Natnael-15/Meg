@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/banner.png" alt="Meg Banner" width="500" style="border-radius: 12px; margin-bottom: 12px;" />
+<img src="./assets/banner.png" alt="Meg Banner" width="400" style="border-radius: 12px; margin-bottom: 12px;" />
 
 # ✦ Meg ✦
 
