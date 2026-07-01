@@ -37,6 +37,19 @@ function loadAutomationScheduler({ automations, automationRunner, workspaces = [
     if (id === './telegram') {
       return { getBot: vi.fn(() => ({ sendMessage: vi.fn() })) };
     }
+    if (id === './telegramStore') {
+      return {
+        listMessages: vi.fn(() => []),
+        upsertMessage: vi.fn((item) => item),
+      };
+    }
+    if (id === './lmstudio') {
+      return {
+        streamChat: async function* () {
+          yield { type: 'text', content: 'Mock response' };
+        }
+      };
+    }
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/automationScheduler.js'));
 

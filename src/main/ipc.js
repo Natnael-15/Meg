@@ -323,14 +323,42 @@ function setupIPC(win) {
     try {
       const bot = getBot(token);
       if (!bot) return { ok: false, error: 'No token' };
-      bot.startPolling(msg => {
-        automationScheduler.handleTelegramMessage(msg);
+      bot.startPolling(async msg => {
+        // Save the inbound message to database so we have history
+        telegramStore.upsertMessage({
+          direction: 'inbound',
+          from: msg.from?.first_name || 'User',
+          text: msg.text || '',
+          chatId: String(msg.chat.id),
+          date: msg.date,
+          status: 'received'
+        });
+
+        // Send the inbound message event to frontend immediately (with original fields matching test contract)
         win.webContents.send('telegram:message', {
           chatId: msg.chat.id,
           from: msg.from?.first_name || 'User',
           text: msg.text || '',
           date: msg.date,
         });
+
+        const triggered = await automationScheduler.handleTelegramMessage(msg);
+
+        // If it didn't trigger any command or keyword automation, trigger AI chat response!
+        const isCommand = (msg.text || '').trim().startsWith('/');
+        if ((!triggered || triggered.length === 0) && !isCommand) {
+          await automationScheduler.respondToTelegramMessage(bot, msg, (replyText) => {
+            // Callback to notify the frontend of the outbound AI reply!
+            win.webContents.send('telegram:message', {
+              id: `tg-out-${msg.chat.id}-${Date.now()}`,
+              direction: 'outbound',
+              from: 'Meg',
+              text: replyText,
+              chatId: msg.chat.id,
+              date: Math.floor(Date.now() / 1000),
+            });
+          });
+        }
       });
       return { ok: true };
     } catch (e) {

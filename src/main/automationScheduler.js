@@ -5,6 +5,8 @@ const workspace = require('./workspace');
 const settings = require('./settings');
 const telegram = require('./telegram');
 const { getHeadSnapshot } = require('./git');
+const telegramStore = require('./telegramStore');
+const { streamChat } = require('./lmstudio');
 
 const CHECK_INTERVAL_MS = 30 * 1000;
 let intervalId = null;
@@ -180,6 +182,67 @@ async function handleTelegramMessage(message) {
   return triggered;
 }
 
+async function respondToTelegramMessage(bot, message, onReply) {
+  const chatId = message.chat?.id;
+  if (!chatId) return;
+
+  const allMessages = telegramStore.listMessages();
+  const history = allMessages
+    .filter(m => String(m.chatId) === String(chatId))
+    .slice(-20)
+    .map(m => ({
+      role: m.direction === 'outbound' ? 'assistant' : 'user',
+      content: m.text
+    }));
+
+  const systemPrompt = {
+    role: 'system',
+    content: `You are Meg, a helpful, advanced, autonomous AI assistant. You are currently chatting with the user through Telegram.
+Provide direct, concise, clear, and action-oriented responses. Do not use verbose introductions or standard pleasantries unless necessary. Since this is a chat interface, keep it brief and helpful.`
+  };
+
+  const messagesPayload = [systemPrompt, ...history];
+
+  const model = settings.get('model') || 'qwen/qwen3.5-9b';
+  const thinking = settings.get('thinking') || false;
+  const lmUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
+
+  let replyText = '';
+  try {
+    const threadId = `telegram-${chatId}`;
+    const ctrl = { cancelled: false };
+
+    for await (const item of streamChat(messagesPayload, threadId, model, thinking, lmUrl, { ctrl })) {
+      if (item.type === 'text') {
+        replyText += item.content;
+      }
+    }
+
+    if (replyText.trim()) {
+      await bot.sendMessage(chatId, replyText);
+
+      telegramStore.upsertMessage({
+        direction: 'outbound',
+        from: 'Meg',
+        text: replyText,
+        chatId: String(chatId),
+        status: 'sent'
+      });
+
+      if (onReply) {
+        onReply(replyText);
+      }
+    }
+  } catch (e) {
+    console.error('Error generating Telegram response:', e);
+    const errMsg = `Sorry, I encountered an error while processing your message: ${e.message}`;
+    await bot.sendMessage(chatId, errMsg).catch(() => {});
+    if (onReply) {
+      onReply(errMsg);
+    }
+  }
+}
+
 async function sendStatusReport(chatId) {
   const token = settings.get('telegramToken');
   if (!token || !chatId) return;
@@ -258,4 +321,5 @@ module.exports = {
   parseTelegramTrigger,
   matchesSchedule,
   handleTelegramMessage,
+  respondToTelegramMessage,
 };

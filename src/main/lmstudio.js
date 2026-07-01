@@ -24,17 +24,33 @@ function getLmStudioClient(baseUrl = DEFAULT_URL) {
   return new OpenAI({ baseURL: `${baseUrl}/v1`, apiKey: 'lm-studio' });
 }
 
-function getDeepSeekClient() {
+function getClientForProvider(provider, baseUrl = DEFAULT_URL) {
   const apiKeys = settings.get('apiKeys') || {};
-  const apiKey = apiKeys.DeepSeek || '';
-  if (!apiKey.trim()) {
-    throw new Error('DeepSeek API key is missing or invalid.');
+  if (provider === 'openai') {
+    const key = apiKeys.OpenAI || '';
+    if (!key.trim()) throw new Error('OpenAI API key is missing. Please configure it in settings.');
+    return new OpenAI({ baseURL: 'https://api.openai.com/v1', apiKey: key });
   }
-  return new OpenAI({ baseURL: DEEPSEEK_URL, apiKey });
+  if (provider === 'google') {
+    const key = apiKeys.Google || '';
+    if (!key.trim()) throw new Error('Google Gemini API key is missing. Please configure it in settings.');
+    return new OpenAI({ baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai', apiKey: key });
+  }
+  if (provider === 'deepseek') {
+    const key = apiKeys.DeepSeek || '';
+    if (!key.trim()) throw new Error('DeepSeek API key is missing or invalid.');
+    return new OpenAI({ baseURL: DEEPSEEK_URL, apiKey: key });
+  }
+  return getLmStudioClient(baseUrl);
 }
 
 function resolveProvider(model = DEFAULT_MODEL) {
-  return isDeepSeekModel(model) ? 'deepseek' : 'lmstudio';
+  const m = String(model || '').toLowerCase().trim();
+  if (m.startsWith('gpt-')) return 'openai';
+  if (m.startsWith('gemini-')) return 'google';
+  if (m.startsWith('claude-')) return 'anthropic';
+  if (m.startsWith('deepseek-') || DEEPSEEK_MODELS.has(m)) return 'deepseek';
+  return 'lmstudio';
 }
 
 function buildExtraBody(provider, model, thinking) {
@@ -50,7 +66,127 @@ function getClient(baseUrl = DEFAULT_URL) {
 
 function getClientForModel(model = DEFAULT_MODEL, baseUrl = DEFAULT_URL) {
   const provider = resolveProvider(model);
-  return provider === 'deepseek' ? getDeepSeekClient() : getLmStudioClient(baseUrl);
+  return getClientForProvider(provider, baseUrl);
+}
+
+function translateMessagesToAnthropic(openAiMessages) {
+  const systemMsgs = openAiMessages.filter(m => m.role === 'system');
+  const system = systemMsgs.map(m => m.content).join('\n\n');
+
+  const nonSystem = openAiMessages.filter(m => m.role !== 'system');
+  const anthropicMessages = [];
+
+  for (let i = 0; i < nonSystem.length; i++) {
+    const msg = nonSystem[i];
+    if (msg.role === 'user') {
+      anthropicMessages.push({ role: 'user', content: msg.content });
+    } else if (msg.role === 'assistant') {
+      const content = [];
+      if (msg.content) content.push({ type: 'text', text: msg.content });
+      if (msg.tool_calls) {
+        msg.tool_calls.forEach(tc => {
+          let input = {};
+          try { input = JSON.parse(tc.function.arguments); } catch {}
+          content.push({ type: 'tool_use', id: tc.id, name: tc.function.name, input });
+        });
+      }
+      anthropicMessages.push({ role: 'assistant', content });
+    } else if (msg.role === 'tool') {
+      let last = anthropicMessages[anthropicMessages.length - 1];
+      if (!last || last.role !== 'user' || typeof last.content === 'string') {
+        last = { role: 'user', content: [] };
+        anthropicMessages.push(last);
+      }
+      last.content.push({
+        type: 'tool_result',
+        tool_use_id: msg.tool_call_id,
+        content: msg.content || '',
+      });
+    }
+  }
+  return { system, messages: anthropicMessages };
+}
+
+function translateToolsToAnthropic(openAiTools = []) {
+  return openAiTools.map(t => ({
+    name: t.function.name,
+    description: t.function.description,
+    input_schema: t.function.parameters,
+  }));
+}
+
+async function* getAnthropicStream(model, messages, tools, apiKey, abortSignal) {
+  const Anthropic = require('@anthropic-ai/sdk');
+  const anthropic = new Anthropic({ apiKey });
+  const { system, messages: anthropicMessages } = translateMessagesToAnthropic(messages);
+  const anthropicTools = translateToolsToAnthropic(tools);
+
+  const params = {
+    model: model || 'claude-3-5-sonnet-20241022',
+    max_tokens: 4000,
+    messages: anthropicMessages,
+    tools: anthropicTools,
+  };
+  if (system) params.system = system;
+
+  const stream = await anthropic.messages.create({
+    ...params,
+    stream: true,
+  });
+
+  for await (const event of stream) {
+    if (abortSignal?.aborted) break;
+
+    if (event.type === 'content_block_start') {
+      const block = event.content_block;
+      if (block.type === 'tool_use') {
+        yield {
+          choices: [{
+            delta: {
+              tool_calls: [{
+                index: event.index,
+                id: block.id,
+                type: 'function',
+                function: { name: block.name, arguments: '' }
+              }]
+            }
+          }]
+        };
+      }
+    } else if (event.type === 'content_block_delta') {
+      const delta = event.delta;
+      if (delta.type === 'text_delta') {
+        yield {
+          choices: [{
+            delta: { content: delta.text }
+          }]
+        };
+      } else if (delta.type === 'input_json_delta') {
+        yield {
+          choices: [{
+            delta: {
+              tool_calls: [{
+                index: event.index,
+                function: { arguments: delta.partial_json }
+              }]
+            }
+          }]
+        };
+      }
+    } else if (event.type === 'message_delta') {
+      const stopReason = event.delta.stop_reason;
+      let finish_reason = null;
+      if (stopReason === 'tool_use') finish_reason = 'tool_calls';
+      else if (stopReason === 'end_turn') finish_reason = 'stop';
+      
+      yield {
+        choices: [{
+          delta: {},
+          finish_reason
+        }]
+      };
+    }
+  }
 }
 
 async function getModels(baseUrl = DEFAULT_URL) {
@@ -68,11 +204,107 @@ async function ping(baseUrl = DEFAULT_URL) {
   }
 }
 
+function estimateTokens(text = '') {
+  if (typeof text !== 'string') return 0;
+  return Math.ceil(text.length / 4);
+}
+
+function estimateMessagesTokens(messages) {
+  return messages.reduce((acc, m) => {
+    let contentLen = 0;
+    if (typeof m.content === 'string') contentLen = m.content.length;
+    else if (Array.isArray(m.content)) {
+      contentLen = m.content.reduce((cAcc, part) => {
+        if (typeof part.text === 'string') return cAcc + part.text.length;
+        if (part.content && typeof part.content === 'string') return cAcc + part.content.length;
+        return cAcc;
+      }, 0);
+    }
+    return acc + contentLen + 40; // 40 char overhead
+  }, 0) / 4;
+}
+
+async function summarizeMessages(client, model, messagesToSummarize, provider) {
+  const textToSummarize = messagesToSummarize.map(m => {
+    const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+    return `${m.role.toUpperCase()}: ${content}`;
+  }).join('\n\n');
+
+  try {
+    let summaryText = '';
+    if (provider === 'anthropic') {
+      const Anthropic = require('@anthropic-ai/sdk');
+      const apiKeys = settings.get('apiKeys') || {};
+      const key = apiKeys.Anthropic || '';
+      const anthropic = new Anthropic({ apiKey: key });
+      const resp = await anthropic.messages.create({
+        model: model || 'claude-3-5-sonnet-20241022',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: `CONCISELY summarize this conversation history segment, preserving all critical file paths, code block changes, and decisions. Be brief:\n\n${textToSummarize}`
+        }]
+      });
+      summaryText = resp.content.map(c => c.text || '').join('\n');
+    } else {
+      const resp = await client.chat.completions.create({
+        model,
+        messages: [{
+          role: 'user',
+          content: `CONCISELY summarize this conversation history segment, preserving all critical file paths, code block changes, and decisions. Be brief:\n\n${textToSummarize}`
+        }],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+      summaryText = resp.choices[0]?.message?.content || '';
+    }
+    return summaryText.trim();
+  } catch (err) {
+    console.error('Failed to summarize history:', err.message);
+    return '[Older conversation history omitted to fit context window]';
+  }
+}
+
 async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking = true, baseUrl = DEFAULT_URL, toolContext = {}) {
   const provider = resolveProvider(model);
-  const client = getClientForModel(model, baseUrl);
-  const history = [...messages];
   const { ctrl } = toolContext;
+  const history = [...messages];
+  const apiKeys = settings.get('apiKeys') || {};
+
+  // Auto-Summarize history if exceeding the threshold
+  const totalTokens = estimateMessagesTokens(history);
+  if (totalTokens > 8000 && history.length > 6) {
+    const systemPromptIndex = history.findIndex(m => m.role === 'system');
+    let systemPrompt = null;
+    let mainHistory = [...history];
+    if (systemPromptIndex !== -1) {
+      systemPrompt = history[systemPromptIndex];
+      mainHistory.splice(systemPromptIndex, 1);
+    }
+    const keepLastCount = 4;
+    if (mainHistory.length > keepLastCount + 2) {
+      const toSummarize = mainHistory.slice(0, -keepLastCount);
+      const toKeep = mainHistory.slice(-keepLastCount);
+      try {
+        let client = null;
+        if (provider !== 'anthropic') {
+          client = getClientForModel(model, baseUrl);
+        }
+        const summary = await summarizeMessages(client, model, toSummarize, provider);
+        const compressed = [];
+        if (systemPrompt) compressed.push(systemPrompt);
+        compressed.push({
+          role: 'system',
+          content: `SUMMARY OF EARLIER CONVERSATION (for context):\n${summary}`
+        });
+        compressed.push(...toKeep);
+        history.length = 0;
+        history.push(...compressed);
+      } catch (e) {
+        console.error('Context compression failed:', e);
+      }
+    }
+  }
 
   for (let iteration = 0; iteration < 20; iteration++) {
     if (ctrl?.cancelled) break;
@@ -80,15 +312,22 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
     const abortCtrl = new AbortController();
     let stream;
     try {
-      stream = await client.chat.completions.create({
-        model,
-        messages: history,
-        stream: true,
-      temperature: 0.3,
-      tools: TOOL_DEFINITIONS,
-      tool_choice: 'auto',
-      extra_body: buildExtraBody(provider, model, thinking),
-    }, { signal: abortCtrl.signal });
+      if (provider === 'anthropic') {
+        const key = apiKeys.Anthropic || '';
+        if (!key.trim()) throw new Error('Anthropic API key is missing. Please configure it in settings.');
+        stream = getAnthropicStream(model, history, TOOL_DEFINITIONS, key, abortCtrl.signal);
+      } else {
+        const client = getClientForModel(model, baseUrl);
+        stream = await client.chat.completions.create({
+          model,
+          messages: history,
+          stream: true,
+          temperature: 0.3,
+          tools: TOOL_DEFINITIONS,
+          tool_choice: 'auto',
+          extra_body: buildExtraBody(provider, model, thinking),
+        }, { signal: abortCtrl.signal });
+      }
     } catch (error) {
       throw normalizeProviderError(error, provider);
     }

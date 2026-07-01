@@ -5,6 +5,8 @@ import { Icon } from './components/icons.jsx';
 import { StatusBadge, Toggle } from './components/primitives.jsx';
 import { TypingIndicator, AgentCard, ToolCallCard, Message } from './components/chat.jsx';
 import { InputBar } from './components/chatInput.jsx';
+import { ThreadSearch } from './components/ThreadSearch.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
 import { ContextPanel, NotifPanel, QuickCapture, SmsFloat, SplitPane, TrayFlyout } from './components/overlays.jsx';
 import { mapAgentRun } from './lib/agentRuns.js';
 import { SKILLS, autoDetectSkill } from './lib/skills.js';
@@ -230,7 +232,7 @@ const Onboarding = ({onDone, onModelChange, onOpenSettings, currentModel, telegr
       <div style={{position:'absolute',inset:0,background:'rgba(8,6,18,0.72)',backdropFilter:'blur(8px) saturate(0.7)'}}/>
       <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 50% 40%, transparent 40%, rgba(0,0,0,0.3) 100%)'}}/>
 
-      <div style={{width:500,background:'var(--bg-2)',borderRadius:20,overflow:'hidden',boxShadow:'0 48px 120px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06)',position:'relative',animation:'modalIn 0.38s cubic-bezier(0.22,1,0.36,1)'}}>
+      <div style={{width:500,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.78)',backdropFilter:'blur(20px)',WebkitBackdropFilter:'blur(20px)',borderRadius:20,overflow:'hidden',boxShadow:'0 48px 120px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06)',position:'relative',animation:'modalIn 0.38s cubic-bezier(0.22,1,0.36,1)',border:'1px solid var(--border)'}}>
         {/* Top progress track — gradient fill */}
         <div style={{height:3,background:'var(--border)'}}>
           <div style={{height:'100%',width:`${(step/(steps.length-1))*100}%`,background:'linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 70%, #fff))',transition:'width 0.4s cubic-bezier(0.22,1,0.36,1)',borderRadius:99,boxShadow:'0 0 8px var(--accent-border)'}}/>
@@ -410,7 +412,7 @@ const CommandPalette = ({onClose,onAction,threads,workspaces,activeFile}) => {
   return (
     <div style={{position:'fixed',inset:0,zIndex:900,display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:80,animation:'backdropIn 0.15s ease'}} onClick={onClose}>
       <div style={{background:'rgba(10,8,20,0.6)',position:'absolute',inset:0,backdropFilter:'blur(3px)'}}/>
-      <div style={{width:520,background:'var(--bg-2)',borderRadius:12,overflow:'hidden',boxShadow:`0 24px 60px var(--shadow-lg)`,animation:'modalIn 0.18s cubic-bezier(0.22,1,0.36,1)',position:'relative',border:'1px solid var(--border)'}} onClick={e=>e.stopPropagation()}>
+      <div style={{width:520,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',borderRadius:16,overflow:'hidden',boxShadow:`0 24px 60px var(--shadow-lg)`,animation:'modalIn 0.18s cubic-bezier(0.22,1,0.36,1)',position:'relative',border:'1px solid var(--border)'}} onClick={e=>e.stopPropagation()}>
         <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 16px',borderBottom:'1px solid var(--border-light)'}}>
           <Icon name="search" size={16} color="var(--text-3)"/>
           <input ref={inputRef} value={query} onChange={e=>{setQuery(e.target.value);setCursor(0);}} onKeyDown={handleKey} placeholder="Search chats, workspaces, commands…" style={{flex:1,border:'none',outline:'none',fontSize:14,color:'var(--text)',background:'none'}}/>
@@ -596,6 +598,7 @@ const App = () => {
   const messagesEndRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const isAutoScrollingRef = useRef(false);
   const activeIdRef = useRef(activeId);
   useEffect(()=>{ activeIdRef.current = activeId; }, [activeId]);
@@ -620,6 +623,13 @@ const App = () => {
   }, []);
 
   const thread = threads.find(t=>t.id===activeId);
+
+  useEffect(() => {
+    if (thread?.model && thread.model !== activeModel) {
+      setActiveModel(thread.model);
+    }
+  }, [activeId, thread?.model]);
+
   const unreadNotifs = notifs.filter(n=>!n.read).length;
   const pendingApprovalCount = approvals.filter(a=>a.status==='pending').length;
   const runningAgent = threads.some(t=>t.messages.some(m=>m.role==='agent'&&m.status==='running'));
@@ -701,10 +711,11 @@ const App = () => {
     document.documentElement.style.setProperty('--accent-border', dark?(darkBdMap[accent]||darkBdMap.blue):(bdMap[accent]||bdMap.blue));
   }, [accent, dark]);
 
-  // ⌘K and Ctrl+Shift+M
+  // ⌘K, Ctrl+F and Ctrl+Shift+M
   useEffect(()=>{
     const h = e => {
       if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();setCmdOpen(o=>!o);}
+      if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();setIsSearchOpen(true);}
       if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key==='M'){e.preventDefault();setQuickCapOpen(o=>!o);}
     };
     window.addEventListener('keydown',h);
@@ -919,7 +930,13 @@ const App = () => {
       const {action, text, screen, value} = e.detail || {};
       if(action==='sendToChat' || action==='appendCommandResultToChat') { setNav('chat'); if(text) addMessageRef.current?.(text); }
       if(action==='navigate')   setNav(screen);
-        if(action==='setModel')   { setActiveModel(value); window.electronAPI?.setSetting?.('model', value); }
+        if(action==='setModel')   {
+          setActiveModel(value);
+          window.electronAPI?.setSetting?.('model', value);
+          if (activeIdRef.current) {
+            updateThreads(ts => ts.map(t => t.id === activeIdRef.current ? { ...t, model: value, updatedAt: new Date().toISOString() } : t));
+          }
+        }
         if(action==='setDark')    applyThemeChoice(value ? 'dark' : 'light');
         if(action==='setTheme')   applyThemeChoice(value);
         if(action==='lmPing')     window.electronAPI?.ping().then(r=>setLmStatus(r.ok));
@@ -962,23 +979,26 @@ const App = () => {
     const token = getTelegramToken();
     if(token) window.electronAPI.startTelegramPolling(token);
     window.electronAPI.onTelegramMessage(msg=>{
+      const isOutbound = msg.direction === 'outbound';
       appendTelegramMessage({
-        id: `tg-in-${msg.chatId || 'chat'}-${msg.date || Date.now()}-${msg.text || ''}`,
-        direction: 'inbound',
-        from: msg.from || 'Telegram',
+        id: msg.id || `tg-${msg.direction || 'inbound'}-${msg.chatId || 'chat'}-${msg.date || Date.now()}-${msg.text || ''}`,
+        direction: msg.direction || 'inbound',
+        from: msg.from || (isOutbound ? 'Meg' : 'Telegram'),
         text: msg.text || '',
         chatId: msg.chatId || getTelegramChatId(),
         createdAt: msg.date ? new Date(msg.date * 1000).toISOString() : new Date().toISOString(),
-        status: 'received',
+        status: msg.status || (isOutbound ? 'sent' : 'received'),
       });
-      setTelegramSendError(null);
-      setNotifs((current) => upsertNotification(current, buildTelegramNotification(msg, getTelegramChatId())));
-      window.dispatchEvent(new CustomEvent('meg:action', {
-        detail: { 
-          action: 'addEvent', 
-          value: buildTelegramEvent(msg)
-        }
-      }));
+      if (!isOutbound) {
+        setTelegramSendError(null);
+        setNotifs((current) => upsertNotification(current, buildTelegramNotification(msg, getTelegramChatId())));
+        window.dispatchEvent(new CustomEvent('meg:action', {
+          detail: { 
+            action: 'addEvent', 
+            value: buildTelegramEvent(msg)
+          }
+        }));
+      }
     });
     return ()=>window.electronAPI.removeListeners('telegram:message');
   }, [appendTelegramMessage, getTelegramChatId, getTelegramToken]);
@@ -1319,10 +1339,11 @@ ${memoryPrompt}`
     updateThreads(ts=>[...ts,normalizeThread({
       ...createThreadRecord(id),
       ...getWorkspaceThreadFields(activeWorkspace),
+      model: activeModel,
     })]);
     setActiveId(id);
     setNav('chat');
-  }, [activeWorkspace, updateThreads]);
+  }, [activeWorkspace, updateThreads, activeModel]);
 
   const openMegFromTray = () => {
     setTrayOpen(false);
@@ -1337,12 +1358,12 @@ ${memoryPrompt}`
   const NAV = [
     {id:'chat',icon:'chat',label:'Chats'},
     {id:'workspace',icon:'workspace',label:'Workspace'},
-    {id:'agent',icon:'agent',label:'Agents'},
-    {id:'timeline',icon:'timeline',label:'Activity Timeline'},
-    {id:'automations',icon:'zap',label:'Automations'},
     {id:'filebrowser',icon:'files',label:'File Browser'},
+    {id:'agent',icon:'agent',label:'Agents'},
     {id:'build',icon:'build',label:'Agent Builder'},
-    {id:'mobile',icon:'mobile',label:'Telegram'},
+    {id:'automations',icon:'zap',label:'Automations'},
+    {id:'timeline',icon:'activity',label:'Activity Timeline'},
+    {id:'mobile',icon:'sms',label:'Telegram'},
     {id:'settings',icon:'settings',label:'Settings'},
   ];
 
@@ -1597,7 +1618,7 @@ ${memoryPrompt}`
                       <Icon name="chevronDown" size={9} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
                     </button>
                     {wsDropOpen && (
-                      <div style={{position:'absolute',top:'calc(100% + 4px)',right:0,minWidth:200,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:8,boxShadow:'0 4px 16px var(--shadow-lg)',zIndex:999,overflow:'hidden'}}>
+                      <div style={{position:'absolute',top:'calc(100% + 4px)',right:0,minWidth:200,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',border:'1px solid var(--border)',borderRadius:10,boxShadow:'0 8px 32px var(--shadow-lg)',zIndex:999,overflow:'hidden',animation:'slideDown 0.15s ease-out'}}>
                         <div style={{padding:'6px 10px 4px',fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Switch workspace</div>
                         {workspaces.map(w=>(
                           <button key={w.id} onClick={()=>{
@@ -1680,6 +1701,7 @@ ${memoryPrompt}`
             onToggleThinking={isThinkingModel(activeModel)?()=>setThinking(t=>!t):null}
             activeSkill={activeSkill}
             onSkillChange={setActiveSkill}
+            activeWorkspace={activeWorkspace}
           />
           {smsOpen && <SmsFloat messages={telegramMessages} connected={telegramConnected} contactName={telegramContactName} onClose={()=>setSmsOpen(false)} onSend={sendTelegramMessage} sendError={telegramSendError}/>}
           

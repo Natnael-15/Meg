@@ -41,6 +41,7 @@ function createIpcHarness() {
   const automationScheduler = {
     reload: vi.fn(),
     handleTelegramMessage: vi.fn(),
+    respondToTelegramMessage: vi.fn(),
   };
   const settings = {
     get: vi.fn((key) => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './icons.jsx';
 import { StatusBadge } from './primitives.jsx';
+import MarkdownRenderer from './MarkdownRenderer.jsx';
 
 export const TypingIndicator = () => (
   <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
@@ -251,7 +252,7 @@ const ThinkBlock = ({text, unfinished}) => {
         {unfinished ? 'Thinking…' : open ? 'Hide thinking' : 'Show thinking'}
         {seconds > 0 && <span style={{marginLeft:2,opacity:0.55,fontWeight:400}}>{unfinished ? `${seconds.toFixed(1)}s` : `${seconds.toFixed(1)}s`}</span>}
       </button>
-      {open && <div style={{marginTop:6,padding:'10px 14px',background:'var(--bg-active)',border:'1px solid var(--border-light)',borderRadius:8,fontSize:12,color:'var(--text-3)',lineHeight:1.6,fontStyle:'italic'}}>{renderMarkdown(text.trim()||'...')}</div>}
+      {open && <div style={{marginTop:6,padding:'10px 14px',background:'var(--bg-active)',border:'1px solid var(--border-light)',borderRadius:8,fontSize:12,color:'var(--text-3)',lineHeight:1.6,fontStyle:'italic'}}><MarkdownRenderer>{text.trim() || '...'}</MarkdownRenderer></div>}
     </div>
   );
 };
@@ -260,7 +261,7 @@ export const Message = ({msg,isUser,accent}) => {
   const renderBody = (text, streaming) => (text||'').split(/(<think>[\s\S]*?<\/think>)/g).map((p,i)=>
     p.startsWith('<think>')&&p.endsWith('<\/think>')
       ?<ThinkBlock key={`think-${i}`} text={p.slice(7,-8)} unfinished={streaming}/>
-      :<React.Fragment key={`text-${i}`}>{renderMarkdown(p)}</React.Fragment>
+      :<React.Fragment key={`text-${i}`}><MarkdownRenderer>{p}</MarkdownRenderer></React.Fragment>
   );
   if(isUser) return (
     <div className="msg-enter" style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>

@@ -5,7 +5,7 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", s
 
 /* ── Light theme ── */
 :root {
-  --bg: #faf9f7; --bg-2: #ffffff; --bg-sidebar: #f0ede8; --bg-panel: #f5f3ef;
+  --bg: #faf9f7; --bg-2: #ffffff; --bg-2-rgb: 255, 255, 255; --bg-sidebar: #f0ede8; --bg-panel: #f5f3ef;
   --bg-hover: #e9e6df; --bg-active: #e2dfd8; --bg-input: #ffffff;
   --border: #e2dfd8; --border-light: #ebe8e2;
   --text: #17161a; --text-2: #6b6762; --text-3: #a09c97;
@@ -18,7 +18,7 @@ body { font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", s
 }
 /* ── Dark theme ── */
 body.dark {
-  --bg: #141318; --bg-2: #1e1c26; --bg-sidebar: #0f0e13; --bg-panel: #1a1820;
+  --bg: #141318; --bg-2: #1e1c26; --bg-2-rgb: 30, 28, 38; --bg-sidebar: #0f0e13; --bg-panel: #1a1820;
   --bg-hover: #22202c; --bg-active: #2a2838; --bg-input: #1e1c26;
   --border: #2e2c3c; --border-light: #252232;
   --text: #e2e0ea; --text-2: #8c8a9e; --text-3: #55536a;
@@ -119,4 +119,38 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 @keyframes pulseText {
   0% { opacity: 0.3; }
   100% { opacity: 0.8; }
+}
+
+/* ── Markdown Renderer Overrides ── */
+
+/* Mermaid diagram container */
+.md-mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0;
+  padding: 12px;
+  background: var(--bg-panel);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: auto;
+}
+.md-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* KaTeX math rendering */
+.md-renderer .katex {
+  font-size: 1em;
+  line-height: 1.2;
+}
+.md-renderer .katex-display {
+  margin: 8px 0;
+  overflow-x: auto;
+}
+body.dark .katex,
+body.dark .katex .mathnormal,
+body.dark .katex .mathit,
+body.dark .katex .mord {
+  color: var(--text) !important;
 }

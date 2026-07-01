@@ -54,11 +54,38 @@ const VoiceInput = ({onTranscribe}) => {
   );
 };
 
-export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThinking,activeSkill,onSkillChange}) => {
+export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThinking,activeSkill,onSkillChange,activeWorkspace}) => {
   const [val,setVal] = useState('');
-  const [hint,setHint] = useState(null);
+  const [matchingFiles, setMatchingFiles] = useState([]);
   const [skillOpen,setSkillOpen] = useState(false);
   const textareaRef = useRef(null);
+
+  // Derived autocomplete state
+  const atMatch = val.match(/@([\w/.-]*)$/);
+  const slashMatch = val.match(/\/(\w*)$/);
+  const isAt = !!atMatch && (!slashMatch || atMatch.index > slashMatch.index);
+  const isSlash = !!slashMatch && (!atMatch || slashMatch.index > atMatch.index);
+  const atQuery = atMatch ? atMatch[1] : '';
+  const slashQuery = slashMatch ? slashMatch[1] : '';
+
+  useEffect(() => {
+    if (isAt && activeWorkspace && window.electronAPI?.searchWorkspaceFiles) {
+      let active = true;
+      window.electronAPI.searchWorkspaceFiles(activeWorkspace.id, atQuery, 5)
+        .then(res => {
+          if (!active) return;
+          setMatchingFiles(res?.results || []);
+        })
+        .catch(() => {
+          if (!active) return;
+          setMatchingFiles([]);
+        });
+      return () => { active = false; };
+    } else {
+      setMatchingFiles([]);
+    }
+  }, [isAt, atQuery, activeWorkspace]);
+
   const handleChange = e => {
     setVal(e.target.value);
     const ta = textareaRef.current;
@@ -74,17 +101,26 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
     if (!names.length) return;
     const additions = names.map(name => `@file(${name})`).join(' ');
     setVal(prev => prev.trim() ? `${prev} ${additions} ` : `${additions} `);
-    setHint(null);
   };
+
+  const insertMention = (replacement) => {
+    setVal(prev => {
+      const match = prev.match(/@([\w/.-]*)$/);
+      if (!match) return prev + replacement;
+      return prev.slice(0, match.index) + replacement + ' ';
+    });
+    resetHeight();
+  };
+
   const handleKey = e => {
     if (e.key==='Enter'&&!e.shiftKey){
       e.preventDefault();
       if(typing) return;
-      if(val.trim()){onSend(val.trim());setVal('');setHint(null);resetHeight();}
+      if(val.trim()){onSend(val.trim());setVal('');resetHeight();}
     }
-    if (e.key==='@') setHint('@');
-    else if (e.key==='/') setHint('/');
-    else if (e.key==='Escape') { setHint(null); setSkillOpen(false); }
+    if (e.key==='Escape') {
+      setSkillOpen(false);
+    }
   };
 
   const grouped = SKILLS.reduce((acc, s) => { (acc[s.category] = acc[s.category] || []).push(s); return acc; }, {});
@@ -93,7 +129,7 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
     <div style={{padding:'10px 14px',borderTop:'1px solid var(--border-light)',background:'var(--bg)',flexShrink:0}}>
       {/* Skill picker popover */}
       {skillOpen && (
-        <div style={{marginBottom:8,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:10,padding:'10px',boxShadow:'0 4px 20px var(--shadow-lg)'}}>
+        <div style={{marginBottom:8,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid var(--border)',borderRadius:12,padding:'10px',boxShadow:'0 8px 32px var(--shadow-lg)',animation:'slideDown 0.15s ease-out'}}>
           <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>
             Skill — auto-detected from message when none selected
           </div>
@@ -142,25 +178,101 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           </div>
         ) : null;
       })()}
-      {hint && (
-        <div style={{marginBottom:6,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:8,padding:'6px 8px',display:'flex',gap:4,flexWrap:'wrap',boxShadow:'0 4px 16px var(--shadow)'}}>
-          {hint==='@'&&['@file','@clipboard','@memory','@web'].map(t=>(
-            <span key={t} onClick={()=>{setVal(v=>v+t+' ');setHint(null);}} style={{fontSize:11.5,padding:'3px 8px',background:'var(--accent-bg)',color:'var(--accent)',borderRadius:99,border:'1px solid var(--accent-border)',cursor:'pointer',fontWeight:500}}>{t}</span>
-          ))}
-          {hint==='/'&&['/agent','/goal','/code','/search','/explain','/fix'].map(t=>(
-            <span key={t} onClick={()=>{setVal(v=>v+t+' ');setHint(null);}} style={{fontSize:11.5,padding:'3px 8px',background:'var(--bg-panel)',color:'var(--text-2)',borderRadius:99,border:'1px solid var(--border)',cursor:'pointer',fontWeight:500}}>{t}</span>
-          ))}
+      {isAt && (
+        <div style={{marginBottom:6,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid var(--border)',borderRadius:12,padding:'8px',boxShadow:'0 8px 32px var(--shadow-lg)',display:'flex',flexDirection:'column',gap:6,maxHeight:220,overflowY:'auto',zIndex:100,animation:'slideDown 0.15s ease-out'}}>
+          {/* Pills row */}
+          {(!atQuery || '@clipboard'.includes(atQuery) || '@memory'.includes(atQuery) || '@web'.includes(atQuery)) && (
+            <div style={{display:'flex',gap:6,flexWrap:'wrap',borderBottom:matchingFiles.length?'1px solid var(--border-light)':'none',paddingBottom:matchingFiles.length?6:0,marginBottom:matchingFiles.length?2:0}}>
+              {['@clipboard', '@memory', '@web'].map(p => {
+                if (atQuery && !p.includes(atQuery)) return null;
+                return (
+                  <button key={p} onClick={() => insertMention(p)} style={{fontSize:11,padding:'3px 8px',background:'var(--accent-bg)',color:'var(--accent)',borderRadius:99,border:'1px solid var(--accent-border)',cursor:'pointer',fontWeight:500}}>
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {/* Files list */}
+          {matchingFiles.map(file => {
+            let relPath = file.path;
+            if (activeWorkspace && file.path.startsWith(activeWorkspace.path)) {
+              relPath = file.path.slice(activeWorkspace.path.length).replace(/^[\\/]/, '');
+            }
+            return (
+              <button key={file.path} onClick={() => insertMention(`@file(${relPath})`)}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  padding: '6px 8px',
+                  borderRadius: 6,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%',
+                  textAlign: 'left',
+                  color: 'var(--text)',
+                  transition: 'background 0.12s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                <span style={{fontSize:11.5,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
+                  <Icon name="file" size={11} color="var(--text-3)"/> {file.name}
+                </span>
+                <span style={{fontSize:9.5,color:'var(--text-3)',fontFamily:'"JetBrains Mono",monospace',wordBreak:'break-all',marginTop:2}}>
+                  {relPath}
+                </span>
+              </button>
+            );
+          })}
+          {matchingFiles.length === 0 && (!atQuery || !['@clipboard', '@memory', '@web'].some(p => p.includes(atQuery))) && (
+            <div style={{fontSize:11,color:'var(--text-3)',padding:'4px 6px'}}>No matching files found in active workspace</div>
+          )}
+        </div>
+      )}
+      {isSlash && (
+        <div style={{marginBottom:6,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid var(--border)',borderRadius:12,padding:'6px',boxShadow:'0 8px 32px var(--shadow-lg)',display:'flex',flexDirection:'column',gap:4,zIndex:100,animation:'slideDown 0.15s ease-out'}}>
+          {['/agent', '/goal', '/code', '/search', '/explain', '/fix'].map(cmd => {
+            if (slashQuery && !cmd.startsWith('/' + slashQuery)) return null;
+            return (
+              <button key={cmd} onClick={() => {
+                setVal(prev => {
+                  const match = prev.match(/\/(\w*)$/);
+                  if (!match) return prev + cmd;
+                  return prev.slice(0, match.index) + cmd + ' ';
+                });
+                resetHeight();
+              }}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 6,
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  color: 'var(--text)',
+                  transition: 'background 0.12s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}>
+                {cmd}
+              </button>
+            );
+          })}
         </div>
       )}
       <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
         <div style={{display:'flex',gap:2,paddingBottom:2}}>
-          {[{n:'at',t:'@mention',a:()=>{setVal(v=>v+'@');setHint('@');}},{n:'slash',t:'/command',a:()=>{setVal(v=>v+'/');setHint('/');}},{n:'clip',t:'Attach',a:attachFiles}].map(b=>(
+          {[{n:'at',t:'@mention',a:()=>{setVal(v=>v+'@');}},{n:'slash',t:'/command',a:()=>{setVal(v=>v+'/');}},{n:'clip',t:'Attach',a:attachFiles}].map(b=>(
             <button key={b.n} title={b.t} onClick={b.a} style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',transition:'background 0.12s,color 0.12s'}}
               onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}} onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--text-3)';}}>
               <Icon name={b.n} size={15}/>
             </button>
           ))}
-          <VoiceInput onTranscribe={t=>{setVal(t);setHint(null);}}/>
+          <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
           {/* Skill picker button */}
           <button onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
             style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${activeSkill?'var(--accent-border)':'var(--border)'}`,background:activeSkill?'var(--accent-bg)':'transparent',color:activeSkill?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
@@ -169,13 +281,22 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           </button>
           {onToggleThinking && <button onClick={onToggleThinking} title={thinking?'Thinking on — click to disable':'Thinking off — click to enable'} style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${thinking?'var(--accent-border)':'var(--border)'}`,background:thinking?'var(--accent-bg)':'transparent',color:thinking?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}><Icon name="zap" size={11} color={thinking?'var(--accent)':'var(--text-3)'}/>Think</button>}
         </div>
-        <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} placeholder={placeholder||'Ask Meg anything… (⌘K for commands)'} rows={1}
-          style={{flex:1,resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)',overflowY:'auto'}}
-          onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+        <div style={{flex:1,display:'flex',flexDirection:'column',gap:4}}>
+          <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} placeholder={placeholder||'Ask Meg anything… (⌘K for commands)'} rows={1}
+            style={{width:'100%',resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)',overflowY:'auto'}}
+            onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
+          {val.trim().length > 0 && (
+            <div style={{fontSize:10,color:'var(--text-3)',paddingLeft:4,display:'flex',gap:8,animation:'fadeIn 0.1s both'}}>
+              <span>{val.length} chars</span>
+              <span>•</span>
+              <span>~{Math.ceil(val.length / 4)} tokens</span>
+            </div>
+          )}
+        </div>
         <button onClick={()=>{
           if(typing) onAbort?.();
-          else if(val.trim()){onSend(val.trim());setVal('');setHint(null);resetHeight();}
-        }} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':(val.trim()?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s'}}
+          else if(val.trim()){onSend(val.trim());setVal('');resetHeight();}
+        }} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':(val.trim()?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s',marginBottom:val.trim().length>0?18:0}}
           onMouseDown={e=>e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
           <Icon name={typing?'close':'send'} size={typing?12:15} color={typing||val.trim()?'#fff':'var(--text-3)'}/>
         </button>
