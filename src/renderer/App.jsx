@@ -77,7 +77,9 @@ const WinTitleBar = ({dark, onTray, unreadCount, lmStatus, updateInfo, onDownloa
       {lmStatus !== undefined && (
         <div style={{display:'flex',alignItems:'center',gap:4,marginRight:8}} title={lmStatus ? 'LM Studio connected' : 'LM Studio offline'}>
           <div style={{width:6,height:6,borderRadius:'50%',background:lmStatus?'var(--green)':'var(--red)',flexShrink:0}}/>
-          <span style={{fontSize:10.5,color:'var(--text-3)'}}>{lmStatus ? 'connected' : 'offline'}</span>
+          <span style={{fontSize:10.5,color:'var(--text-3)'}}>
+            LM Studio: <strong style={{color:lmStatus?'var(--green)':'var(--red)'}}>{lmStatus ? 'online' : 'offline'}</strong>
+          </span>
         </div>
       )}
       {/* Tray indicator */}
@@ -900,10 +902,15 @@ const App = () => {
     window.electronAPI?.setSetting?.('splitOpen', splitOpen);
   }, [splitOpen]);
 
-  // ── LM Studio ping on mount ──────────────────────────────
+  // ── LM Studio ping and polling loop ───────────────────────
   useEffect(()=>{
     if(!window.electronAPI) return;
-    window.electronAPI.ping().then(r => setLmStatus(r.ok));
+    const checkPing = () => {
+      window.electronAPI.ping().then(r => setLmStatus(r.ok));
+    };
+    checkPing();
+    const interval = setInterval(checkPing, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
