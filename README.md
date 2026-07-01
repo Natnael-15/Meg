@@ -131,6 +131,7 @@ http://127.0.0.1:1234
 
 Recommended local models:
 
+- `ornith-9b` (Recommended - this app can handle any weight model but this specific model is good for consumers)
 - Qwen3-8B or similar Qwen coding/reasoning model
 - DeepSeek-R1 distilled models
 - Any OpenAI-compatible local model exposed by LM Studio
