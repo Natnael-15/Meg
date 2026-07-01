@@ -195,10 +195,15 @@ async function respondToTelegramMessage(bot, message, onReply) {
       content: m.text
     }));
 
+  const activeWorkspace = require('./workspace').getActive();
+  const workspacePath = activeWorkspace?.path || null;
+
   const systemPrompt = {
     role: 'system',
     content: `You are Meg, a helpful, advanced, autonomous AI assistant. You are currently chatting with the user through Telegram.
-Provide direct, concise, clear, and action-oriented responses. Do not use verbose introductions or standard pleasantries unless necessary. Since this is a chat interface, keep it brief and helpful.`
+Provide direct, concise, clear, and action-oriented responses. Do not use verbose introductions or standard pleasantries unless necessary. Since this is a chat interface, keep it brief and helpful.
+You are running in AUTONOMOUS mode. If the user asks you to perform actions in their workspace (such as creating files, running commands, reading paths), call the appropriate tools immediately.
+Once you have fully completed the task and have no more actions or tools to run, you MUST end your final response with the token '[DONE]'. If you still have more tools to run or actions to perform in the next turn, DO NOT output '[DONE]'.`
   };
 
   const messagesPayload = [systemPrompt, ...history];
@@ -207,30 +212,45 @@ Provide direct, concise, clear, and action-oriented responses. Do not use verbos
   const thinking = settings.get('thinking') || false;
   const lmUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
 
-  let replyText = '';
+  let turnBuffer = '';
   try {
     const threadId = `telegram-${chatId}`;
     const ctrl = { cancelled: false };
 
-    for await (const item of streamChat(messagesPayload, threadId, model, thinking, lmUrl, { ctrl })) {
+    for await (const item of streamChat(messagesPayload, threadId, model, thinking, lmUrl, { ctrl, autonomous: true, workspacePath })) {
       if (item.type === 'text') {
-        replyText += item.content;
+        turnBuffer += item.content;
+      } else if (item.type === 'resume') {
+        const cleanText = turnBuffer.replace(/\[DONE\]/gi, '').trim();
+        if (cleanText) {
+          await bot.sendMessage(chatId, cleanText);
+          telegramStore.upsertMessage({
+            direction: 'outbound',
+            from: 'Meg',
+            text: cleanText,
+            chatId: String(chatId),
+            status: 'sent'
+          });
+          if (onReply) {
+            onReply(cleanText);
+          }
+        }
+        turnBuffer = '';
       }
     }
 
-    if (replyText.trim()) {
-      await bot.sendMessage(chatId, replyText);
-
+    const finalCleanText = turnBuffer.replace(/\[DONE\]/gi, '').trim();
+    if (finalCleanText) {
+      await bot.sendMessage(chatId, finalCleanText);
       telegramStore.upsertMessage({
         direction: 'outbound',
         from: 'Meg',
-        text: replyText,
+        text: finalCleanText,
         chatId: String(chatId),
         status: 'sent'
       });
-
       if (onReply) {
-        onReply(replyText);
+        onReply(finalCleanText);
       }
     }
   } catch (e) {

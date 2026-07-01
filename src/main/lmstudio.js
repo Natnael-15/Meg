@@ -447,8 +447,23 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         continue;
       }
 
-      if (finishReason === 'stop' || textBuffer) return;
-      break;
+      if (finishReason === 'stop' || textBuffer) {
+        if (toolContext.autonomous && iteration < 10) {
+          if (!/\[DONE\]/i.test(textBuffer)) {
+            history.push({
+              role: 'assistant',
+              content: textBuffer || null,
+            });
+            history.push({
+              role: 'user',
+              content: 'Proceed with the next steps of the task.',
+            });
+            yield { type: 'resume', threadId };
+            continue;
+          }
+        }
+        return;
+      }
     }
 
     history.push({
