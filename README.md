@@ -199,6 +199,6 @@ MIT — see [`LICENSE`](LICENSE).
 
 <div align="center">
 
-Built by [Natnael-15](https://github.com/Natnael-15).
+Built by [Natnael-15](https://github.com/Natnael-15)
 
 </div>
