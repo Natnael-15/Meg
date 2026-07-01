@@ -1,10 +1,12 @@
 <div align="center">
 
+<img src="./assets/logo.png" alt="Meg Logo" width="140" style="border-radius: 28px; margin-bottom: 12px;" />
+
 # ✦ Meg ✦
 
 ### Local-first AI desktop assistant for coding, projects, automations, and everyday work
 
-[![Version](https://img.shields.io/badge/version-1.0.0--beta.8-7c3aed?style=for-the-badge&logo=electron&logoColor=white)](https://github.com/Natnael-15/Meg/releases)
+[![Version](https://img.shields.io/badge/version-1.0.0--beta.10-7c3aed?style=for-the-badge&logo=electron&logoColor=white)](https://github.com/Natnael-15/Meg/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](#requirements)
 [![Runtime](https://img.shields.io/badge/runtime-LM_Studio-ff6b35?style=for-the-badge)](#requirements)
 [![License](https://img.shields.io/badge/license-MIT-111827?style=for-the-badge)](#license)
@@ -25,6 +27,10 @@
 ---
 
 ## Overview
+
+<div align="center">
+  <img src="./assets/banner.png" alt="Meg Banner" width="100%" style="border-radius: 12px; margin-bottom: 24px;" />
+</div>
 
 **Meg** is a local-first AI desktop assistant built with Electron, React, and LM Studio. It is designed to give a local model a proper working environment: project context, file access, terminal execution, tool permissions, background agents, automations, and domain-specific skill prompts.
 
