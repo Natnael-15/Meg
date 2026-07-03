@@ -114,7 +114,7 @@ function createIpcHarness() {
       mkdirSync: vi.fn(),
       readdirSync: vi.fn(() => []),
     };
-    if (id === 'fs/promises') return require('fs/promises');
+    if (id === 'fs/promises') return { writeFile: vi.fn(async () => {}) };
     if (id === 'path') return require('path');
     if (id === './lmstudio') return { getModels: vi.fn(), ping: vi.fn(), streamChat };
     if (id === './telegram') return { getBot: vi.fn(() => bot), validate: vi.fn(), findChatId: vi.fn() };
