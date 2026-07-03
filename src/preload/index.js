@@ -158,4 +158,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize() { ipcRenderer.send('win:minimize'); },
   maximize() { ipcRenderer.send('win:maximize'); },
   close()    { ipcRenderer.send('win:close'); },
+
+  // ── MCP servers ──────────────────────────────────────────
+  listMcpServers()        { return ipcRenderer.invoke('mcp:listServers'); },
+  saveMcpServers(servers) { return ipcRenderer.invoke('mcp:saveServers', servers); },
+  connectMcpServer(config){ return ipcRenderer.invoke('mcp:connect', config); },
+  disconnectMcpServer(id) { return ipcRenderer.invoke('mcp:disconnect', id); },
+  connectAllMcpServers()  { return ipcRenderer.invoke('mcp:connectAll'); },
+  listMcpTools()          { return ipcRenderer.invoke('mcp:listTools'); },
+  onMcpChange(cb)         { ipcRenderer.on('mcp:change', (_, d) => cb(d)); },
 });

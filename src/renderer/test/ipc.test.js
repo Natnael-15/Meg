@@ -134,6 +134,19 @@ function createIpcHarness() {
     if (id === './automationRunner') return automationRunner;
     if (id === './automationScheduler') return automationScheduler;
     if (id === './index') return {};
+    if (id === './mcpClient') return {
+      events: { on: vi.fn(), emit: vi.fn() },
+      listServers: vi.fn(() => []),
+      saveServers: vi.fn(),
+      connect: vi.fn(async () => ({})),
+      disconnect: vi.fn(),
+      connectAll: vi.fn(async () => {}),
+      disconnectAll: vi.fn(),
+      getToolDefinitions: vi.fn(() => []),
+      isMcpTool: vi.fn(() => false),
+      callTool: vi.fn(async () => ({ ok: true, content: '' })),
+      parseMcpToolName: vi.fn(() => null),
+    };
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/ipc.js'));
 

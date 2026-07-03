@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Icon } from '../components/icons.jsx';
 import { Toggle } from '../components/primitives.jsx';
 import { isThinkingModel, modelProvider } from '../lib/models.js';
+import { McpSettings } from '../components/McpSettings.jsx';
 import logoImg from '../assets/logo-m.jpg';
 
 export const SettingsView = ({
@@ -37,7 +38,7 @@ export const SettingsView = ({
   const DEFAULT_TOOL_PERMS = {readFiles:true,writeFiles:false,runCommands:false,webSearch:true,telegram:true,spawnAgents:true,requireApprovalForWrites:true,requireApprovalForCommands:true};
   const [toolPerms,setToolPerms] = useState(DEFAULT_TOOL_PERMS);
   const [runtimeDiagnostics, setRuntimeDiagnostics] = useState([]);
-  const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
+  const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'mcp',icon:'integration',label:'MCP Servers'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro','deepseek-chat','deepseek-reasoner'];
   const accentChoice = rendererTweaks?.accentColor || 'blue';
   const sidebarChoice = rendererTweaks?.sidebarWidth || 'comfortable';
@@ -317,6 +318,9 @@ export const SettingsView = ({
             </div>
             <Toggle on={integrations.GitHub} onToggle={()=>setIntegrations(s=>({...s,GitHub:!s.GitHub}))}/>
           </div>
+        </div>}
+        {section==='mcp' && <div>
+          <McpSettings/>
         </div>}
         {section==='permissions' && <div>
           <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Tool Permissions</h2>

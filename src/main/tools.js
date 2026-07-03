@@ -437,12 +437,27 @@ async function executeTool(name, args = {}, context = {}) {
 
   try {
     context.currentArgs = args;
-    await assertToolPermission(name, context);
-    if (name === 'run_command') {
-      validateCommand(args.command);
-      const cwd = args.cwd ? resolveExistingPath(args.cwd, defaultCwd(undefined, context)) : defaultCwd(undefined, context);
-      await assertPathExists(cwd);
-      result = await execCommand(args.command, cwd);
+
+    // ── MCP tool routing ──────────────────────────────────────────────────
+    // Tools exposed by connected MCP servers are prefixed with `mcp__`. We
+    // route them to the owning server before the permission check — MCP
+    // servers manage their own access control via their tool schemas, and
+    // Meg's toolPermissions flags (readFiles/writeFiles/etc.) don't map
+    // cleanly onto arbitrary external tools. The audit log still captures
+    // the call.
+    if (name && typeof name === 'string' && name.startsWith('mcp__')) {
+      const mcp = require('./mcpClient');
+      const mcpResult = await mcp.callTool(name, args);
+      result = mcpResult.ok
+        ? { ok: true, content: mcpResult.content }
+        : { error: mcpResult.content };
+    } else {
+      await assertToolPermission(name, context);
+      if (name === 'run_command') {
+        validateCommand(args.command);
+        const cwd = args.cwd ? resolveExistingPath(args.cwd, defaultCwd(undefined, context)) : defaultCwd(undefined, context);
+        await assertPathExists(cwd);
+        result = await execCommand(args.command, cwd);
     } else if (name === 'read_file') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
       await assertPathExists(fullPath);
@@ -538,6 +553,7 @@ async function executeTool(name, args = {}, context = {}) {
     } else {
       throw new Error(`Unknown tool: ${name}`);
     }
+    } // end of non-MCP else block
   } catch (e) {
     result = e.approvalRequired
       ? { error: e.message, approvalRequired: true, approval: e.approval }
@@ -602,4 +618,6 @@ module.exports = {
   summarizeToolResult,
   validateCommand,
   prepareStagedWrite,
+  listDirectory,
+  searchFiles,
 };

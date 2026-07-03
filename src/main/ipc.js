@@ -367,6 +367,43 @@ function setupIPC(win) {
     if (win.isMaximized()) win.unmaximize(); else win.maximize();
   });
   ipcMain.on('win:close', () => win.close());
+
+  // ── MCP servers ───────────────────────────────────────────
+  // Connect to external Model Context Protocol servers and surface their
+  // tools alongside Meg's built-in tools. The renderer can list/add/remove
+  // servers and test connections.
+  const mcp = require('./mcpClient');
+  const forwardMcpEvent = (payload) => {
+    win.webContents.send('mcp:change', payload);
+  };
+  mcp.events.on('change', forwardMcpEvent);
+
+  ipcMain.handle('mcp:listServers', () => mcp.listServers());
+  ipcMain.handle('mcp:saveServers', (_, servers) => {
+    mcp.saveServers(servers);
+    return { ok: true };
+  });
+  ipcMain.handle('mcp:connect', async (_, config) => {
+    try {
+      await mcp.connect(config);
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('mcp:disconnect', (_, serverId) => {
+    mcp.disconnect(serverId);
+    return { ok: true };
+  });
+  ipcMain.handle('mcp:connectAll', async () => {
+    try {
+      await mcp.connectAll();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('mcp:listTools', () => mcp.getToolDefinitions());
 }
 
 module.exports = { setupIPC };

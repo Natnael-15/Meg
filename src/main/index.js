@@ -117,11 +117,15 @@ app.whenReady().then(() => {
   createDiagnosticReporter()('app:ready', { packaged: app.isPackaged, sessionDataPath: SESSION_DATA_PATH });
   automationScheduler.start();
   createWindow();
+  // Connect to configured MCP servers in the background. Errors are logged
+  // via the mcp 'log' event but never block app startup.
+  require('./mcpClient').connectAll().catch(() => {});
 });
 
 app.on('window-all-closed', () => {
   createDiagnosticReporter()('app:window-all-closed');
   automationScheduler.stop();
+  require('./mcpClient').disconnectAll();
   if (process.platform !== 'darwin') app.quit();
 });
 

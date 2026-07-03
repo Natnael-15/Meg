@@ -322,9 +322,24 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
   const allowedToolNames = toolContext.allowedToolNames instanceof Set && toolContext.allowedToolNames.size > 0
     ? toolContext.allowedToolNames
     : null;
+
+  // Merge in tools from connected MCP servers. MCP tools are prefixed with
+  // `mcp__` so they never collide with Meg's built-in tools. We fetch them
+  // fresh on every streamChat call so newly-connected servers are picked up
+  // without restarting the chat. The merge is best-effort — if mcpClient
+  // throws (e.g. during tests where the module isn't loaded), we silently
+  // fall back to built-in tools only.
+  let mcpTools = [];
+  try {
+    const mcp = require('./mcpClient');
+    mcpTools = mcp.getToolDefinitions();
+  } catch {
+    // mcpClient not available (e.g. isolated test) — proceed without it.
+  }
+  const allTools = [...TOOL_DEFINITIONS, ...mcpTools];
   const effectiveTools = allowedToolNames
-    ? TOOL_DEFINITIONS.filter((t) => allowedToolNames.has(t.function.name))
-    : TOOL_DEFINITIONS;
+    ? allTools.filter((t) => allowedToolNames.has(t.function.name))
+    : allTools;
 
   // Auto-Summarize history if exceeding the threshold
   const totalTokens = estimateMessagesTokens(history);
