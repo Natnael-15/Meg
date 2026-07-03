@@ -59,7 +59,12 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
   const [matchingFiles, setMatchingFiles] = useState([]);
   const [fileSearchError, setFileSearchError] = useState(false);
   const [skillOpen,setSkillOpen] = useState(false);
+  // Pending image attachments (multi-modal input). Each entry is
+  // { name, dataUrl, mime, sizeBytes }. Cleared on send.
+  const [pendingImages, setPendingImages] = useState([]);
+  const [dragOver, setDragOver] = useState(false);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Derived autocomplete state
   const atMatch = val.match(/@([\w/.-]*)$/);
@@ -109,6 +114,83 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
     setVal(prev => prev.trim() ? `${prev} ${additions} ` : `${additions} `);
   };
 
+  // ── Multi-modal image attachments ──────────────────────────────────────
+  // Accepts image files from: (a) the paperclip button's image picker,
+  // (b) paste (Ctrl+V) into the textarea, (c) drag-and-drop onto the input.
+  // Each image is read as a data URL (base64) so it can be embedded directly
+  // into the OpenAI vision message format on send. We cap at 4 images and
+  // 4 MB each to stay within typical model payload limits.
+  const MAX_IMAGES = 4;
+  const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+  const IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
+
+  const readImageAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read image'));
+    reader.readAsDataURL(file);
+  });
+
+  const addImageFiles = async (fileList) => {
+    const files = Array.from(fileList || []).filter(f => IMAGE_MIME_TYPES.includes(f.type));
+    if (!files.length) return;
+    const room = MAX_IMAGES - pendingImages.length;
+    if (room <= 0) return;
+    const toAdd = files.slice(0, room);
+    const read = [];
+    for (const file of toAdd) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        // Skip oversized images rather than rejecting the whole batch.
+        continue;
+      }
+      try {
+        const dataUrl = await readImageAsDataUrl(file);
+        read.push({
+          name: file.name || `image-${Date.now()}.png`,
+          dataUrl,
+          mime: file.type,
+          sizeBytes: file.size,
+        });
+      } catch {
+        // Skip unreadable files.
+      }
+    }
+    if (read.length) setPendingImages(prev => [...prev, ...read].slice(0, MAX_IMAGES));
+  };
+
+  const removeImage = (idx) => setPendingImages(prev => prev.filter((_, i) => i !== idx));
+
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageItems = Array.from(items).filter(it => it.type.startsWith('image/'));
+    if (!imageItems.length) return;
+    e.preventDefault();
+    const files = imageItems.map(it => it.getAsFile()).filter(Boolean);
+    await addImageFiles(files);
+  };
+
+  const handleDrop = async (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    setDragOver(false);
+    await addImageFiles(e.dataTransfer.files);
+  };
+
+  const handleDragOver = (e) => {
+    if (!Array.from(e.dataTransfer?.types || []).includes('Files')) return;
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    // Only clear if leaving the input container, not entering a child.
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setDragOver(false);
+  };
+
+  const pickImages = () => fileInputRef.current?.click();
+
   const insertMention = (replacement) => {
     setVal(prev => {
       const match = prev.match(/@([\w/.-]*)$/);
@@ -118,11 +200,22 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
     resetHeight();
   };
 
+  const doSend = () => {
+    if (typing) return;
+    const text = val.trim();
+    // Allow send with images even if text is empty — the user may have just
+    // pasted a screenshot and hit Enter.
+    if (!text && !pendingImages.length) return;
+    onSend(text, { images: pendingImages });
+    setVal('');
+    setPendingImages([]);
+    resetHeight();
+  };
+
   const handleKey = e => {
     if (e.key==='Enter'&&!e.shiftKey){
       e.preventDefault();
-      if(typing) return;
-      if(val.trim()){onSend(val.trim());setVal('');resetHeight();}
+      doSend();
     }
     if (e.key==='Escape') {
       setSkillOpen(false);
@@ -285,7 +378,42 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           })}
         </div>
       )}
-      <div style={{display:'flex',gap:8,alignItems:'flex-end'}}>
+      {/* Pending image attachments preview strip */}
+      {pendingImages.length > 0 && (
+        <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+          {pendingImages.map((img, idx) => (
+            <div key={idx} style={{position:'relative',width:64,height:64,borderRadius:8,overflow:'hidden',border:'1px solid var(--border)',background:'var(--bg-active)'}}>
+              <img src={img.dataUrl} alt={img.name} style={{width:'100%',height:'100%',objectFit:'cover'}}/>
+              <button
+                onClick={() => removeImage(idx)}
+                title="Remove image"
+                aria-label={`Remove ${img.name}`}
+                style={{position:'absolute',top:2,right:2,width:18,height:18,borderRadius:'50%',background:'rgba(0,0,0,0.7)',color:'#fff',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,lineHeight:1}}
+              >✕</button>
+              <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'1px 4px',background:'rgba(0,0,0,0.6)',color:'#fff',fontSize:8,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{img.name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {/* Hidden file input for the image picker button */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={IMAGE_MIME_TYPES.join(',')}
+        multiple
+        style={{display:'none'}}
+        onChange={async (e) => {
+          await addImageFiles(e.target.files);
+          // Reset so the same file can be picked again after removal.
+          e.target.value = '';
+        }}
+      />
+      <div
+        style={{display:'flex',gap:8,alignItems:'flex-end',borderRadius:10,transition:'border-color 0.15s,background 0.15s',border: dragOver ? '2px dashed var(--accent)' : '2px dashed transparent',padding: dragOver ? 6 : 8,margin: dragOver ? -2 : 0,background: dragOver ? 'var(--accent-bg)' : 'transparent'}}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
         <div style={{display:'flex',gap:2,paddingBottom:2}}>
           {[{n:'at',t:'@mention',a:()=>{setVal(v=>v+'@');}},{n:'slash',t:'/command',a:()=>{setVal(v=>v+'/');}},{n:'clip',t:'Attach',a:attachFiles}].map(b=>(
             <button key={b.n} title={b.t} onClick={b.a} style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',transition:'background 0.12s,color 0.12s'}}
@@ -293,6 +421,14 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
               <Icon name={b.n} size={15}/>
             </button>
           ))}
+          {/* Image picker button (multi-modal input) */}
+          <button title="Attach image (or paste / drag-drop)" onClick={pickImages} style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:pendingImages.length?'var(--accent)':'var(--text-3)',background:pendingImages.length?'var(--accent-bg)':'transparent',border:pendingImages.length?'1px solid var(--accent-border)':'none',transition:'background 0.12s,color 0.12s'}}
+            onMouseEnter={e=>{if(!pendingImages.length){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}} onMouseLeave={e=>{if(!pendingImages.length){e.currentTarget.style.background='none';e.currentTarget.style.color='var(--text-3)';}}}>
+            <Icon name="image" size={15}/>
+            {pendingImages.length > 0 && (
+              <span style={{position:'absolute',top:2,right:2,fontSize:8,fontWeight:700,color:'#fff',background:'var(--accent)',borderRadius:'50%',width:12,height:12,display:'flex',alignItems:'center',justifyContent:'center'}}>{pendingImages.length}</span>
+            )}
+          </button>
           <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
           {/* Skill picker button */}
           <button data-skill-picker onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
@@ -303,23 +439,26 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
           {onToggleThinking && <button onClick={onToggleThinking} title={thinking?'Thinking on — click to disable':'Thinking off — click to enable'} style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${thinking?'var(--accent-border)':'var(--border)'}`,background:thinking?'var(--accent-bg)':'transparent',color:thinking?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}><Icon name="zap" size={11} color={thinking?'var(--accent)':'var(--text-3)'}/>Think</button>}
         </div>
         <div style={{flex:1,display:'flex',flexDirection:'column',gap:4}}>
-          <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} placeholder={placeholder||'Ask Meg anything… (⌘K for commands)'} rows={1}
+          <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} onPaste={handlePaste} placeholder={placeholder||'Ask Meg anything… (⌘K for commands, paste/drop images for vision)'} rows={1}
             style={{width:'100%',resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)',overflowY:'auto'}}
             onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
-          {val.trim().length > 0 && (
+          {(val.trim().length > 0 || pendingImages.length > 0) && (
             <div style={{fontSize:10,color:'var(--text-3)',paddingLeft:4,display:'flex',gap:8,animation:'fadeIn 0.1s both'}}>
-              <span>{val.length} chars</span>
-              <span>•</span>
-              <span>~{Math.ceil(val.length / 4)} tokens</span>
+              {val.trim().length > 0 && <>
+                <span>{val.length} chars</span>
+                <span>•</span>
+                <span>~{Math.ceil(val.length / 4)} tokens</span>
+              </>}
+              {pendingImages.length > 0 && <>
+                {val.trim().length > 0 && <span>•</span>}
+                <span>{pendingImages.length} image{pendingImages.length > 1 ? 's' : ''} attached</span>
+              </>}
             </div>
           )}
         </div>
-        <button onClick={()=>{
-          if(typing) onAbort?.();
-          else if(val.trim()){onSend(val.trim());setVal('');resetHeight();}
-        }} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':(val.trim()?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s',marginBottom:val.trim().length>0?18:0}}
+        <button onClick={doSend} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':((val.trim()||pendingImages.length)?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s',marginBottom:(val.trim().length>0||pendingImages.length>0)?18:0}}
           onMouseDown={e=>e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-          <Icon name={typing?'close':'send'} size={typing?12:15} color={typing||val.trim()?'#fff':'var(--text-3)'}/>
+          <Icon name={typing?'close':'send'} size={typing?12:15} color={typing||(val.trim()||pendingImages.length)?'#fff':'var(--text-3)'}/>
         </button>
       </div>
     </div>
