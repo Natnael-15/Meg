@@ -144,12 +144,12 @@ export const SettingsView = ({
 
   return (
     <div style={{flex:1,display:'flex',minWidth:0,overflow:'hidden'}}>
-      <div style={{width:200,borderRight:'1px solid var(--border)',background:'var(--bg-panel)',flexShrink:0,padding:'12px 8px'}}>
-        <div style={{fontSize:11,fontWeight:600,color:'var(--text-3)',letterSpacing:'0.06em',textTransform:'uppercase',padding:'0 8px',marginBottom:8}}>Settings</div>
+      <div style={{width:200,borderRight:'1px solid var(--border-light)',background:'var(--bg-sidebar)',flexShrink:0,padding:'14px 8px'}}>
+        <div style={{fontSize:10,fontWeight:700,color:'var(--text-3)',letterSpacing:'0.08em',textTransform:'uppercase',padding:'0 10px',marginBottom:10}}>Settings</div>
         {sections.map(s=>(
-          <button key={s.id} onClick={()=>setSection(s.id)} style={{width:'100%',padding:'8px 10px',borderRadius:6,display:'flex',alignItems:'center',gap:8,background:section===s.id?'var(--bg-active)':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',transition:'background 0.1s'}}>
-            <Icon name={s.icon} size={14} color={section===s.id?'var(--accent)':'var(--text-3)'}/>
-            <span style={{fontSize:12.5,fontWeight:section===s.id?500:400,color:section===s.id?'var(--text)':'var(--text-2)'}}>{s.label}</span>
+          <button key={s.id} onClick={()=>setSection(s.id)} style={{width:'100%',padding:'8px 10px',borderRadius:7,display:'flex',alignItems:'center',gap:8,background:section===s.id?'var(--bg-active)':'transparent',border:'none',cursor:'pointer',marginBottom:2,textAlign:'left',transition:'background 0.1s',borderLeft:section===s.id?'2px solid var(--accent)':'2px solid transparent'}}>
+            <Icon name={s.icon} size={15} color={section===s.id?'var(--accent)':'var(--text-3)'}/>
+            <span style={{fontSize:12.5,fontWeight:section===s.id?600:400,color:section===s.id?'var(--text)':'var(--text-2)'}}>{s.label}</span>
           </button>
         ))}
       </div>
