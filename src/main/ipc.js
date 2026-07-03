@@ -508,8 +508,9 @@ function setupIPC(win) {
   });
 
   // ── Semantic search ────────────────────────────────────────────────
-  // Scored file search across the workspace inventory. Falls back to the
-  // existing substring match when the query doesn't benefit from scoring.
+  // Scored file search across the workspace inventory. Uses embeddings
+  // when an embedding model is available in LM Studio, falls back to
+  // keyword+filename scoring otherwise.
   const semanticSearch = require('./semanticSearch');
   ipcMain.handle('search:semantic', async (_, workspaceId, query, limit) => {
     try {
@@ -517,11 +518,30 @@ function setupIPC(win) {
       if (!ws) return { ok: false, error: 'Workspace not found', results: [] };
       const current = await workspace.refreshWorkspaceMeta(ws.id);
       const inventory = Array.isArray(current?.inventory) ? current.inventory : [];
-      const results = await semanticSearch.semanticSearch(inventory, query, limit || 50, false);
+      const lmUrl = settings.get('lmStudioUrl') || 'http://127.0.0.1:1234';
+      // Try embeddings search first; falls back to scored search internally
+      const results = await semanticSearch.embeddingsSearch(inventory, query, limit || 50, lmUrl);
       return { ok: true, results, total: results.length };
     } catch (e) {
       return { ok: false, error: e.message, results: [] };
     }
+  });
+
+  // ── GitHub OAuth (device flow) ─────────────────────────────────────
+  const githubOAuth = require('./githubOAuth');
+  ipcMain.handle('github:requestDeviceCode', async (_, clientId) => {
+    const id = clientId || settings.get('githubClientId') || '';
+    return githubOAuth.requestDeviceCode(id);
+  });
+  ipcMain.handle('github:pollForToken', async (_, deviceCode, clientId, interval) => {
+    const id = clientId || settings.get('githubClientId') || '';
+    return githubOAuth.pollForToken(deviceCode, id, interval);
+  });
+
+  // ── Model A/B comparison ───────────────────────────────────────────
+  const modelCompare = require('./modelCompare');
+  ipcMain.handle('model:compare', async (_, messages, modelA, modelB) => {
+    return modelCompare.compareModels(messages, modelA, modelB);
   });
 
   // ── Conversation export/import ─────────────────────────────────────

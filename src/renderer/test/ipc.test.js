@@ -179,10 +179,20 @@ function createIpcHarness() {
     };
     if (id === './semanticSearch') return {
       semanticSearch: vi.fn(async () => []),
+      embeddingsSearch: vi.fn(async () => []),
       hasEmbeddingsEndpoint: vi.fn(async () => false),
+      getEmbedding: vi.fn(async () => null),
+      cosineSimilarity: vi.fn(() => 0),
       scoreFile: vi.fn(() => 0),
       getFileTypeWeight: vi.fn(() => 1),
       SOURCE_EXTENSIONS: new Set(),
+    };
+    if (id === './githubOAuth') return {
+      requestDeviceCode: vi.fn(async () => ({ error: 'No client ID' })),
+      pollForToken: vi.fn(async () => ({ error: 'No client ID' })),
+    };
+    if (id === './modelCompare') return {
+      compareModels: vi.fn(async () => ({ a: { text: '', thinking: '' }, b: { text: '', thinking: '' } })),
     };
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/ipc.js'));

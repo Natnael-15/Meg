@@ -207,6 +207,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // ── Semantic search ──────────────────────────────────────
   semanticSearch(workspaceId, query, limit) { return ipcRenderer.invoke('search:semantic', workspaceId, query, limit); },
 
+  // ── GitHub OAuth (device flow) ───────────────────────────
+  githubRequestDeviceCode(clientId) { return ipcRenderer.invoke('github:requestDeviceCode', clientId); },
+  githubPollForToken(deviceCode, clientId, interval) { return ipcRenderer.invoke('github:pollForToken', deviceCode, clientId, interval); },
+
+  // ── Model A/B comparison ─────────────────────────────────
+  compareModels(messages, modelA, modelB) { return ipcRenderer.invoke('model:compare', messages, modelA, modelB); },
+
   // ── Conversation export/import ───────────────────────────
   exportThread(threadId, format) { return ipcRenderer.invoke('thread:export', threadId, format); },
   importThread(content, format)  { return ipcRenderer.invoke('thread:import', content, format); },

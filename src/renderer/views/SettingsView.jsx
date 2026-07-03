@@ -38,7 +38,9 @@ export const SettingsView = ({
   const DEFAULT_TOOL_PERMS = {readFiles:true,writeFiles:false,runCommands:false,webSearch:true,telegram:true,spawnAgents:true,requireApprovalForWrites:true,requireApprovalForCommands:true};
   const [toolPerms,setToolPerms] = useState(DEFAULT_TOOL_PERMS);
   const [runtimeDiagnostics, setRuntimeDiagnostics] = useState([]);
-  const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'mcp',icon:'integration',label:'MCP Servers'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
+  const [keychainAvailable, setKeychainAvailable] = useState(false);
+  const [keychainSecrets, setKeychainSecrets] = useState([]);
+  const sections=[{id:'model',icon:'model',label:'Model'},{id:'integrations',icon:'integration',label:'Integrations'},{id:'mcp',icon:'integration',label:'MCP Servers'},{id:'security',icon:'lock',label:'Security'},{id:'permissions',icon:'lock',label:'Tool Permissions'},{id:'memory',icon:'memory',label:'Memory'},{id:'appearance',icon:'appearance',label:'Appearance'},{id:'updates',icon:'bolt',label:'Updates'},{id:'diagnostics',icon:'timeline',label:'Diagnostics'}];
   const CLOUD_MODELS=['claude-3-5-sonnet','claude-3-5-haiku','claude-3-opus','gpt-4o','gpt-4o-mini','gemini-1.5-pro','deepseek-chat','deepseek-reasoner'];
   const accentChoice = rendererTweaks?.accentColor || 'blue';
   const sidebarChoice = rendererTweaks?.sidebarWidth || 'comfortable';
@@ -127,6 +129,18 @@ export const SettingsView = ({
     });
     return () => cleanupRuntime?.();
   },[]);
+
+  // Check keychain availability on mount
+  useEffect(() => {
+    window.electronAPI?.isKeychainAvailable?.().then(available => {
+      setKeychainAvailable(!!available);
+      if (available) {
+        window.electronAPI?.listKeychainSecrets?.().then(list => {
+          if (Array.isArray(list)) setKeychainSecrets(list);
+        });
+      }
+    });
+  }, []);
 
   const saveModel = m => {
     setModel(m);
@@ -321,6 +335,60 @@ export const SettingsView = ({
         </div>}
         {section==='mcp' && <div>
           <McpSettings/>
+        </div>}
+        {section==='security' && <div>
+          <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Security</h2>
+          <p style={{fontSize:12.5,color:'var(--text-3)',marginBottom:20,lineHeight:1.6}}>Manage how Meg protects your secrets and credentials.</p>
+
+          {/* Cloud context redaction */}
+          <div style={{marginBottom:16,padding:'14px 16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+              <div style={{width:32,height:32,borderRadius:8,background:'var(--purple-bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <span style={{fontSize:14}}>🔒</span>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Cloud Context Redaction</div>
+                <div style={{fontSize:11.5,color:'var(--text-3)'}}>Strips API keys & tokens before sending to cloud providers</div>
+              </div>
+              <span style={{fontSize:10,padding:'2px 8px',borderRadius:99,background:'var(--green-bg)',color:'var(--green)',fontWeight:600}}>ACTIVE</span>
+            </div>
+            <p style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.5}}>When using cloud models (OpenAI, Anthropic, Google, DeepSeek), Meg scans outgoing messages for 11 secret patterns and replaces them with [REDACTED:...] placeholders. Local LM Studio models are unaffected — data never leaves your machine.</p>
+          </div>
+
+          {/* OS keychain */}
+          <div style={{marginBottom:16,padding:'14px 16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+              <div style={{width:32,height:32,borderRadius:8,background:'var(--accent-bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon name="key" size={16} color="var(--accent)"/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>OS Keychain Encryption</div>
+                <div style={{fontSize:11.5,color:'var(--text-3)'}}>{keychainAvailable ? 'Encrypting API keys via OS credential store' : 'Not available — using plaintext settings'}</div>
+              </div>
+              <span style={{fontSize:10,padding:'2px 8px',borderRadius:99,background:keychainAvailable?'var(--green-bg)':'var(--orange-bg)',color:keychainAvailable?'var(--green)':'var(--orange)',fontWeight:600}}>{keychainAvailable ? 'ENCRYPTED' : 'PLAINTEXT'}</span>
+            </div>
+            <p style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.5,marginBottom:10}}>API keys (OpenAI, Anthropic, Google, DeepSeek) and the Telegram token are stored encrypted using {keychainAvailable ? 'your OS keychain (macOS Keychain / Windows DPAPI / Linux libsecret).' : 'plaintext in the settings database. Enable safeStorage by running on a supported OS with a keyring service.'}</p>
+            <button onClick={async () => { const r = await window.electronAPI?.migrateKeychain?.(); if (r?.migrated?.length) { const list = await window.electronAPI?.listKeychainSecrets?.(); if (Array.isArray(list)) setKeychainSecrets(list); } }} style={{padding:'6px 14px',borderRadius:7,border:'1px solid var(--border)',background:'var(--bg-panel)',color:'var(--text-2)',fontSize:11.5,fontWeight:500,cursor:'pointer',transition:'all 0.12s'}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-2)';}}>
+              Migrate plaintext keys →
+            </button>
+          </div>
+
+          {/* Command safety */}
+          <div style={{padding:'14px 16px',borderRadius:10,border:'1px solid var(--border)',background:'var(--bg-2)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+              <div style={{width:32,height:32,borderRadius:8,background:'var(--red-bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon name="lock" size={16} color="var(--red)"/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Command Safety Validation</div>
+                <div style={{fontSize:11.5,color:'var(--text-3)'}}>Blocks dangerous commands before execution</div>
+              </div>
+              <span style={{fontSize:10,padding:'2px 8px',borderRadius:99,background:'var(--green-bg)',color:'var(--green)',fontWeight:600}}>ACTIVE</span>
+            </div>
+            <p style={{fontSize:11.5,color:'var(--text-3)',lineHeight:1.5}}>Meg normalizes whitespace and matches against an expanded blocklist: rm -rf, Remove-Item -Force/-Recurse, format, diskpart, shutdown, Set-ExecutionPolicy, encoded payloads, iex/iwr chains, certutil -decode, Start-BitsTransfer, and more.</p>
+          </div>
         </div>}
         {section==='permissions' && <div>
           <h2 style={{fontSize:15,fontWeight:600,marginBottom:4,color:'var(--text)'}}>Tool Permissions</h2>
