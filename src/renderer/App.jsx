@@ -83,7 +83,7 @@ const App = () => {
   });
   const accent = tweaks.accentColor;
   const sidebarW = tweaks.sidebarWidth === 'compact' ? 190 : 230;
-  const [themeChoice, setThemeChoice] = useState('light');
+  const [themeChoice, setThemeChoice] = useState('dark');
   const dark = resolveThemeDarkMode(themeChoice);
 
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -685,7 +685,7 @@ const App = () => {
       <div style={{
         position: 'fixed',
         inset: 0,
-        background: '#09080f',
+        background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -809,87 +809,88 @@ const App = () => {
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
 
       {/* ── Icon rail ── */}
-      <div style={{width:52,background:'var(--bg-sidebar)',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',alignItems:'center',padding:'8px 0',gap:2,flexShrink:0,zIndex:10,transition:'background 0.3s,border-color 0.3s'}}>
-        <div style={{width:32,height:32,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:8,cursor:'pointer',flexShrink:0,boxShadow:'0 4px 12px rgba(0,0,0,0.2)'}} onClick={()=>setOnboardingCompleted(false)}>
-          <span style={{fontSize:14,color:'#fff',fontWeight:800,letterSpacing:'-0.03em'}}>M</span>
+      <div style={{width:54,background:'var(--bg-sidebar)',borderRight:'1px solid var(--border-light)',display:'flex',flexDirection:'column',alignItems:'center',padding:'10px 0',gap:3,flexShrink:0,zIndex:10,transition:'background 0.3s,border-color 0.3s'}}>
+        <div style={{width:34,height:34,borderRadius:9,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:10,cursor:'pointer',flexShrink:0,boxShadow:'0 4px 14px rgba(107,140,255,0.3)'}} onClick={()=>setOnboardingCompleted(false)}>
+          <span style={{fontSize:15,color:'#fff',fontWeight:800,letterSpacing:'-0.03em'}}>M</span>
         </div>
         {NAV.map(item=>(
-          <button key={item.id} title={item.label} aria-label={item.label} onClick={()=>setNav(item.id)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:nav===item.id?'var(--bg-active)':'transparent',color:nav===item.id?'var(--text)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative'}}
+          <button key={item.id} title={item.label} aria-label={item.label} onClick={()=>setNav(item.id)} style={{width:36,height:36,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:nav===item.id?'var(--bg-active)':'transparent',color:nav===item.id?'var(--text)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative'}}
             onMouseEnter={e=>{if(nav!==item.id){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
             onMouseLeave={e=>{if(nav!==item.id){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
           >
-            <Icon name={item.icon} size={16}/>
-            {item.id==='agent'&&runningAgent&&<div style={{position:'absolute',top:5,right:5,width:6,height:6,borderRadius:'50%',background:'var(--accent)',border:'2px solid var(--bg-sidebar)'}}/>}
+            <Icon name={item.icon} size={17}/>
+            {nav===item.id&&<div style={{position:'absolute',left:-4,top:8,bottom:8,width:3,borderRadius:99,background:'var(--accent)'}}/>}
+            {item.id==='agent'&&runningAgent&&<div style={{position:'absolute',top:6,right:6,width:6,height:6,borderRadius:'50%',background:'var(--green)',boxShadow:'0 0 6px var(--green)'}}/>}
           </button>
         ))}
         <div style={{flex:1}}/>
         {/* Dark mode quick toggle */}
-          <button title={dark?'Light mode':'Dark mode'} aria-label={dark?'Switch to light mode':'Switch to dark mode'} onClick={()=>applyThemeChoice(dark ? 'light' : 'dark')} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:'transparent',color:'var(--text-3)',transition:'background 0.15s,color 0.15s,transform 0.2s',marginBottom:2,flexShrink:0}}
+          <button title={dark?'Light mode':'Dark mode'} aria-label={dark?'Switch to light mode':'Switch to dark mode'} onClick={()=>applyThemeChoice(dark ? 'light' : 'dark')} style={{width:36,height:36,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:'transparent',color:'var(--text-3)',transition:'background 0.15s,color 0.15s,transform 0.2s',marginBottom:3,flexShrink:0}}
           onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';e.currentTarget.style.transform='rotate(12deg)';}}
           onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';e.currentTarget.style.transform='rotate(0deg)';}}>
-          <Icon name={dark?'sun':'moon'} size={15}/>
+          <Icon name={dark?'sun':'moon'} size={16}/>
         </button>
         {/* Bell */}
-        <button title="Activity" aria-label="Activity" onClick={()=>setNotifOpen(o=>!o)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:notifOpen?'var(--accent-bg)':'transparent',color:notifOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative',marginBottom:2}}
+        <button title="Activity" aria-label="Activity" onClick={()=>setNotifOpen(o=>!o)} style={{width:36,height:36,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:notifOpen?'var(--accent-bg)':'transparent',color:notifOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',position:'relative',marginBottom:3}}
           onMouseEnter={e=>{if(!notifOpen){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
           onMouseLeave={e=>{if(!notifOpen){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
         >
-          <Icon name="bell" size={16}/>
-          {unreadNotifs>0&&<div style={{position:'absolute',top:4,right:4,width:14,height:14,borderRadius:'50%',background:'var(--orange)',border:'2px solid var(--bg-sidebar)',display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:8,color:'#fff',fontWeight:700}}>{unreadNotifs}</span></div>}
+          <Icon name="bell" size={17}/>
+          {unreadNotifs>0&&<div style={{position:'absolute',top:5,right:5,width:15,height:15,borderRadius:'50%',background:'var(--orange)',border:'2px solid var(--bg-sidebar)',display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{fontSize:8,color:'#fff',fontWeight:700}}>{unreadNotifs}</span></div>}
         </button>
         {/* SMS */}
-        <button title="SMS" aria-label="Telegram messages" onClick={()=>setSmsOpen(o=>!o)} style={{width:34,height:34,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:smsOpen?'var(--accent-bg)':'transparent',color:smsOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',marginBottom:4}}
+        <button title="SMS" aria-label="Telegram messages" onClick={()=>setSmsOpen(o=>!o)} style={{width:36,height:36,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',border:'none',background:smsOpen?'var(--accent-bg)':'transparent',color:smsOpen?'var(--accent)':'var(--text-3)',transition:'background 0.12s,color 0.12s',marginBottom:6}}
           onMouseEnter={e=>{if(!smsOpen){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}}
           onMouseLeave={e=>{if(!smsOpen){e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--text-3)';}}}
-        ><Icon name="sms" size={16}/></button>
-        <div style={{fontSize:9,fontWeight:700,color:'var(--text-3)',opacity:0.5,fontFamily:'"JetBrains Mono",monospace',marginBottom:4}}>v{version}</div>
-        <div style={{width:28,height:28,borderRadius:'50%',background:'var(--bg-active)',border:'1.5px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',marginBottom:6,cursor:'pointer',flexShrink:0}}>
+        ><Icon name="sms" size={17}/></button>
+        <div style={{fontSize:8.5,fontWeight:600,color:'var(--text-3)',opacity:0.4,fontFamily:'"JetBrains Mono",monospace',marginBottom:6}}>v{version}</div>
+        <div style={{width:28,height:28,borderRadius:'50%',background:'var(--bg-active)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
           <span style={{fontSize:11,color:'var(--text-2)',fontWeight:600}}>U</span>
         </div>
       </div>
 
       {/* ── Thread sidebar ── */}
       {nav==='chat' && (
-        <div style={{width:sidebarW,background:'var(--bg-sidebar)',borderRight:'1px solid var(--border)',display:'flex',flexDirection:'column',flexShrink:0,transition:'background 0.3s,border-color 0.3s',animation:'sidebarIn 0.22s cubic-bezier(0.22,1,0.36,1) both'}}>
-          <div style={{padding:'10px 12px 8px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-            <span style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>Chats</span>
-            <button onClick={createChatThread} style={{color:'var(--text-3)',padding:3,borderRadius:5,display:'flex',transition:'background 0.12s',border:'none',background:'transparent',cursor:'pointer'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><Icon name="plus" size={15}/></button>
+        <div style={{width:sidebarW,background:'var(--bg-sidebar)',borderRight:'1px solid var(--border-light)',display:'flex',flexDirection:'column',flexShrink:0,transition:'background 0.3s,border-color 0.3s',animation:'sidebarIn 0.2s cubic-bezier(0.22,1,0.36,1) both'}}>
+          <div style={{padding:'14px 14px 10px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <span style={{fontSize:13,fontWeight:700,color:'var(--text)',letterSpacing:'-0.01em'}}>Chats</span>
+            <button onClick={createChatThread} title="New chat" style={{color:'var(--text-3)',padding:4,borderRadius:6,display:'flex',transition:'background 0.12s',border:'none',background:'transparent',cursor:'pointer'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><Icon name="plus" size={16}/></button>
           </div>
-          <div style={{padding:'0 10px 8px'}}>
-            <div style={{height:28,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:6,display:'flex',alignItems:'center',gap:6,padding:'0 8px',cursor:'pointer'}} onClick={()=>setCmdOpen(true)}>
-              <Icon name="search" size={12} color="var(--text-3)"/>
+          <div style={{padding:'0 12px 10px'}}>
+            <div style={{height:30,background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:7,display:'flex',alignItems:'center',gap:6,padding:'0 10px',cursor:'pointer',transition:'border-color 0.12s'}} onClick={()=>setCmdOpen(true)} onMouseEnter={e=>e.currentTarget.style.borderColor='var(--accent-border)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
+              <Icon name="search" size={13} color="var(--text-3)"/>
               <span style={{fontSize:12,color:'var(--text-3)',flex:1}}>Search…</span>
-              <span style={{fontSize:10,color:'var(--text-3)',background:'var(--bg-active)',padding:'1px 5px',borderRadius:3,border:'1px solid var(--border)'}}>⌘K</span>
+              <span style={{fontSize:9.5,color:'var(--text-3)',background:'var(--bg-active)',padding:'2px 5px',borderRadius:4,border:'1px solid var(--border)',fontFamily:'"JetBrains Mono",monospace'}}>⌘K</span>
             </div>
           </div>
-          <div style={{flex:1,overflowY:'auto'}}>
+          <div style={{flex:1,overflowY:'auto',padding:'0 6px'}}>
             {threads.map(t=>(
               <div key={t.id} onClick={()=>{setActiveId(t.id);updateThreads(ts=>ts.map(th=>th.id===t.id?{...th,unread:false}:th));}}
                 onMouseEnter={()=>setHoveredThread(t.id)} onMouseLeave={()=>setHoveredThread(null)}
-                style={{width:'calc(100% - 8px)',margin:'1px 4px',padding:'8px 10px',display:'flex',gap:9,alignItems:'flex-start',cursor:'pointer',background:activeId===t.id?'var(--bg-active)':hoveredThread===t.id?'var(--bg-hover)':'transparent',borderRadius:6,transition:'background 0.1s'}}>
+                style={{width:'100%',margin:'1px 0',padding:'9px 10px',display:'flex',gap:10,alignItems:'center',cursor:'pointer',background:activeId===t.id?'var(--bg-active)':hoveredThread===t.id?'var(--bg-hover)':'transparent',borderRadius:8,transition:'background 0.1s',borderLeft:activeId===t.id?'2px solid var(--accent)':'2px solid transparent'}}>
                 <div style={{width:30,height:30,borderRadius:8,flexShrink:0,background:activeId===t.id?'var(--accent-bg)':'var(--bg-2)',border:`1px solid ${activeId===t.id?'var(--accent-border)':'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.1s'}}>
                   <Icon name={t.iconName} size={14} color={activeId===t.id?'var(--accent)':'var(--text-3)'}/>
                 </div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
-                    <span style={{fontSize:12.5,fontWeight:t.unread?600:500,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'70%'}}>{t.title}</span>
-                    <span style={{fontSize:10.5,color:'var(--text-3)',flexShrink:0}}>{formatRelativeTime(t.updatedAt || t.createdAt) || t.time || ''}</span>
+                    <span style={{fontSize:12.5,fontWeight:t.unread?600:500,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{t.title}</span>
+                    <span style={{fontSize:10,color:'var(--text-3)',flexShrink:0,marginLeft:6}}>{formatRelativeTime(t.updatedAt || t.createdAt) || t.time || ''}</span>
                   </div>
-                  <span style={{fontSize:11.5,color:'var(--text-3)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'block'}}>{t.subtitle}</span>
+                  <span style={{fontSize:11,color:'var(--text-3)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'block'}}>{t.subtitle}</span>
                 </div>
                 <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',flexShrink:0,minWidth:14}}>
                   {hoveredThread===t.id
-                    ? <button aria-label={`Delete ${t.title || 'chat'}`} onClick={e=>{e.stopPropagation();if(window.confirm(`Delete "${t.title || 'this chat'}"? This cannot be undone.`)){const rest=threads.filter(th=>th.id!==t.id);updateThreads(rest);if(activeId===t.id)setActiveId(rest[0]?.id||null);setHoveredThread(null);}}} style={{border:'none',background:'transparent',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2,borderRadius:4,transition:'color 0.1s'}} onMouseEnter={e=>e.currentTarget.style.color='#e05252'} onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}><Icon name="trash" size={13}/></button>
+                    ? <button aria-label={`Delete ${t.title || 'chat'}`} onClick={e=>{e.stopPropagation();if(window.confirm(`Delete "${t.title || 'this chat'}"? This cannot be undone.`)){const rest=threads.filter(th=>th.id!==t.id);updateThreads(rest);if(activeId===t.id)setActiveId(rest[0]?.id||null);setHoveredThread(null);}}} style={{border:'none',background:'transparent',cursor:'pointer',color:'var(--text-3)',display:'flex',padding:2,borderRadius:4,transition:'color 0.1s'}} onMouseEnter={e=>e.currentTarget.style.color='var(--red)'} onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}><Icon name="trash" size={13}/></button>
                     : t.unread&&<div style={{width:7,height:7,borderRadius:'50%',background:'var(--accent)'}}/>
                   }
                 </div>
               </div>
             ))}
           </div>
-          <div style={{padding:'8px 10px',borderTop:'1px solid var(--border-light)'}}>
-            <button onClick={createChatThread} style={{width:'100%',height:32,borderRadius:6,border:'1px solid var(--border)',background:'var(--bg-2)',display:'flex',alignItems:'center',justifyContent:'center',gap:6,cursor:'pointer',fontSize:12.5,color:'var(--text-2)',fontFamily:'inherit',transition:'background 0.12s,border-color 0.12s'}}
+          <div style={{padding:'8px 12px 12px',borderTop:'1px solid var(--border-light)'}}>
+            <button onClick={createChatThread} style={{width:'100%',height:34,borderRadius:7,border:'1px solid var(--border)',background:'var(--bg-2)',display:'flex',alignItems:'center',justifyContent:'center',gap:6,cursor:'pointer',fontSize:12.5,fontWeight:500,color:'var(--text-2)',fontFamily:'inherit',transition:'background 0.12s,border-color 0.12s'}}
               onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.borderColor='var(--accent-border)';}} onMouseLeave={e=>{e.currentTarget.style.background='var(--bg-2)';e.currentTarget.style.borderColor='var(--border)';}}>
-              <Icon name="plus" size={13}/> New chat
+              <Icon name="plus" size={14}/> New chat
             </button>
           </div>
         </div>
