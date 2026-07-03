@@ -14,7 +14,11 @@
     "electron:dev": "electron . --enable-logging",
     "build": "npm run renderer:build && electron-builder build --win --publish never",
     "release": "npm run renderer:build && electron-builder build --win --publish always",
-    "release:upload": "node scripts/upload-release.js"
+    "release:upload": "node scripts/upload-release.js",
+    "lint": "eslint \"src/**/*.{js,jsx}\"",
+    "lint:fix": "eslint \"src/**/*.{js,jsx}\" --fix",
+    "format": "prettier --write \"src/**/*.{js,jsx,css,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,css,json,md}\""
   },
   "build": {
     "appId": "com.meg.ai",
@@ -67,7 +71,12 @@
     "concurrently": "^9.2.1",
     "electron": "^35.1.0",
     "electron-builder": "^24.13.3",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
     "jsdom": "^29.1.0",
+    "prettier": "^3.4.2",
     "vite": "^8.0.10",
     "vitest": "^4.1.5",
     "wait-on": "^9.0.5"

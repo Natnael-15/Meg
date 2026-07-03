@@ -1,0 +1,94 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module",
+    "ecmaFeatures": { "jsx": true }
+  },
+  "plugins": ["react", "react-hooks"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:react/recommended",
+    "plugin:react-hooks/recommended",
+    "prettier"
+  ],
+  "settings": {
+    "react": { "version": "18.3" }
+  },
+  "rules": {
+    // ── Relaxations for this codebase ──
+    // The codebase uses inline styles pervasively (React style objects); we
+    // don't want to refactor all of that just to satisfy lint.
+    "react/inline-blocks": "off",
+    // Props are often passed as spread objects; keep this allowed.
+    "react/jsx-props-no-spreading": "off",
+    // Many components are defined without explicit PropTypes — this is a
+    // JS (not TS) project and we rely on tests for type safety.
+    "react/prop-types": "off",
+    // Allow self-closing components and fragments.
+    "react/self-closing-comp": "warn",
+    // Catch real bugs:
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-undef": "error",
+    "prefer-const": "warn",
+    "no-var": "error",
+    "eqeqeq": ["warn", "smart"],
+    // Style preferences — Prettier handles formatting, these catch logic.
+    "no-duplicate-imports": "warn",
+    "no-useless-rename": "warn",
+    "object-shorthand": ["warn", "always"]
+  },
+  "overrides": [
+    {
+      // Node.js main-process files (CommonJS)
+      "files": ["src/main/**/*.js", "src/preload/**/*.js"],
+      "env": { "node": true, "browser": false, "es2022": true },
+      "parserOptions": { "sourceType": "commonjs", "ecmaFeatures": { "jsx": false } },
+      "plugins": [],
+      "extends": ["eslint:recommended", "prettier"],
+      "rules": {
+        "react/prop-types": "off",
+        "react-hooks/rules-of-hooks": "off",
+        "react-hooks/exhaustive-deps": "off",
+        "no-console": ["warn", { "allow": ["warn", "error"] }]
+      }
+    },
+    {
+      // Vitest test files
+      "files": ["src/renderer/test/**/*.{js,jsx}"],
+      "env": { "node": true, "browser": true, "es2022": true },
+      "globals": {
+        "vi": "readonly",
+        "describe": "readonly",
+        "it": "readonly",
+        "test": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly"
+      },
+      "rules": {
+        "no-console": "off",
+        "react/prop-types": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist/",
+    "node_modules/",
+    "build/",
+    "mockups/",
+    "scripts/",
+    "vite.config.js",
+    "src/renderer/tweaks-panel.jsx"
+  ]
+}

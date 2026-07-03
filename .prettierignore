@@ -1,0 +1,26 @@
+# Build artifacts
+dist/
+build/
+out/
+
+# Dependencies
+node_modules/
+
+# Generated
+mockups/
+scripts/
+
+# Lockfiles (don't reformat)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
