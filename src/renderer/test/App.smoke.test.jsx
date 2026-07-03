@@ -201,7 +201,7 @@ describe('App smoke flows', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(await screen.findByText('split'));
+    await user.click(await screen.findByLabelText('split'));
 
     await waitFor(() => {
       expect(screen.getByText('No file open')).toBeInTheDocument();
@@ -363,7 +363,7 @@ describe('App smoke flows', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(await screen.findByText('split'));
+    await user.click(await screen.findByLabelText('split'));
     await act(async () => {
       window.dispatchEvent(new CustomEvent('meg:action', {
         detail: {
@@ -389,7 +389,7 @@ describe('App smoke flows', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(await screen.findByText('split'));
+    await user.click(await screen.findByLabelText('split'));
     await act(async () => {
       window.dispatchEvent(new CustomEvent('meg:action', {
         detail: {
@@ -414,7 +414,7 @@ describe('App smoke flows', () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(await screen.findByText('split'));
+    await user.click(await screen.findByLabelText('split'));
     await act(async () => {
       window.dispatchEvent(new CustomEvent('meg:action', {
         detail: {

@@ -173,8 +173,8 @@ export const Message = ({msg,isUser,accent,onFork}) => {
       :<React.Fragment key={`text-${i}`}><MarkdownRenderer>{p}</MarkdownRenderer></React.Fragment>
   );
   if(isUser) return (
-    <div className="msg-enter" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',marginBottom:14,gap:4}}>
-      <div style={{maxWidth:'70%',padding:'9px 13px',background:accent==='warm'?'#3d2b1f':accent==='green'?'#1a3d2b':'var(--accent)',color:'#fff',borderRadius:'10px 10px 3px 10px',fontSize:13.5,lineHeight:1.55,boxShadow:'0 1px 3px rgba(0,0,0,0.15)'}}>
+    <div className="msg-enter" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',marginBottom:18,gap:4}}>
+      <div style={{maxWidth:'72%',padding:'10px 15px',background:accent==='warm'?'#3d2b1f':accent==='green'?'#1a3d2b':'var(--accent)',color:'#fff',borderRadius:'12px 12px 4px 12px',fontSize:13.5,lineHeight:1.55,boxShadow:'0 1px 3px rgba(0,0,0,0.15)'}}>
         {msg.images && msg.images.length > 0 && (
           <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:msg.text?8:0}}>
             {msg.images.map((img, i) => (
@@ -198,15 +198,17 @@ export const Message = ({msg,isUser,accent,onFork}) => {
       )}
     </div>
   );
-  if(!msg.text && !msg.streaming && !isUser) return null; // Don't render empty non-streaming meg messages
+  if(!msg.text && !msg.streaming && !isUser) return null;
   return (
-    <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
-      <div style={{width:26,height:26,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
+    <div className="msg-enter" style={{display:'flex',gap:10,marginBottom:18,alignItems:'flex-start'}}>
+      <div style={{width:28,height:28,borderRadius:8,background:'var(--accent)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:1}}>
         <span style={{fontSize:12,color:'#fff',fontWeight:700,letterSpacing:'-0.02em'}}>M</span>
       </div>
       <div style={{flex:1,minWidth:0,display:'flex',flexDirection:'column',alignItems:'flex-start'}}>
-        <div style={{fontSize:11,color:'var(--text-3)',marginBottom:4,fontWeight:500}}>Meg</div>
-        <div style={{padding:'10px 14px',background:'var(--bg-2)',color:'var(--text)',borderRadius:'3px 10px 10px 10px',border:'1px solid var(--border-light)',boxShadow:'0 1px 2px var(--shadow)',maxWidth:'90%',width:'fit-content',display:'inline-block',minHeight:36,overflowWrap:'anywhere'}}>
+        <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:5}}>
+          <span style={{fontSize:11,color:'var(--text-3)',fontWeight:600}}>Meg</span>
+        </div>
+        <div style={{padding:'12px 16px',background:'var(--bg-2)',color:'var(--text)',borderRadius:'4px 12px 12px 12px',border:'1px solid var(--border-light)',boxShadow:'0 1px 2px var(--shadow)',maxWidth:'88%',width:'fit-content',display:'inline-block',minHeight:38,overflowWrap:'anywhere'}}>
           {msg.thinking && <ThinkBlock text={msg.thinking} unfinished={msg.streaming && !msg.text}/>}
           {renderBody(msg.text, msg.streaming)}
           {msg.streaming && !msg.text && !msg.thinking && (
@@ -217,7 +219,7 @@ export const Message = ({msg,isUser,accent,onFork}) => {
           )}
         </div>
         {!msg.streaming && msg.text && (
-          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:4,opacity:0.6,transition:'opacity 0.15s'}} className="msg-actions">
+          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:5,opacity:0.5,transition:'opacity 0.15s'}} className="msg-actions">
             <SpeakButton text={msg.text} compact/>
           </div>
         )}

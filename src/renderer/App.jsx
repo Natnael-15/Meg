@@ -94,6 +94,7 @@ const App = () => {
   const [notifOpen, setNotifOpen] = useState(false);
   const [smsOpen, setSmsOpen] = useState(false);
   const [wsDropOpen, setWsDropOpen] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [activeSkill, setActiveSkill] = useState(null);
   const [splitOpen, setSplitOpen] = useState(() => readPreviewStorage('meg:splitOpen', 'false') === 'true');
   const [nav, setNav] = useState('chat');
@@ -906,96 +907,105 @@ const App = () => {
 
       {nav==='chat' && (
         <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,position:'relative'}}>
-          <div style={{height:44,padding:'0 16px',borderBottom:'1px solid var(--border-light)',display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg)',flexShrink:0}}>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
+          {/* ── Chat header — clean, minimal ── */}
+          <div style={{height:48,padding:'0 20px',borderBottom:'1px solid var(--border-light)',display:'flex',alignItems:'center',justifyContent:'space-between',background:'var(--bg)',flexShrink:0}}>
+            {/* Left: title + status */}
+            <div style={{display:'flex',alignItems:'center',gap:10,minWidth:0,flex:1}}>
               <Icon name={thread?.iconName} size={15} color="var(--text-3)"/>
-              <span style={{fontSize:13.5,fontWeight:600,color:'var(--text)'}}>{thread?.title}</span>
+              <span style={{fontSize:14,fontWeight:600,color:'var(--text)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{thread?.title || 'New chat'}</span>
               {thread?.messages.some(m=>m.role==='agent'&&m.status==='running') && (
-                <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:'var(--accent-bg)',color:'var(--accent)',border:'1px solid var(--accent-border)',fontWeight:500,display:'flex',alignItems:'center',gap:4}}>
-                  <span style={{display:'inline-flex',animation:'spin 1.2s linear infinite'}}><Icon name="spinner" size={11} color="var(--accent)"/></span>
-                  agent running
+                <span style={{fontSize:10,padding:'2px 8px',borderRadius:99,background:'var(--accent-bg)',color:'var(--accent)',border:'1px solid var(--accent-border)',fontWeight:500,display:'flex',alignItems:'center',gap:4,flexShrink:0}}>
+                  <span style={{display:'inline-flex',animation:'spin 1.2s linear infinite'}}><Icon name="spinner" size={10} color="var(--accent)"/></span>
+                  agent
                 </span>
               )}
               {thread?.messages?.length > 0 && (
                 <TokenBudgetBar messages={thread.messages} model={activeModel} />
               )}
-              {redactionNotices[activeId] && (
-                <span
-                  title={`${redactionNotices[activeId].count} secret${redactionNotices[activeId].count > 1 ? 's' : ''} were redacted before sending to ${redactionNotices[activeId].provider}. Your API keys and tokens are stripped from the context before it leaves your machine.`}
-                  style={{fontSize:10,padding:'2px 8px',borderRadius:99,background:'rgba(124,58,237,0.12)',color:'#7c3aed',border:'1px solid rgba(124,58,237,0.3)',fontWeight:500,display:'flex',alignItems:'center',gap:4,cursor:'default',userSelect:'none',flexShrink:0}}
-                >
-                  🔒 {redactionNotices[activeId].count} redacted
-                </span>
-              )}
             </div>
-            <div style={{display:'flex',gap:6,alignItems:'center'}}>
-              {/* Workspace switcher */}
+            {/* Right: workspace + more menu only */}
+            <div style={{display:'flex',gap:4,alignItems:'center',flexShrink:0}}>
+              {/* Workspace switcher — compact */}
               {workspaces.length > 0 && (
-                  <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setWsDropOpen(false);}} tabIndex={-1}>
-                    <button onClick={()=>setWsDropOpen(o=>!o)} title="Switch workspace"
-                      style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:`1px solid ${activeWorkspace?'var(--accent-border)':'var(--border)'}`,background:activeWorkspace?'var(--accent-bg)':'transparent',color:activeWorkspace?'var(--accent)':'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5,transition:'all 0.12s',maxWidth:160}}
-                      onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';e.currentTarget.style.background='var(--accent-bg)';}}
-                      onMouseLeave={e=>{if(!activeWorkspace){e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';e.currentTarget.style.background='transparent';}}}>
-                      <Icon name="workspace" size={11} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
-                      <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:100}}>{activeWorkspace?.name||'No workspace'}</span>
-                      <Icon name="chevronDown" size={9} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
-                    </button>
-                    {wsDropOpen && (
-                      <div style={{position:'absolute',top:'calc(100% + 4px)',right:0,minWidth:200,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',border:'1px solid var(--border)',borderRadius:10,boxShadow:'0 8px 32px var(--shadow-lg)',zIndex:999,overflow:'hidden',animation:'slideDown 0.15s ease-out'}}>
-                        <div style={{padding:'6px 10px 4px',fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Switch workspace</div>
-                        {workspaces.map(w=>(
-                          <button key={w.id} onClick={()=>{
-                            setActiveWorkspace(w);
-                            window.electronAPI?.setActiveWorkspace(w);
-                            setWsDropOpen(false);
-                          }} style={{width:'100%',padding:'8px 10px',display:'flex',alignItems:'center',gap:8,border:'none',background:activeWorkspace?.id===w.id?'var(--bg-active)':'transparent',cursor:'pointer',textAlign:'left',transition:'background 0.1s'}}
-                            onMouseEnter={e=>{if(activeWorkspace?.id!==w.id)e.currentTarget.style.background='var(--bg-hover)';}}
-                            onMouseLeave={e=>{if(activeWorkspace?.id!==w.id)e.currentTarget.style.background='transparent';}}>
-                            <div style={{width:20,height:20,borderRadius:5,background:w.color+'22',border:`1.5px solid ${w.color}55`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                              <span style={{fontSize:10,fontWeight:700,color:w.color}}>{w.name[0]}</span>
-                            </div>
-                            <div style={{flex:1,minWidth:0}}>
-                              <div style={{fontSize:12,fontWeight:activeWorkspace?.id===w.id?600:400,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.name}</div>
-                              <div style={{fontSize:10,color:'var(--text-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.path}</div>
-                            </div>
-                            {activeWorkspace?.id===w.id && <span style={{fontSize:9,color:'var(--accent)',fontWeight:600}}>✓</span>}
-                          </button>
-                        ))}
-                        <div style={{borderTop:'1px solid var(--border-light)',padding:6}}>
-                          <button onClick={()=>{setWsDropOpen(false);setNav('workspace');}} style={{width:'100%',padding:'6px 8px',borderRadius:5,border:'none',background:'transparent',color:'var(--text-3)',fontSize:11,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:5}}
-                            onMouseEnter={e=>e.currentTarget.style.color='var(--text)'}
-                            onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}>
-                            <Icon name="workspace" size={11}/> Manage workspaces
-                          </button>
-                        </div>
+                <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setWsDropOpen(false);}} tabIndex={-1}>
+                  <button onClick={()=>setWsDropOpen(o=>!o)} title="Switch workspace"
+                    style={{fontSize:11,padding:'4px 10px',borderRadius:6,border:`1px solid ${activeWorkspace?'var(--accent-border)':'var(--border)'}`,background:activeWorkspace?'var(--accent-bg)':'transparent',color:activeWorkspace?'var(--accent)':'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:5,transition:'all 0.12s',maxWidth:140}}
+                    onMouseEnter={e=>{if(!activeWorkspace){e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';e.currentTarget.style.background='var(--accent-bg)';}}}
+                    onMouseLeave={e=>{if(!activeWorkspace){e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';e.currentTarget.style.background='transparent';}}}>
+                    <Icon name="workspace" size={11} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
+                    <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:80}}>{activeWorkspace?.name||'Workspace'}</span>
+                    <Icon name="chevronDown" size={8} color={activeWorkspace?'var(--accent)':'var(--text-3)'}/>
+                  </button>
+                  {wsDropOpen && (
+                    <div style={{position:'absolute',top:'calc(100% + 4px)',right:0,minWidth:200,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(12px)',WebkitBackdropFilter:'blur(12px)',border:'1px solid var(--border)',borderRadius:10,boxShadow:'0 8px 32px var(--shadow-lg)',zIndex:999,overflow:'hidden',animation:'slideDown 0.15s ease-out'}}>
+                      <div style={{padding:'6px 10px 4px',fontSize:9,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Switch workspace</div>
+                      {workspaces.map(w=>(
+                        <button key={w.id} onClick={()=>{
+                          setActiveWorkspace(w);
+                          window.electronAPI?.setActiveWorkspace(w);
+                          setWsDropOpen(false);
+                        }} style={{width:'100%',padding:'8px 10px',display:'flex',alignItems:'center',gap:8,border:'none',background:activeWorkspace?.id===w.id?'var(--bg-active)':'transparent',cursor:'pointer',textAlign:'left',transition:'background 0.1s'}}
+                          onMouseEnter={e=>{if(activeWorkspace?.id!==w.id)e.currentTarget.style.background='var(--bg-hover)';}}
+                          onMouseLeave={e=>{if(activeWorkspace?.id!==w.id)e.currentTarget.style.background='transparent';}}>
+                          <div style={{width:20,height:20,borderRadius:5,background:w.color+'22',border:`1.5px solid ${w.color}55`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                            <span style={{fontSize:10,fontWeight:700,color:w.color}}>{w.name[0]}</span>
+                          </div>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontSize:12,fontWeight:activeWorkspace?.id===w.id?600:400,color:'var(--text)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{w.name}</div>
+                          </div>
+                          {activeWorkspace?.id===w.id && <span style={{fontSize:9,color:'var(--accent)',fontWeight:600}}>✓</span>}
+                        </button>
+                      ))}
+                      <div style={{borderTop:'1px solid var(--border-light)',padding:6}}>
+                        <button onClick={()=>{setWsDropOpen(false);setNav('workspace');}} style={{width:'100%',padding:'6px 8px',borderRadius:5,border:'none',background:'transparent',color:'var(--text-3)',fontSize:11,cursor:'pointer',textAlign:'left',display:'flex',alignItems:'center',gap:5}}
+                          onMouseEnter={e=>e.currentTarget.style.color='var(--text)'}
+                          onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}>
+                          <Icon name="workspace" size={11}/> Manage workspaces
+                        </button>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Split toggle — icon only */}
+              <button onClick={()=>setSplitOpen(o=>!o)} title={splitOpen?'Close split view':'Open split view'} aria-label="split"
+                style={{width:30,height:30,borderRadius:6,border:'none',background:splitOpen?'var(--bg-active)':'transparent',color:splitOpen?'var(--text)':'var(--text-3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.12s'}}
+                onMouseEnter={e=>{if(!splitOpen)e.currentTarget.style.background='var(--bg-hover)';}}
+                onMouseLeave={e=>{if(!splitOpen)e.currentTarget.style.background='transparent';}}>
+                <Icon name="splitH" size={14} color={splitOpen?'var(--text)':'var(--text-3)'}/>
+              </button>
+              {/* More menu — Export + Search */}
+              <div style={{position:'relative'}} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))setHeaderMenuOpen(false);}} tabIndex={-1}>
+                <button onClick={()=>setHeaderMenuOpen(o=>!o)} title="More actions"
+                  style={{width:30,height:30,borderRadius:6,border:'none',background:headerMenuOpen?'var(--bg-active)':'transparent',color:'var(--text-3)',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.12s'}}
+                  onMouseEnter={e=>{if(!headerMenuOpen)e.currentTarget.style.background='var(--bg-hover)';}}
+                  onMouseLeave={e=>{if(!headerMenuOpen)e.currentTarget.style.background='transparent';}}>
+                  <Icon name="chevronDown" size={16}/>
+                </button>
+                {headerMenuOpen && (
+                  <div style={{position:'absolute',top:'calc(100% + 4px)',right:0,minWidth:180,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.86)',backdropFilter:'blur(16px)',WebkitBackdropFilter:'blur(16px)',border:'1px solid var(--border)',borderRadius:10,boxShadow:'0 8px 32px var(--shadow-lg)',zIndex:999,overflow:'hidden',animation:'slideDown 0.15s ease-out',padding:4}}>
+                    <button onClick={()=>{setIsSearchOpen(true);setHeaderMenuOpen(false);}} style={{width:'100%',padding:'8px 10px',display:'flex',alignItems:'center',gap:8,border:'none',background:'transparent',color:'var(--text-2)',fontSize:12,cursor:'pointer',textAlign:'left',borderRadius:6,transition:'background 0.1s'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <Icon name="search" size={13} color="var(--text-3)"/>
+                      Search in conversation
+                      <span style={{marginLeft:'auto',fontSize:9,color:'var(--text-3)'}}>Ctrl+F</span>
+                    </button>
+                    {activeId && (
+                      <button onClick={async ()=>{setHeaderMenuOpen(false);const r=await window.electronAPI?.exportThread?.(activeId,'markdown');if(r?.ok){const blob=new Blob([r.content],{type:'text/markdown'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=r.filename;a.click();URL.revokeObjectURL(url);}}} style={{width:'100%',padding:'8px 10px',display:'flex',alignItems:'center',gap:8,border:'none',background:'transparent',color:'var(--text-2)',fontSize:12,cursor:'pointer',textAlign:'left',borderRadius:6,transition:'background 0.1s'}}
+                        onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <Icon name="extern" size={13} color="var(--text-3)"/>
+                        Export as Markdown
+                      </button>
                     )}
                   </div>
-              )}
-              <button onClick={()=>setCmdOpen(true)} style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',color:'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,background:'transparent',transition:'all 0.12s'}} onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';}}>⌘K</button>
-              <button onClick={()=>setSplitOpen(o=>!o)} style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',background:splitOpen?'var(--bg-active)':'transparent',color:splitOpen?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,transition:'all 0.12s'}}>
-                <Icon name="splitH" size={12} color={splitOpen?'var(--text)':'var(--text-3)'}/> split
-              </button>
-              {activeId && (
-                <button onClick={async () => {
-                  const r = await window.electronAPI?.exportThread?.(activeId, 'markdown');
-                  if (r?.ok) {
-                    const blob = new Blob([r.content], { type: 'text/markdown' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = r.filename;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }
-                }} title="Export conversation as Markdown" style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',color:'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,background:'transparent',transition:'all 0.12s'}} onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';}}>
-                  <Icon name="extern" size={11}/> Export
-                </button>
-              )}
+                )}
+              </div>
             </div>
           </div>
           <div style={{flex:1,display:'flex',overflow:'hidden'}}>
-            <div ref={scrollContainerRef} onScroll={handleScroll} style={{flex:1,overflowY:'auto',padding:'18px 20px',position:'relative'}} aria-live="polite" aria-relevant="additions">
+            <div ref={scrollContainerRef} onScroll={handleScroll} style={{flex:1,overflowY:'auto',padding:'24px 24px',position:'relative'}} aria-live="polite" aria-relevant="additions">
               {isPreviewMode && (
                 <div style={{marginBottom:12,padding:'10px 12px',borderRadius:8,border:'1px solid var(--orange-border)',background:'var(--orange-bg)',fontSize:12,color:'var(--text-2)'}}>
                   Preview mode only. The desktop backend is unavailable in this browser render, so chat execution, tools, and persisted app state are disabled.
@@ -1038,6 +1048,12 @@ const App = () => {
               <div ref={messagesEndRef}/>
             </div>
           </div>
+          {redactionNotices[activeId] && (
+            <div style={{padding:'3px 20px',background:'rgba(124,58,237,0.06)',borderTop:'1px solid rgba(124,58,237,0.15)',display:'flex',alignItems:'center',gap:6,fontSize:10,color:'#7c3aed'}}
+              title={`${redactionNotices[activeId].count} secret${redactionNotices[activeId].count > 1 ? 's' : ''} were redacted before sending to ${redactionNotices[activeId].provider}. Your API keys and tokens are stripped from the context before it leaves your machine.`}>
+              🔒 {redactionNotices[activeId].count} secret{redactionNotices[activeId].count > 1 ? 's' : ''} redacted before sending to {redactionNotices[activeId].provider}
+            </div>
+          )}
           <InputBar
             onSend={addMessage}
             onAbort={()=>window.electronAPI?.abortChat(activeId)}
