@@ -2,29 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Icon } from './icons.jsx';
 import { Toggle } from './primitives.jsx';
 import { formatRelativeTime } from '../lib/time.js';
+import { diffLines as myersDiffLines } from '../lib/diff.js';
 
 const buildDiffLines = (originalText = '', nextText = '') => {
-  const originalLines = String(originalText).split('\n');
-  const nextLines = String(nextText).split('\n');
-  const max = Math.max(originalLines.length, nextLines.length);
-  const lines = [];
-  for (let index = 0; index < max; index += 1) {
-    const before = originalLines[index];
-    const after = nextLines[index];
-    if (before === after) {
-      if (before !== undefined) {
-        lines.push({ type: 'context', text: before, line: index + 1 });
-      }
-      continue;
-    }
-    if (before !== undefined) {
-      lines.push({ type: 'remove', text: before, line: index + 1 });
-    }
-    if (after !== undefined) {
-      lines.push({ type: 'add', text: after, line: index + 1 });
-    }
-  }
-  return lines;
+  // Delegate to the Myers diff implementation in lib/diff.js.
+  // The previous naive line-by-line comparison produced noisy diffs where a
+  // single inserted line at the top made every subsequent line look changed.
+  // Myers finds the shortest edit script, so the diff highlights only the
+  // lines that actually changed.
+  return myersDiffLines(originalText, nextText);
 };
 
 export const NotifPanel = ({notifs, onClose, onMarkAllRead, onDismiss}) => (

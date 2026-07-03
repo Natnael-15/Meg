@@ -1,6 +1,7 @@
 const { app } = require('electron');
 const { exec } = require('child_process');
 const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const workspace = require('./workspace');
 
@@ -177,22 +178,40 @@ const GENERATED_DIRS = new Set([
 ]);
 
 function defaultCwd(cwd, context = {}) {
-  return context.workspacePath || workspace.getRootFallback(cwd);
+  // Use the sync path lookup so defaultCwd stays synchronous — it's called
+  // 10+ times per executeTool() invocation. The async getRootFallback()
+  // would require making every tool branch async just to compute a path.
+  return context.workspacePath || workspace.getActivePathSync() || cwd || process.cwd();
 }
 
+// Commands that are always blocked regardless of how they're formatted.
+// We normalize whitespace before matching, and also catch the PowerShell
+// aliases and chaining operators, so tricks like `rm  -rf`, `iwr x ; iex`,
+// or `Remove-Item -Force` don't slip past the original single-space regexes.
 const DANGEROUS_COMMAND_PATTERNS = [
+  // Recursive force deletion
   /\brm\s+(-[^\s]*r[^\s]*f|-rf|-fr)\b/i,
-  /\bRemove-Item\b[\s\S]*-Recurse\b/i,
+  /\bRemove-Item\b[\s\S]*(-Recurse|-Force)\b/i,
   /\brmdir\s+\/s\b/i,
   /\bdel\s+\/[fsq]/i,
+  /\bRD\s+\/[sq]/i,
+  // Disk / system / boot operations
   /\bformat\b/i,
   /\bdiskpart\b/i,
   /\bshutdown\b/i,
-  /\brestart-computer\b/i,
-  /\breg\s+delete\b/i,
+  /\b(restart|stop)-computer\b/i,
+  // Registry mutations
+  /\breg\s+(delete|add)\b/i,
+  // Execution policy changes (common pivot for malware)
   /\bSet-ExecutionPolicy\b/i,
+  // Encoded payloads — always suspicious
   /\b(base64|FromBase64String|EncodedCommand)\b/i,
-  /\b(iwr|irm|Invoke-WebRequest|curl|wget)\b[\s\S]*\|\s*(iex|Invoke-Expression)/i,
+  // Remote download + execute chains (PowerShell `|` and `;` chaining)
+  /\b(iwr|irm|Invoke-WebRequest|Invoke-RestMethod|curl|wget)\b[\s\S]*[|;]\s*(iex|Invoke-Expression)\b/i,
+  // Certutil abuse (download + decode)
+  /\bcertutil\b[\s\S]*(-decode|-urlcache)\b/i,
+  // BITS jobs used for stealth downloads
+  /\bStart-BitsTransfer\b/i,
 ];
 
 function truncate(value, max = MAX_TOOL_OUTPUT) {
@@ -220,8 +239,13 @@ function resolveExistingPath(inputPath, cwd = process.cwd()) {
   return path.resolve(cwd || process.cwd(), inputPath);
 }
 
-function assertPathExists(fullPath) {
-  if (!fs.existsSync(fullPath)) throw new Error(`Path does not exist: ${fullPath}`);
+async function assertPathExists(fullPath) {
+  // Async — avoids blocking the event loop on slow filesystems.
+  try {
+    await fsp.access(fullPath);
+  } catch {
+    throw new Error(`Path does not exist: ${fullPath}`);
+  }
 }
 
 function isInside(parent, child) {
@@ -230,8 +254,9 @@ function isInside(parent, child) {
 }
 
 function getAllowedWriteRoots(context = {}) {
-  const active = workspace.getActive();
-  const roots = context.workspacePath ? [context.workspacePath] : active?.path ? [active.path] : [process.cwd()];
+  // Sync path lookup — see defaultCwd() comment for rationale.
+  const activePath = workspace.getActivePathSync();
+  const roots = context.workspacePath ? [context.workspacePath] : activePath ? [activePath] : [process.cwd()];
   try {
     const settings = require('./settings');
     const configured = settings.get('toolWriteRoots');
@@ -252,8 +277,14 @@ function assertWriteAllowed(fullPath, context = {}) {
 function validateCommand(command) {
   if (!command || typeof command !== 'string') throw new Error('No command provided');
   if (command.length > 4000) throw new Error('Command is too long');
-  const matched = DANGEROUS_COMMAND_PATTERNS.find(pattern => pattern.test(command));
-  if (matched) throw new Error('Command blocked by safety policy');
+  // Normalize whitespace so `rm   -rf` and `Remove-Item  -Recurse` can't
+  // evade the regexes that expect single spaces. Also catches tab/newline
+  // padding that an LLM might inject by accident or on purpose.
+  const normalized = command.replace(/\s+/g, ' ').trim();
+  const matched = DANGEROUS_COMMAND_PATTERNS.find(pattern => pattern.test(normalized));
+  if (matched) {
+    throw new Error('Command blocked by safety policy. If this is a false positive, run the command manually from the terminal.');
+  }
 }
 
 function getToolPermissions() {
@@ -265,7 +296,7 @@ function getToolPermissions() {
   }
 }
 
-function assertToolPermission(name, context = {}) {
+async function assertToolPermission(name, context = {}) {
   if (context.bypassPermissions) return;
   if (context.approvalId) return;
   const p = getToolPermissions();
@@ -300,7 +331,7 @@ function assertToolPermission(name, context = {}) {
     let result = null;
     if (name === 'write_file') {
       try {
-        result = prepareStagedWrite(context.currentArgs || {}, context);
+        result = await prepareStagedWrite(context.currentArgs || {}, context);
       } catch {
         // Fallback if staging fails early
       }
@@ -331,10 +362,13 @@ function execCommand(command, cwd) {
   });
 }
 
-function listDirectory(dirPath) {
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+async function listDirectory(dirPath) {
+  // Async — uses fs/promises.readdir so the main process event loop isn't
+  // blocked while the OS reads directory entries. Critical for network
+  // filesystems or directories with many entries.
+  const entries = await fsp.readdir(dirPath, { withFileTypes: true });
   return entries
-    .map(e => ({
+    .map((e) => ({
       name: e.name,
       type: e.isDirectory() ? 'dir' : 'file',
       isDir: e.isDirectory(),
@@ -344,24 +378,41 @@ function listDirectory(dirPath) {
     .sort((a, b) => (a.type === b.type ? a.name.localeCompare(b.name) : a.type === 'dir' ? -1 : 1));
 }
 
-function searchFiles(rootPath, pattern) {
+async function searchFiles(rootPath, pattern) {
   if (!pattern || typeof pattern !== 'string') throw new Error('Pattern is required');
   const regex = new RegExp(pattern, 'i');
   const matches = [];
+  const MAX_MATCHES = 200;
+  const MAX_FILE_SIZE = 1024 * 1024; // 1 MB
 
-  function visit(dir) {
-    if (matches.length >= 200) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  // Async recursive walk. Uses fs/promises throughout so a slow disk doesn't
+  // freeze the main process (and therefore the renderer UI).
+  async function visit(dir) {
+    if (matches.length >= MAX_MATCHES) return;
+    let entries = [];
+    try {
+      entries = await fsp.readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // permission denied, etc.
+    }
+    for (const entry of entries) {
+      if (matches.length >= MAX_MATCHES) return;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (!workspace.isGeneratedDir(entry.name)) visit(fullPath);
+        if (!workspace.isGeneratedDir(entry.name)) await visit(fullPath);
         continue;
       }
       if (!entry.isFile()) continue;
-      if (fs.statSync(fullPath).size > 1024 * 1024) continue;
+      let stats;
+      try {
+        stats = await fsp.stat(fullPath);
+      } catch {
+        continue;
+      }
+      if (stats.size > MAX_FILE_SIZE) continue;
       let content;
       try {
-        content = fs.readFileSync(fullPath, 'utf8');
+        content = await fsp.readFile(fullPath, 'utf8');
       } catch {
         continue;
       }
@@ -369,13 +420,13 @@ function searchFiles(rootPath, pattern) {
       for (let i = 0; i < lines.length; i++) {
         if (regex.test(lines[i])) {
           matches.push(`${fullPath}:${i + 1}: ${lines[i]}`);
-          if (matches.length >= 200) return;
+          if (matches.length >= MAX_MATCHES) return;
         }
       }
     }
   }
 
-  visit(rootPath);
+  await visit(rootPath);
   return matches.length ? matches.join('\n') : 'No matches found.';
 }
 
@@ -386,54 +437,56 @@ async function executeTool(name, args = {}, context = {}) {
 
   try {
     context.currentArgs = args;
-    assertToolPermission(name, context);
+    await assertToolPermission(name, context);
     if (name === 'run_command') {
       validateCommand(args.command);
       const cwd = args.cwd ? resolveExistingPath(args.cwd, defaultCwd(undefined, context)) : defaultCwd(undefined, context);
-      assertPathExists(cwd);
+      await assertPathExists(cwd);
       result = await execCommand(args.command, cwd);
     } else if (name === 'read_file') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
-      assertPathExists(fullPath);
-      result = { content: truncate(fs.readFileSync(fullPath, 'utf8')) };
+      await assertPathExists(fullPath);
+      const content = await fsp.readFile(fullPath, 'utf8');
+      result = { content: truncate(content) };
     } else if (name === 'write_file') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
       assertWriteAllowed(fullPath, context);
-      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-      fs.writeFileSync(fullPath, args.content || '', 'utf8');
+      await fsp.mkdir(path.dirname(fullPath), { recursive: true });
+      await fsp.writeFile(fullPath, args.content || '', 'utf8');
       result = { ok: true, path: fullPath };
     } else if (name === 'rename_path') {
       const oldPath = resolveExistingPath(args.oldPath, defaultCwd(args.cwd, context));
       const newPath = resolveExistingPath(args.newPath, defaultCwd(args.cwd, context));
-      assertPathExists(oldPath);
+      await assertPathExists(oldPath);
       assertWriteAllowed(oldPath, context);
       assertWriteAllowed(newPath, context);
-      fs.mkdirSync(path.dirname(newPath), { recursive: true });
-      fs.renameSync(oldPath, newPath);
+      await fsp.mkdir(path.dirname(newPath), { recursive: true });
+      await fsp.rename(oldPath, newPath);
       result = { ok: true, oldPath, newPath };
     } else if (name === 'delete_path') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
-      assertPathExists(fullPath);
+      await assertPathExists(fullPath);
       assertWriteAllowed(fullPath, context);
-      if (fs.lstatSync(fullPath).isDirectory()) {
-        fs.rmSync(fullPath, { recursive: true, force: true });
+      const stats = await fsp.lstat(fullPath);
+      if (stats.isDirectory()) {
+        await fsp.rm(fullPath, { recursive: true, force: true });
       } else {
-        fs.unlinkSync(fullPath);
+        await fsp.unlink(fullPath);
       }
       result = { ok: true, path: fullPath };
     } else if (name === 'make_directory') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
       assertWriteAllowed(fullPath, context);
-      fs.mkdirSync(fullPath, { recursive: true });
+      await fsp.mkdir(fullPath, { recursive: true });
       result = { ok: true, path: fullPath };
     } else if (name === 'list_directory') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
-      assertPathExists(fullPath);
-      result = { entries: listDirectory(fullPath) };
+      await assertPathExists(fullPath);
+      result = { entries: await listDirectory(fullPath) };
     } else if (name === 'search_files') {
       const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
-      assertPathExists(fullPath);
-      result = { results: truncate(searchFiles(fullPath, args.pattern)) };
+      await assertPathExists(fullPath);
+      result = { results: truncate(await searchFiles(fullPath, args.pattern)) };
     } else if (name === 'web_search') {
       if (!args.query) throw new Error('Query is required');
       const res = await fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(args.query)}&format=json`);
@@ -457,7 +510,7 @@ async function executeTool(name, args = {}, context = {}) {
       result = { ok: true, result: 'Message sent successfully.' };
     } else if (name === 'spawn_subagent') {
       const agentRunner = require('./agentRunner');
-      const run = agentRunner.createRun({
+      const run = await agentRunner.createRun({
         name: args.name,
         instruction: args.instruction,
         parentThreadId: threadId,
@@ -523,11 +576,17 @@ function summarizeToolResult(result, args = {}) {
   return result;
 }
 
-function prepareStagedWrite(args, context = {}) {
+async function prepareStagedWrite(args, context = {}) {
   const fullPath = resolveExistingPath(args.path, defaultCwd(args.cwd, context));
   assertWriteAllowed(fullPath, context);
-  const existed = fs.existsSync(fullPath);
-  const originalContent = existed ? fs.readFileSync(fullPath, 'utf8') : null;
+  let originalContent = null;
+  let existed = false;
+  try {
+    originalContent = await fsp.readFile(fullPath, 'utf8');
+    existed = true;
+  } catch {
+    // File doesn't exist yet — that's fine, originalContent stays null.
+  }
   return {
     ok: true,
     staged: true,

@@ -19,10 +19,12 @@ function loadToolsModule({ appPath, workspaceState, settingsState, approvalQueue
       return { exec: execMock };
     }
     if (id === 'fs') return require('fs');
+    if (id === 'fs/promises') return require('fs/promises');
     if (id === 'path') return require('path');
     if (id === './workspace') {
       return {
         getActive: () => workspaceState.active,
+        getActivePathSync: () => workspaceState.active?.path || null,
         getRootFallback: (cwd) => workspaceState.active?.path || cwd || process.cwd(),
         isGeneratedDir: (name) => new Set(workspaceState.ignored || []).has(name),
       };

@@ -54,6 +54,12 @@ function initSqlite() {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (collection, id)
     );
+    -- Index to speed up collectionList() which orders by updated_at DESC.
+    -- Without this index SQLite does a full table scan + sort on every call,
+    -- which is measurable on collections with hundreds of rows (threads,
+    -- events, telegram messages).
+    CREATE INDEX IF NOT EXISTS idx_kv_collections_updated_at
+      ON kv_collections (collection, updated_at DESC);
   `);
   migrateLegacySettings();
   return db;

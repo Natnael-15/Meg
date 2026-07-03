@@ -44,8 +44,8 @@ function normalizeAction(action, index) {
   };
 }
 
-function createRun(input = {}) {
-  const activeWorkspace = workspace.getActive();
+async function createRun(input = {}) {
+  const activeWorkspace = await workspace.getActive();
   const createdAt = now();
   const actions = Array.isArray(input.actions) ? input.actions.map(normalizeAction) : [];
   const run = {
@@ -232,7 +232,7 @@ Provide only the Markdown content for the document.`;
     }, context);
   }
   if (action.type === 'agent_run') {
-    const spawned = agentRunner.createRun({
+    const spawned = await agentRunner.createRun({
       name: action.target || action.label,
       instruction: action.label,
       parentThreadId: run.id,

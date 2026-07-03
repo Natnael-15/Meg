@@ -114,13 +114,14 @@ function createIpcHarness() {
       mkdirSync: vi.fn(),
       readdirSync: vi.fn(() => []),
     };
+    if (id === 'fs/promises') return require('fs/promises');
     if (id === 'path') return require('path');
     if (id === './lmstudio') return { getModels: vi.fn(), ping: vi.fn(), streamChat };
     if (id === './telegram') return { getBot: vi.fn(() => bot), validate: vi.fn(), findChatId: vi.fn() };
     if (id === './git') return { getStatus: vi.fn() };
     if (id === './settings') return settings;
     if (id === './db') return { load: vi.fn(), saveAll: vi.fn() };
-    if (id === './workspace') return { list: vi.fn(), getActive: vi.fn(), upsert: vi.fn(), setActive: vi.fn() };
+    if (id === './workspace') return { list: vi.fn(async () => []), listWithMeta: vi.fn(async () => []), getActive: vi.fn(async () => null), upsert: vi.fn(async (w) => w), setActive: vi.fn(async (w) => w), refreshWorkspaceMeta: vi.fn(async (w) => w), searchFiles: vi.fn(async () => ({ results: [], total: 0, truncated: false })), getRootFallback: vi.fn(async (cwd) => cwd), getActivePathSync: vi.fn(() => null), isGeneratedDir: vi.fn(() => false) };
     if (id === './threadStore') return threadStore;
     if (id === './activityStore') return activityStore;
     if (id === './telegramStore') return telegramStore;
@@ -269,7 +270,7 @@ describe('main ipc contract', () => {
     };
     harness.approvalQueue.get.mockReturnValue(approval);
     harness.approvalQueue.markRunning.mockReturnValue({ ...approval, status: 'running' });
-    harness.prepareStagedWrite.mockReturnValue(stagedResult);
+    harness.prepareStagedWrite.mockResolvedValue(stagedResult);
     harness.approvalQueue.markStaged.mockReturnValue({ ...approval, status: 'staged', result: stagedResult });
 
     const handler = harness.handleMap.get('approval:approve');
@@ -379,7 +380,7 @@ describe('main ipc contract', () => {
   });
 
   it('creates automation runs through the dedicated automation runner', async () => {
-    harness.automationRunner.createRun.mockReturnValue({ id: 'auto-run-1', status: 'queued' });
+    harness.automationRunner.createRun.mockResolvedValue({ id: 'auto-run-1', status: 'queued' });
     const handler = harness.handleMap.get('automation:createRun');
 
     const result = await handler({}, {

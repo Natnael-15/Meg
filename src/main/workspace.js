@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const settings = require('./settings');
 const store = require('./store');
@@ -51,19 +51,25 @@ function sortDirectoryEntries(entries = []) {
   });
 }
 
-function collectWorkspaceInventory(rootPath, ignoredDirs = []) {
+async function collectWorkspaceInventory(rootPath, ignoredDirs = []) {
   const files = [];
   const visited = new Set();
   const ignored = new Set(Array.isArray(ignoredDirs) && ignoredDirs.length ? ignoredDirs : Array.from(GENERATED_DIRS));
   let truncated = false;
 
-  function visit(dirPath) {
+  // Async recursive walk. The original sync version used fs.readdirSync +
+  // fs.statSync, which blocked the main process event loop for the entire
+  // walk — up to 2000 files. On a network drive or a large repo this could
+  // freeze the renderer UI for seconds. The async version yields between
+  // directory reads so other IPC handlers (chat streaming, approvals, etc.)
+  // can make progress.
+  async function visit(dirPath) {
     if (!dirPath || visited.has(dirPath) || truncated) return;
     visited.add(dirPath);
 
     let entries = [];
     try {
-      entries = sortDirectoryEntries(fs.readdirSync(dirPath, { withFileTypes: true }));
+      entries = sortDirectoryEntries(await fsp.readdir(dirPath, { withFileTypes: true }));
     } catch {
       return;
     }
@@ -73,13 +79,13 @@ function collectWorkspaceInventory(rootPath, ignoredDirs = []) {
       const fullPath = path.join(dirPath, entry.name);
       if (entry.isDirectory()) {
         if (ignored.has(entry.name)) continue;
-        visit(fullPath);
+        await visit(fullPath);
         continue;
       }
       if (!entry.isFile()) continue;
       let stats;
       try {
-        stats = fs.statSync(fullPath);
+        stats = await fsp.stat(fullPath);
       } catch {
         continue;
       }
@@ -96,7 +102,7 @@ function collectWorkspaceInventory(rootPath, ignoredDirs = []) {
     }
   }
 
-  visit(rootPath);
+  await visit(rootPath);
 
   return {
     files,
@@ -105,8 +111,8 @@ function collectWorkspaceInventory(rootPath, ignoredDirs = []) {
   };
 }
 
-function buildWorkspaceMeta(workspace) {
-  const inventory = collectWorkspaceInventory(workspace.path, workspace.ignoredDirs);
+async function buildWorkspaceMeta(workspace) {
+  const inventory = await collectWorkspaceInventory(workspace.path, workspace.ignoredDirs);
   return {
     files: inventory.files.length,
     lang: inventory.lang,
@@ -191,13 +197,18 @@ function isMetaStale(workspace) {
   return (Date.now() - updatedAt) > WORKSPACE_META_MAX_AGE_MS;
 }
 
-function normalizeWorkspace(input = {}) {
+async function normalizeWorkspace(input = {}) {
   if (!input.path || typeof input.path !== 'string') {
     throw new Error('Workspace path is required');
   }
   const fullPath = path.resolve(input.path);
-  if (!fs.existsSync(fullPath)) throw new Error(`Workspace path does not exist: ${fullPath}`);
-  if (!fs.statSync(fullPath).isDirectory()) throw new Error(`Workspace path is not a directory: ${fullPath}`);
+  let stats;
+  try {
+    stats = await fsp.stat(fullPath);
+  } catch {
+    throw new Error(`Workspace path does not exist: ${fullPath}`);
+  }
+  if (!stats.isDirectory()) throw new Error(`Workspace path is not a directory: ${fullPath}`);
 
   return {
     id: input.id || `ws-${Date.now()}`,
@@ -209,19 +220,22 @@ function normalizeWorkspace(input = {}) {
   };
 }
 
-function migrateLegacyWorkspaceCollection() {
+async function migrateLegacyWorkspaceCollection() {
   const current = settings.get('workspaces');
   if (Array.isArray(current) && current.length > 0) return current;
   const legacy = store.collectionList(LEGACY_WORKSPACE_COLLECTION) || [];
   if (!Array.isArray(legacy) || legacy.length === 0) return Array.isArray(current) ? current : [];
-  const migrated = legacy.map((item) => normalizeWorkspace(item));
+  const migrated = [];
+  for (const item of legacy) {
+    migrated.push(await normalizeWorkspace(item));
+  }
   saveAll(migrated);
   store.collectionReplaceAll(LEGACY_WORKSPACE_COLLECTION, [], (item, index) => String(item?.id ?? index));
   return migrated;
 }
 
-function list() {
-  const workspaces = migrateLegacyWorkspaceCollection();
+async function list() {
+  const workspaces = await migrateLegacyWorkspaceCollection();
   const current = Array.isArray(workspaces) ? workspaces : [];
   let changed = false;
   const sanitized = current.map((workspace) => {
@@ -237,8 +251,8 @@ function saveAll(workspaces) {
   settings.set('workspaces', Array.isArray(workspaces) ? workspaces.map(sanitizeWorkspaceRecord) : []);
 }
 
-function refreshWorkspaceMeta(target) {
-  const current = list();
+async function refreshWorkspaceMeta(target) {
+  const current = await list();
   const targetId = typeof target === 'string' ? target : target?.id;
   const targetPath = typeof target === 'object' ? path.resolve(target.path) : null;
   const workspace = current.find((item) => (
@@ -247,13 +261,13 @@ function refreshWorkspaceMeta(target) {
     (targetPath && path.resolve(item.path) === targetPath)
   ));
   if (!workspace) return null;
-  const meta = buildWorkspaceMeta(workspace);
+  const meta = await buildWorkspaceMeta(workspace);
   writeWorkspaceIndex(workspace.id, meta);
   return mergeWorkspaceMeta(workspace, meta);
 }
 
-function resolveWorkspace(target) {
-  const current = list();
+async function resolveWorkspace(target) {
+  const current = await list();
   if (!target) return null;
   const targetId = typeof target === 'string' ? target : target?.id;
   const targetPath = typeof target === 'object' && target?.path ? path.resolve(target.path) : null;
@@ -263,23 +277,26 @@ function resolveWorkspace(target) {
   )) || null;
 }
 
-function listWithMeta() {
-  const current = list();
-  return current.map((workspace) => {
+async function listWithMeta() {
+  const current = await list();
+  const results = [];
+  for (const workspace of current) {
     if (isMetaStale(workspace)) {
-      return refreshWorkspaceMeta(workspace.id);
+      results.push(await refreshWorkspaceMeta(workspace.id));
+    } else {
+      results.push(mergeWorkspaceMeta(workspace, readWorkspaceIndex(workspace.id)));
     }
-    return mergeWorkspaceMeta(workspace, readWorkspaceIndex(workspace.id));
-  });
+  }
+  return results;
 }
 
-function searchFiles(target, query, limit = DEFAULT_WORKSPACE_SEARCH_LIMIT) {
-  const workspace = resolveWorkspace(target);
+async function searchFiles(target, query, limit = DEFAULT_WORKSPACE_SEARCH_LIMIT) {
+  const workspace = await resolveWorkspace(target);
   if (!workspace) throw new Error(`Workspace not found: ${typeof target === 'string' ? target : target?.id || target?.path || 'unknown'}`);
   const normalizedQuery = typeof query === 'string' ? query.trim().toLowerCase() : '';
   const count = Number.isFinite(limit) ? Math.max(1, Math.min(limit, DEFAULT_WORKSPACE_SEARCH_LIMIT)) : DEFAULT_WORKSPACE_SEARCH_LIMIT;
   const current = isMetaStale(workspace)
-    ? refreshWorkspaceMeta(workspace.id)
+    ? await refreshWorkspaceMeta(workspace.id)
     : mergeWorkspaceMeta(workspace, readWorkspaceIndex(workspace.id));
   const inventory = Array.isArray(current?.inventory) ? current.inventory : [];
   const results = normalizedQuery
@@ -301,12 +318,12 @@ function searchFiles(target, query, limit = DEFAULT_WORKSPACE_SEARCH_LIMIT) {
   };
 }
 
-function upsert(input) {
-  const workspace = normalizeWorkspace(input);
-  const meta = buildWorkspaceMeta(workspace);
+async function upsert(input) {
+  const workspace = await normalizeWorkspace(input);
+  const meta = await buildWorkspaceMeta(workspace);
   writeWorkspaceIndex(workspace.id, meta);
   const refreshed = mergeWorkspaceMeta(workspace, meta);
-  const existing = list();
+  const existing = await list();
   const removed = existing.filter(w => w.id !== refreshed.id && path.resolve(w.path) === refreshed.path);
   removed.forEach((workspaceToDelete) => deleteWorkspaceIndex(workspaceToDelete.id));
   const next = [
@@ -317,44 +334,72 @@ function upsert(input) {
   return refreshed;
 }
 
-function getActiveId() {
+async function getActiveId() {
   return settings.get('activeWorkspaceId') || null;
 }
 
-function getActive() {
-  const activeId = getActiveId();
-  return listWithMeta().find(w => w.id === activeId) || null;
+async function getActive() {
+  const activeId = await getActiveId();
+  const all = await listWithMeta();
+  return all.find(w => w.id === activeId) || null;
 }
 
-function setActive(idOrWorkspace) {
+async function setActive(idOrWorkspace) {
   if (!idOrWorkspace) {
     settings.set('activeWorkspaceId', null);
     return null;
   }
 
   if (typeof idOrWorkspace === 'object') {
-    const workspace = upsert(idOrWorkspace);
+    const workspace = await upsert(idOrWorkspace);
     settings.set('activeWorkspaceId', workspace.id);
     settings.set('toolWriteRoots', [workspace.path]);
     return workspace;
   }
 
-  const workspace = list().find(w => w.id === idOrWorkspace);
+  const all = await list();
+  const workspace = all.find(w => w.id === idOrWorkspace);
   if (!workspace) throw new Error(`Workspace not found: ${idOrWorkspace}`);
   const next = { ...workspace, lastActiveAt: new Date().toISOString() };
-  saveAll(list().map(w => w.id === next.id ? next : w));
+  const currentList = await list();
+  saveAll(currentList.map(w => w.id === next.id ? next : w));
   settings.set('activeWorkspaceId', next.id);
   settings.set('toolWriteRoots', [next.path]);
   return next;
 }
 
-function getRootFallback(cwd) {
-  const active = getActive();
+async function getRootFallback(cwd) {
+  const active = await getActive();
   return active?.path || cwd || process.cwd();
 }
 
+/**
+ * Synchronous lightweight path lookup. Returns the active workspace's path
+ * without triggering an inventory walk. Used by the tool layer's defaultCwd()
+ * which is called on every tool execution and can't afford an async round-trip
+ * through listWithMeta().
+ *
+ * Falls back to `cwd` (or process.cwd()) if no active workspace is set or if
+ * the active workspace's path no longer exists on disk.
+ */
+function getActivePathSync() {
+  const activeId = settings.get('activeWorkspaceId');
+  if (!activeId) return null;
+  const workspaces = settings.get('workspaces') || [];
+  const active = workspaces.find(w => w.id === activeId);
+  return active?.path || null;
+}
+
 function isGeneratedDir(name) {
-  const active = getActive();
+  // Note: this stays sync because tools.searchFiles calls it in a tight loop.
+  // It reads the active workspace from settings (cached), so it's O(1) and
+  // doesn't touch the filesystem.
+  const activeId = settings.get('activeWorkspaceId');
+  // Build the ignored set from defaults + the active workspace's overrides
+  // without an async list() call. This is safe because ignoredDirs are
+  // persisted on the workspace record itself.
+  const workspaces = settings.get('workspaces') || [];
+  const active = workspaces.find(w => w.id === activeId);
   const ignored = new Set(active?.ignoredDirs || GENERATED_DIRS);
   return ignored.has(name);
 }
@@ -367,6 +412,7 @@ module.exports = {
   getActive,
   setActive,
   getRootFallback,
+  getActivePathSync,
   isGeneratedDir,
   refreshWorkspaceMeta,
   searchFiles,

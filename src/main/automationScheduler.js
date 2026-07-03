@@ -94,7 +94,7 @@ async function shouldTriggerRepository(automation) {
   const rule = parseRepositoryTrigger(automation.trigger.detail);
   if (!rule) return null;
 
-  const workspaces = workspace.list();
+  const workspaces = await workspace.list();
   for (const item of workspaces) {
     if (!item?.path) continue;
     const snapshot = await getHeadSnapshot(item.path);
@@ -127,7 +127,7 @@ function listAutomations() {
   return automationConfigs.list().map(normalizeAutomation);
 }
 
-function triggerAutomation(automation, context = {}) {
+async function triggerAutomation(automation, context = {}) {
   return automationRunner.createRun({
     automationId: automation.id,
     source: 'automation-config',
@@ -152,7 +152,10 @@ async function tick(date = new Date()) {
       triggered.push(triggerAutomation(automation, repositoryContext));
     }
   }
-  return triggered;
+  // Resolve all trigger promises before returning so callers see actual run
+  // objects (not pending promises). Errors are swallowed per-automation so
+  // one failure doesn't abort the whole tick.
+  return Promise.all(triggered.map(p => p.catch(() => null)));
 }
 
 async function handleTelegramMessage(message) {
@@ -179,7 +182,7 @@ async function handleTelegramMessage(message) {
       triggered.push(triggerAutomation(automation, telegramContext));
     }
   }
-  return triggered;
+  return Promise.all(triggered.map(p => p.catch(() => null)));
 }
 
 async function respondToTelegramMessage(bot, message, onReply) {
@@ -195,8 +198,23 @@ async function respondToTelegramMessage(bot, message, onReply) {
       content: m.text
     }));
 
-  const activeWorkspace = require('./workspace').getActive();
+  const activeWorkspace = await require('./workspace').getActive();
   const workspacePath = activeWorkspace?.path || null;
+
+  // SECURITY: Read the tool-permission mode. When in 'manual' mode (the
+  // default), the Telegram auto-responder runs with `skipApproval: false` so
+  // that write/command tools trigger the normal approval queue — a
+  // prompt-injected Telegram message can't silently run `rm -rf` or write
+  // files without the user clicking Approve in the desktop tray.
+  //
+  // Only when the user has explicitly opted into 'auto' or 'bypass' mode do
+  // we let the responder run autonomously without per-action approval.
+  // This matches the trust level the user already configured for desktop
+  // chat, so it's not a new attack surface — it just extends the existing
+  // one to the Telegram transport.
+  const toolPermissions = settings.get('toolPermissions') || {};
+  const approvalMode = toolPermissions.approvalMode || 'manual';
+  const skipApproval = approvalMode === 'auto' || approvalMode === 'bypass';
 
   const systemPrompt = {
     role: 'system',
@@ -217,7 +235,7 @@ Once you have fully completed the task and have no more actions or tools to run,
     const threadId = `telegram-${chatId}`;
     const ctrl = { cancelled: false };
 
-    for await (const item of streamChat(messagesPayload, threadId, model, thinking, lmUrl, { ctrl, autonomous: true, workspacePath })) {
+    for await (const item of streamChat(messagesPayload, threadId, model, thinking, lmUrl, { ctrl, autonomous: true, workspacePath, skipApproval })) {
       if (item.type === 'text') {
         turnBuffer += item.content;
       } else if (item.type === 'resume') {
@@ -308,7 +326,7 @@ async function runAutomationByName(chatId, name) {
   const configs = listAutomations();
   const found = configs.find((c) => c.name.toLowerCase() === name.toLowerCase());
   if (found) {
-    triggerAutomation(found, { trigger: { type: 'telegram', detail: 'Remote /run command from Telegram' } });
+    await triggerAutomation(found, { trigger: { type: 'telegram', detail: 'Remote /run command from Telegram' } });
     await bot.sendMessage(chatId, `🚀 Starting automation: <b>${found.name}</b>`).catch(() => {});
   } else {
     await bot.sendMessage(chatId, `❌ Could not find automation named "<b>${name}</b>"`).catch(() => {});

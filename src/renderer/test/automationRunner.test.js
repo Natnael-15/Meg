@@ -67,7 +67,7 @@ describe('automationRunner', () => {
   });
 
   it('creates queued automation runs and executes actions sequentially', async () => {
-    const run = automationRunner.createRun({
+    const run = await automationRunner.createRun({
       sourceId: 'auto-1',
       name: 'Deploy on merge',
       trigger: { type: 'repository', detail: 'on merge to main' },
@@ -100,7 +100,7 @@ describe('automationRunner', () => {
   });
 
   it('spawns agent runs for agent_run actions', async () => {
-    const run = automationRunner.createRun({
+    const run = await automationRunner.createRun({
       sourceId: 'auto-2',
       name: 'PR review',
       trigger: { type: 'pull_request', detail: 'on PR opened' },
@@ -125,7 +125,7 @@ describe('automationRunner', () => {
     executeTool = vi.fn(async () => ({ error: 'command failed' }));
     automationRunner = loadAutomationRunner({ settingsState, activeWorkspace, executeTool, agentRunner });
 
-    const run = automationRunner.createRun({
+    const run = await automationRunner.createRun({
       sourceId: 'auto-3',
       name: 'Broken automation',
       actions: [{ id: 'a1', type: 'command', label: 'Run tests', target: 'npm test' }],
@@ -140,7 +140,7 @@ describe('automationRunner', () => {
     expect(failed.error).toContain('command failed');
   });
 
-  it('prunes older completed automation runs while preserving active ones', () => {
+  it('prunes older completed automation runs while preserving active ones', async () => {
     settingsState.automationRuns = [
       { id: 'active-queued', status: 'queued', updatedAt: '2026-04-29T12:00:00.000Z', logs: [] },
       ...Array.from({ length: 210 }, (_, index) => ({
@@ -153,7 +153,7 @@ describe('automationRunner', () => {
     ];
     automationRunner = loadAutomationRunner({ settingsState, activeWorkspace, executeTool, agentRunner });
 
-    const run = automationRunner.createRun({
+    const run = await automationRunner.createRun({
       sourceId: 'auto-retention',
       name: 'Retention check',
       actions: [],

@@ -80,7 +80,7 @@ describe('agentRunner', () => {
   });
 
   it('creates queued runs and completes them after the scheduled stream', async () => {
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'review-auth',
       instruction: 'Inspect auth middleware',
       parentThreadId: 'thread-1',
@@ -118,8 +118,8 @@ describe('agentRunner', () => {
     );
   });
 
-  it('cancels queued runs before they start', () => {
-    const run = agentRunner.createRun({
+  it('cancels queued runs before they start', async () => {
+    const run = await agentRunner.createRun({
       name: 'cancel-me',
       instruction: 'Stop before running',
     });
@@ -137,7 +137,7 @@ describe('agentRunner', () => {
     });
     agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'unstable-run',
       instruction: 'Trigger failure',
     });
@@ -158,7 +158,7 @@ describe('agentRunner', () => {
     });
     agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'write-draft',
       instruction: 'Update src\\draft.js',
     });
@@ -204,7 +204,7 @@ describe('agentRunner', () => {
     });
     agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'stage-draft',
       instruction: 'Stage src\\draft.js for review',
     });
@@ -232,7 +232,7 @@ describe('agentRunner', () => {
     ]);
   });
 
-  it('prunes older completed runs while preserving active ones', () => {
+  it('prunes older completed runs while preserving active ones', async () => {
     settingsState.agentRuns = [
       { id: 'active-running', status: 'running', updatedAt: '2026-04-29T12:00:00.000Z', logs: [] },
       ...Array.from({ length: 210 }, (_, index) => ({
@@ -244,7 +244,7 @@ describe('agentRunner', () => {
     ];
     agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'retention-check',
       instruction: 'Verify pruning',
     });
@@ -310,7 +310,7 @@ describe('agentRunner', () => {
     }));
     agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'goal-run',
       instruction: 'Fix the bug end to end',
       goal: true,
@@ -361,7 +361,7 @@ describe('agentRunner', () => {
     });
     agentRunner = loadAgentRunner({ settingsState, activeWorkspace, streamChat, getClient, getClientForModel });
 
-    const run = agentRunner.createRun({
+    const run = await agentRunner.createRun({
       name: 'goal-fallback',
       instruction: 'Do the work',
       goal: true,

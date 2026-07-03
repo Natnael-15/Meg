@@ -12,6 +12,7 @@ function loadWorkspaceModule(state) {
 
   runModule((id) => {
     if (id === 'fs') return require('fs');
+    if (id === 'fs/promises') return require('fs/promises');
     if (id === 'path') return require('path');
     if (id === './settings') {
       return {
@@ -68,14 +69,14 @@ describe('workspace module', () => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   });
 
-  it('upserts a normalized workspace and deduplicates by path', () => {
-    const first = workspace.upsert({
+  it('upserts a normalized workspace and deduplicates by path', async () => {
+    const first = await workspace.upsert({
       id: 'ws-1',
       name: 'Spec Workspace',
       path: tempRoot,
     });
 
-    const second = workspace.upsert({
+    const second = await workspace.upsert({
       id: 'ws-2',
       name: 'Renamed Workspace',
       path: tempRoot,
@@ -83,8 +84,8 @@ describe('workspace module', () => {
 
     expect(first.path).toBe(path.resolve(tempRoot));
     expect(second.path).toBe(path.resolve(tempRoot));
-    expect(workspace.list()).toHaveLength(1);
-    expect(workspace.list()[0]).toMatchObject({
+    expect(await workspace.list()).toHaveLength(1);
+    expect((await workspace.list())[0]).toMatchObject({
       id: 'ws-2',
       name: 'Renamed Workspace',
       path: path.resolve(tempRoot),
@@ -96,8 +97,8 @@ describe('workspace module', () => {
     });
   });
 
-  it('sets an object workspace active and updates tool write roots', () => {
-    const active = workspace.setActive({
+  it('sets an object workspace active and updates tool write roots', async () => {
+    const active = await workspace.setActive({
       id: 'ws-live',
       name: 'Live Workspace',
       path: tempRoot,
@@ -110,11 +111,11 @@ describe('workspace module', () => {
     });
     expect(state.activeWorkspaceId).toBe('ws-live');
     expect(state.toolWriteRoots).toEqual([path.resolve(tempRoot)]);
-    expect(workspace.getActive()).toMatchObject({ id: 'ws-live' });
+    expect(await workspace.getActive()).toMatchObject({ id: 'ws-live' });
   });
 
-  it('activates an existing workspace by id and stamps lastActiveAt', () => {
-    workspace.upsert({
+  it('activates an existing workspace by id and stamps lastActiveAt', async () => {
+    await workspace.upsert({
       id: 'ws-existing',
       name: 'Existing Workspace',
       path: tempRoot,
@@ -122,7 +123,7 @@ describe('workspace module', () => {
       lastActiveAt: '2026-01-02T00:00:00.000Z',
     });
 
-    const active = workspace.setActive('ws-existing');
+    const active = await workspace.setActive('ws-existing');
 
     expect(active.id).toBe('ws-existing');
     expect(active.path).toBe(path.resolve(tempRoot));
@@ -132,27 +133,27 @@ describe('workspace module', () => {
     expect(state.toolWriteRoots).toEqual([path.resolve(tempRoot)]);
   });
 
-  it('uses active workspace and ignored dirs for helper lookups', () => {
-    workspace.setActive({
+  it('uses active workspace and ignored dirs for helper lookups', async () => {
+    await workspace.setActive({
       id: 'ws-fallback',
       name: 'Fallback Workspace',
       path: tempRoot,
       ignoredDirs: ['coverage', '.cache'],
     });
 
-    expect(workspace.getRootFallback('C:\\fallback')).toBe(path.resolve(tempRoot));
+    expect(await workspace.getRootFallback('C:\\fallback')).toBe(path.resolve(tempRoot));
     expect(workspace.isGeneratedDir('.cache')).toBe(true);
     expect(workspace.isGeneratedDir('src')).toBe(false);
   });
 
-  it('refreshes cached workspace metadata recursively and skips ignored directories', () => {
+  it('refreshes cached workspace metadata recursively and skips ignored directories', async () => {
     fs.mkdirSync(path.join(tempRoot, 'src'), { recursive: true });
     fs.mkdirSync(path.join(tempRoot, 'node_modules', 'left-pad'), { recursive: true });
     fs.writeFileSync(path.join(tempRoot, 'package.json'), '{}', 'utf8');
     fs.writeFileSync(path.join(tempRoot, 'src', 'app.tsx'), 'export default null;', 'utf8');
     fs.writeFileSync(path.join(tempRoot, 'node_modules', 'left-pad', 'index.js'), 'module.exports = {};', 'utf8');
 
-    const saved = workspace.upsert({
+    const saved = await workspace.upsert({
       id: 'ws-meta',
       name: 'Meta Workspace',
       path: tempRoot,
@@ -166,7 +167,7 @@ describe('workspace module', () => {
     ].sort());
 
     fs.writeFileSync(path.join(tempRoot, 'README.md'), '# readme', 'utf8');
-    const refreshed = workspace.refreshWorkspaceMeta('ws-meta');
+    const refreshed = await workspace.refreshWorkspaceMeta('ws-meta');
 
     expect(refreshed.files).toBe(3);
     expect(refreshed.inventory.some((entry) => entry.path.endsWith('README.md'))).toBe(true);
@@ -176,27 +177,27 @@ describe('workspace module', () => {
     expect(state.collections.workspaceIndex['ws-meta'].inventoryUpdatedAt).toBeTruthy();
   });
 
-  it('searches cached workspace inventory by file name and path', () => {
+  it('searches cached workspace inventory by file name and path', async () => {
     fs.mkdirSync(path.join(tempRoot, 'src'), { recursive: true });
     fs.writeFileSync(path.join(tempRoot, 'package.json'), '{}', 'utf8');
     fs.writeFileSync(path.join(tempRoot, 'src', 'app.tsx'), 'export default null;', 'utf8');
 
-    workspace.upsert({
+    await workspace.upsert({
       id: 'ws-search',
       name: 'Search Workspace',
       path: tempRoot,
     });
 
-    const byName = workspace.searchFiles('ws-search', 'app.tsx');
+    const byName = await workspace.searchFiles('ws-search', 'app.tsx');
     expect(byName.total).toBe(1);
     expect(byName.results[0].path).toContain(path.join('src', 'app.tsx'));
 
-    const byPath = workspace.searchFiles('ws-search', 'package');
+    const byPath = await workspace.searchFiles('ws-search', 'package');
     expect(byPath.total).toBe(1);
     expect(byPath.results[0].path).toContain('package.json');
   });
 
-  it('migrates inline workspace inventory into the dedicated workspace index store', () => {
+  it('migrates inline workspace inventory into the dedicated workspace index store', async () => {
     state.workspaces = [{
       id: 'ws-inline',
       name: 'Inline Workspace',
@@ -208,7 +209,7 @@ describe('workspace module', () => {
       inventoryUpdatedAt: '2026-04-29T12:00:00.000Z',
     }];
 
-    const items = workspace.list();
+    const items = await workspace.list();
 
     expect(items[0].inventory).toBeUndefined();
     expect(state.workspaces[0].inventory).toBeUndefined();
@@ -219,7 +220,7 @@ describe('workspace module', () => {
     });
   });
 
-  it('migrates legacy workspace collection data into the canonical workspace settings store', () => {
+  it('migrates legacy workspace collection data into the canonical workspace settings store', async () => {
     state.collections.workspaces = {
       'ws-legacy': {
         id: 'ws-legacy',
@@ -228,7 +229,7 @@ describe('workspace module', () => {
       },
     };
 
-    const items = workspace.list();
+    const items = await workspace.list();
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
