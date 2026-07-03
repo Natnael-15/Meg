@@ -472,54 +472,60 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
       >
+        {/* Primary group: @mention, /command, attach, image */}
         <div style={{display:'flex',gap:2,paddingBottom:2}}>
           {[{n:'at',t:'@mention',a:()=>{setVal(v=>v+'@');}},{n:'slash',t:'/command',a:()=>{setVal(v=>v+'/');}},{n:'clip',t:'Attach',a:attachFiles}].map(b=>(
-            <button key={b.n} title={b.t} onClick={b.a} style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',transition:'background 0.12s,color 0.12s'}}
+            <button key={b.n} title={b.t} onClick={b.a} style={{width:32,height:32,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',transition:'background 0.12s,color 0.12s'}}
               onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}} onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--text-3)';}}>
-              <Icon name={b.n} size={15}/>
+              <Icon name={b.n} size={16}/>
             </button>
           ))}
           {/* Image picker button (multi-modal input) */}
-          <button title="Attach image (or paste / drag-drop)" onClick={pickImages} style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:pendingImages.length?'var(--accent)':'var(--text-3)',background:pendingImages.length?'var(--accent-bg)':'transparent',border:pendingImages.length?'1px solid var(--accent-border)':'none',transition:'background 0.12s,color 0.12s'}}
+          <button title="Attach image (or paste / drag-drop)" onClick={pickImages} style={{width:32,height:32,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:pendingImages.length?'var(--accent)':'var(--text-3)',background:pendingImages.length?'var(--accent-bg)':'transparent',border:pendingImages.length?'1px solid var(--accent-border)':'none',transition:'background 0.12s,color 0.12s',position:'relative'}}
             onMouseEnter={e=>{if(!pendingImages.length){e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}} onMouseLeave={e=>{if(!pendingImages.length){e.currentTarget.style.background='none';e.currentTarget.style.color='var(--text-3)';}}}>
-            <Icon name="image" size={15}/>
+            <Icon name="image" size={16}/>
             {pendingImages.length > 0 && (
-              <span style={{position:'absolute',top:2,right:2,fontSize:8,fontWeight:700,color:'#fff',background:'var(--accent)',borderRadius:'50%',width:12,height:12,display:'flex',alignItems:'center',justifyContent:'center'}}>{pendingImages.length}</span>
+              <span style={{position:'absolute',top:2,right:2,fontSize:8,fontWeight:700,color:'#fff',background:'var(--accent)',borderRadius:'50%',width:13,height:13,display:'flex',alignItems:'center',justifyContent:'center'}}>{pendingImages.length}</span>
             )}
           </button>
-          {/* Screenshot capture button — grabs the primary screen and attaches it as an image */}
+          <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
+        </div>
+        {/* Divider */}
+        <div style={{width:1,height:22,background:'var(--border)',margin:'0 2px 2px',flexShrink:0}}/>
+        {/* Secondary group: screenshot, templates, skill, think */}
+        <div style={{display:'flex',gap:2,paddingBottom:2}}>
+          {/* Screenshot capture button */}
           <button
-            title="Capture screenshot (attach to next message)"
+            title="Capture screenshot"
             onClick={async () => {
               const result = await window.electronAPI?.captureScreen?.();
               if (result?.ok && result.dataUrl) {
                 addImageFiles([new File([await (await fetch(result.dataUrl)).blob()], result.name || `screenshot-${Date.now()}.png`, { type: 'image/png' })]);
               }
             }}
-            style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',background:'transparent',border:'none',transition:'background 0.12s,color 0.12s'}}
+            style={{width:32,height:32,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',background:'transparent',border:'none',transition:'background 0.12s,color 0.12s'}}
             onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}
             onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--text-3)';}}
           >
-            <Icon name="appearance" size={15}/>
+            <Icon name="appearance" size={16}/>
           </button>
-          <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
           {/* Template picker button */}
           <button data-template-picker onClick={()=>setTemplateOpen(o=>!o)} title="Insert prompt template"
-            style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${templateOpen?'var(--accent-border)':'var(--border)'}`,background:templateOpen?'var(--accent-bg)':'transparent',color:templateOpen?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
+            style={{height:32,padding:'0 10px',borderRadius:7,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${templateOpen?'var(--accent-border)':'var(--border)'}`,background:templateOpen?'var(--accent-bg)':'transparent',color:templateOpen?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
             <span style={{fontSize:12}}>📋</span>
             Templates
           </button>
           {/* Skill picker button */}
           <button data-skill-picker onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
-            style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${activeSkill?'var(--accent-border)':'var(--border)'}`,background:activeSkill?'var(--accent-bg)':'transparent',color:activeSkill?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
+            style={{height:32,padding:'0 10px',borderRadius:7,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${activeSkill?'var(--accent-border)':'var(--border)'}`,background:activeSkill?'var(--accent-bg)':'transparent',color:activeSkill?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
             <span style={{fontSize:12}}>{activeSkill ? (SKILLS.find(s=>s.id===activeSkill)?.icon||'✦') : '✦'}</span>
             Skill
           </button>
-          {onToggleThinking && <button onClick={onToggleThinking} title={thinking?'Thinking on — click to disable':'Thinking off — click to enable'} style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${thinking?'var(--accent-border)':'var(--border)'}`,background:thinking?'var(--accent-bg)':'transparent',color:thinking?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}><Icon name="zap" size={11} color={thinking?'var(--accent)':'var(--text-3)'}/>Think</button>}
+          {onToggleThinking && <button onClick={onToggleThinking} title={thinking?'Thinking on — click to disable':'Thinking off — click to enable'} style={{height:32,padding:'0 10px',borderRadius:7,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${thinking?'var(--accent-border)':'var(--border)'}`,background:thinking?'var(--accent-bg)':'transparent',color:thinking?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}><Icon name="zap" size={11} color={thinking?'var(--accent)':'var(--text-3)'}/>Think</button>}
         </div>
         <div style={{flex:1,display:'flex',flexDirection:'column',gap:4}}>
-          <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} onPaste={handlePaste} placeholder={placeholder||'Ask Meg anything… (⌘K for commands, paste/drop images for vision)'} rows={1}
-            style={{width:'100%',resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13.5,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',boxShadow:'0 1px 3px var(--shadow)',overflowY:'auto'}}
+          <textarea ref={textareaRef} value={val} onChange={handleChange} onKeyDown={handleKey} onPaste={handlePaste} placeholder={placeholder||'Ask Meg anything… (⌘K for commands, paste/drop images)'} rows={1}
+            style={{width:'100%',resize:'none',border:'1px solid var(--border)',borderRadius:8,padding:'9px 13px',fontSize:14,fontFamily:'inherit',color:'var(--text)',background:'var(--bg-input)',outline:'none',lineHeight:1.5,transition:'border-color 0.15s',overflowY:'auto'}}
             onFocus={e=>e.target.style.borderColor='var(--accent)'} onBlur={e=>e.target.style.borderColor='var(--border)'}/>
           {(val.trim().length > 0 || pendingImages.length > 0) && (
             <div style={{fontSize:10,color:'var(--text-3)',paddingLeft:4,display:'flex',gap:8,animation:'fadeIn 0.1s both'}}>
@@ -535,9 +541,9 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
             </div>
           )}
         </div>
-        <button onClick={doSend} className="btn-pressable" style={{width:36,height:36,borderRadius:8,flexShrink:0,background:typing?'var(--red,#e05252)':((val.trim()||pendingImages.length)?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s',marginBottom:(val.trim().length>0||pendingImages.length>0)?18:0}}
+        <button onClick={doSend} className="btn-pressable" style={{width:38,height:38,borderRadius:9,flexShrink:0,background:typing?'var(--red)':((val.trim()||pendingImages.length)?'var(--accent)':'var(--bg-active)'),display:'flex',alignItems:'center',justifyContent:'center',transition:'background 0.2s',marginBottom:(val.trim().length>0||pendingImages.length>0)?20:0}}
           onMouseDown={e=>e.currentTarget.style.transform='scale(0.9)'} onMouseUp={e=>e.currentTarget.style.transform='scale(1)'} onMouseLeave={e=>e.currentTarget.style.transform='scale(1)'}>
-          <Icon name={typing?'close':'send'} size={typing?12:15} color={typing||(val.trim()||pendingImages.length)?'#fff':'var(--text-3)'}/>
+          <Icon name={typing?'close':'send'} size={typing?13:16} color={typing||(val.trim()||pendingImages.length)?'#fff':'var(--text-3)'}/>
         </button>
       </div>
     </div>
