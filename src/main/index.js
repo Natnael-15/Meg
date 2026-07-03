@@ -117,6 +117,9 @@ app.whenReady().then(() => {
   createDiagnosticReporter()('app:ready', { packaged: app.isPackaged, sessionDataPath: SESSION_DATA_PATH });
   automationScheduler.start();
   createWindow();
+  // Ensure the custom skills directory exists so users can drop skill JSON
+  // files in. Safe to call every startup — it's a no-op if the dir exists.
+  try { require('./customSkills').ensureSkillsDir(); } catch {}
   // Connect to configured MCP servers in the background. Errors are logged
   // via the mcp 'log' event but never block app startup.
   require('./mcpClient').connectAll().catch(() => {});

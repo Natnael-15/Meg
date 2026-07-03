@@ -222,6 +222,10 @@ function completeRun(id, output = {}) {
   clearRunTimer(`${id}:context`);
   clearRunTimer(`${id}:complete`);
   activeControllers.delete(id);
+  // Drop the scratchpad for this run if it was a parent run. Sub-agent
+  // scratchpads are scoped to the parent, so they persist until the parent
+  // finishes — this is the right time to clean up.
+  try { require('./scratchpad').drop(id); } catch {}
   return updateRun(id, run => ({
     status: 'done',
     completedAt: now(),
@@ -235,6 +239,7 @@ function failRun(id, error) {
   clearRunTimer(`${id}:context`);
   clearRunTimer(`${id}:complete`);
   activeControllers.delete(id);
+  try { require('./scratchpad').drop(id); } catch {}
   return updateRun(id, run => ({
     status: 'error',
     completedAt: now(),
@@ -274,13 +279,29 @@ function waitForRun(id) {
     events.on('agent:completed', check);
     events.on('agent:error', check);
     events.on('agent:cancelled', check);
-    
+
     // Safety check in case it's already done
     const current = getRun(id);
     if (current && (current.status === 'done' || current.status === 'error' || current.status === 'cancelled')) {
       check(current);
     }
   });
+}
+
+/**
+ * Wait for multiple runs to complete (fan-out / scatter-gather).
+ * Resolves once every run reaches a terminal state (done/error/cancelled).
+ * Never rejects — a rejected sub-agent is returned in the results array
+ * with status='error' so the caller can decide how to handle partial
+ * failures.
+ *
+ * @param {string[]} ids - Run ids to wait for.
+ * @returns {Promise<Array<object>>} Array of completed run objects, in the
+ *   same order as the input ids.
+ */
+function waitForRuns(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return Promise.resolve([]);
+  return Promise.all(ids.map((id) => waitForRun(id)));
 }
 
 function clearRunTimer(id) {
@@ -427,9 +448,10 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
     : null;
 
   let output = '';
-  for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, { 
+  for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, {
     workspacePath: run.workspacePath,
     agentRunId: run.id,
+    parentRunId: run.parentRunId,
     ctrl,
     allowedToolNames,
     skipApproval: !!run.goal
@@ -557,6 +579,7 @@ Once you are absolutely sure the goal has been fully met, provide a final confir
     for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, {
       workspacePath: run.workspacePath,
       agentRunId: run.id,
+      parentRunId: run.parentRunId,
       ctrl,
       allowedToolNames,
       skipApproval: true
@@ -634,6 +657,7 @@ module.exports = {
   completeRun,
   failRun,
   waitForRun,
+  waitForRuns,
 };
 
 function pruneRuns(runs) {

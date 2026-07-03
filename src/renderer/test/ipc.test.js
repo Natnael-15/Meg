@@ -147,6 +147,14 @@ function createIpcHarness() {
       callTool: vi.fn(async () => ({ ok: true, content: '' })),
       parseMcpToolName: vi.fn(() => null),
     };
+    if (id === './customSkills') return {
+      loadCustomSkills: vi.fn(() => []),
+      mergeSkills: vi.fn((b) => b),
+      normalizeSkill: vi.fn(),
+      invalidateCache: vi.fn(),
+      getSkillsDirPath: vi.fn(() => '/tmp/skills'),
+      ensureSkillsDir: vi.fn(() => '/tmp/skills'),
+    };
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/ipc.js'));
 

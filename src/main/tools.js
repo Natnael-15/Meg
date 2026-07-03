@@ -164,6 +164,69 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'spawn_agents',
+      description: 'Spawn MULTIPLE sub-agents in parallel and wait for all of them to complete (scatter-gather). Use this when a task can be split into independent subtasks that benefit from parallel execution — e.g. "review 3 files", "search 3 databases", "implement 3 independent features". Each sub-agent runs with the same workspace and tools. Results are collected and returned as an array. Max 5 sub-agents per call.',
+      parameters: {
+        type: 'object',
+        properties: {
+          agents: {
+            type: 'array',
+            description: 'Array of sub-agent specs. Each has a name and instruction.',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string', description: 'Short name for this sub-agent.' },
+                instruction: { type: 'string', description: 'What this sub-agent should accomplish.' },
+              },
+              required: ['name', 'instruction'],
+            },
+            maxItems: 5,
+          },
+        },
+        required: ['agents'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scratchpad_set',
+      description: 'Store a value on the shared scratchpad for the current parent agent run. Sub-agents with the same parent can read this value to coordinate work. Last-write-wins. Values must be JSON-serializable and under 50k chars. Only available when running as a sub-agent (i.e. a parentRunId exists in context).',
+      parameters: {
+        type: 'object',
+        properties: {
+          key: { type: 'string', description: 'The key to set (e.g. "file:auth.ts:reviewed", "claim:task-3").' },
+          value: { description: 'The JSON-serializable value to store. Can be a string, number, object, or array.' },
+        },
+        required: ['key', 'value'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scratchpad_get',
+      description: 'Read a value from the shared scratchpad for the current parent agent run. Returns the value plus metadata about who wrote it and when.',
+      parameters: {
+        type: 'object',
+        properties: {
+          key: { type: 'string', description: 'The key to read.' },
+        },
+        required: ['key'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'scratchpad_list',
+      description: 'List all keys currently set on the shared scratchpad for the current parent agent run. Useful for discovering what sibling sub-agents have published.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
 ];
 
 const GENERATED_DIRS = new Set([
@@ -314,6 +377,10 @@ async function assertToolPermission(name, context = {}) {
     web_search: ['webSearch', null, 'Instant web answers are disabled in Settings > Tool Permissions.'],
     send_telegram: ['telegram', null, 'Telegram sending is disabled in Settings > Tool Permissions.'],
     spawn_subagent: ['spawnAgents', null, 'Agent spawning is disabled in Settings > Tool Permissions.'],
+    spawn_agents: ['spawnAgents', null, 'Agent spawning is disabled in Settings > Tool Permissions.'],
+    scratchpad_set: ['spawnAgents', null, 'Scratchpad access requires agent spawning to be enabled.'],
+    scratchpad_get: ['spawnAgents', null, 'Scratchpad access requires agent spawning to be enabled.'],
+    scratchpad_list: ['spawnAgents', null, 'Scratchpad access requires agent spawning to be enabled.'],
   };
   const check = checks[name];
   if (!check) return;
@@ -550,6 +617,52 @@ async function executeTool(name, args = {}, context = {}) {
           message: `Sub-agent "${run.name}" is queued for: ${run.instruction}`,
         };
       }
+    } else if (name === 'spawn_agents') {
+      // ── Fan-out / scatter-gather ──────────────────────────────────────
+      // Spawn up to 5 sub-agents in parallel, wait for all to complete,
+      // and return their outputs as an array. The parent's agentRunId
+      // becomes the scratchpad scope so sub-agents can coordinate via
+      // scratchpad_set/get if needed.
+      const agentRunner = require('./agentRunner');
+      const specs = Array.isArray(args.agents) ? args.agents.slice(0, 5) : [];
+      if (!specs.length) throw new Error('At least one agent spec is required.');
+      const parentRunId = context.agentRunId || null;
+      const runIds = [];
+      for (const spec of specs) {
+        if (!spec.name || !spec.instruction) continue;
+        const run = await agentRunner.createRun({
+          name: spec.name,
+          instruction: spec.instruction,
+          parentThreadId: threadId,
+          parentRunId,
+        });
+        runIds.push(run.id);
+      }
+      const completed = await agentRunner.waitForRuns(runIds);
+      result = {
+        ok: true,
+        status: 'gathered',
+        count: completed.length,
+        results: completed.map((run, i) => ({
+          name: specs[i]?.name || run.name,
+          runId: run.id,
+          status: run.status,
+          output: run.output?.text || run.error || 'No output.',
+        })),
+        message: `${completed.filter(r => r.status === 'done').length}/${completed.length} sub-agents completed successfully.`,
+      };
+    } else if (name === 'scratchpad_set') {
+      const scratchpad = require('./scratchpad');
+      const parentRunId = context.agentRunId || context.parentRunId || null;
+      result = scratchpad.set(parentRunId, args.key, args.value, context.agentRunId || 'parent');
+    } else if (name === 'scratchpad_get') {
+      const scratchpad = require('./scratchpad');
+      const parentRunId = context.agentRunId || context.parentRunId || null;
+      result = scratchpad.get(parentRunId, args.key);
+    } else if (name === 'scratchpad_list') {
+      const scratchpad = require('./scratchpad');
+      const parentRunId = context.agentRunId || context.parentRunId || null;
+      result = scratchpad.list(parentRunId);
     } else {
       throw new Error(`Unknown tool: ${name}`);
     }

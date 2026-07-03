@@ -167,4 +167,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   connectAllMcpServers()  { return ipcRenderer.invoke('mcp:connectAll'); },
   listMcpTools()          { return ipcRenderer.invoke('mcp:listTools'); },
   onMcpChange(cb)         { ipcRenderer.on('mcp:change', (_, d) => cb(d)); },
+
+  // ── Custom skills (plugin system) ────────────────────────
+  listCustomSkills()      { return ipcRenderer.invoke('skills:listCustom'); },
+  getSkillsDir()          { return ipcRenderer.invoke('skills:getDir'); },
+  reloadCustomSkills()    { return ipcRenderer.invoke('skills:reload'); },
+  saveCustomSkill(skillJson) { return ipcRenderer.invoke('skills:save', skillJson); },
+  deleteCustomSkill(id)   { return ipcRenderer.invoke('skills:delete', id); },
 });

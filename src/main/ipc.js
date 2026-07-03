@@ -404,6 +404,44 @@ function setupIPC(win) {
     }
   });
   ipcMain.handle('mcp:listTools', () => mcp.getToolDefinitions());
+
+  // ── Custom skills (plugin system) ───────────────────────────────────
+  // Load user-defined skill JSON files from the userData/skills/ directory.
+  // The renderer merges these with the built-in SKILLS array; custom skills
+  // override built-ins on id collision.
+  const customSkills = require('./customSkills');
+  ipcMain.handle('skills:listCustom', () => customSkills.loadCustomSkills());
+  ipcMain.handle('skills:getDir', () => customSkills.getSkillsDirPath());
+  ipcMain.handle('skills:reload', () => {
+    customSkills.invalidateCache();
+    return { ok: true, count: customSkills.loadCustomSkills().length };
+  });
+  ipcMain.handle('skills:save', (_, skillJson) => {
+    try {
+      const dir = customSkills.ensureSkillsDir();
+      const skill = JSON.parse(skillJson);
+      if (!skill.id) return { ok: false, error: 'Skill id is required' };
+      const filePath = path.join(dir, `${skill.id}.json`);
+      fs.writeFileSync(filePath, JSON.stringify(skill, null, 2), 'utf8');
+      customSkills.invalidateCache();
+      return { ok: true, path: filePath };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('skills:delete', (_, skillId) => {
+    try {
+      const dir = customSkills.getSkillsDirPath();
+      const filePath = path.join(dir, `${skillId}.json`);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        customSkills.invalidateCache();
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
 }
 
 module.exports = { setupIPC };

@@ -13,7 +13,7 @@ import { Onboarding } from './components/Onboarding.jsx';
 import { CommandPalette } from './components/CommandPalette.jsx';
 import { TokenBudgetBar } from './components/TokenBudgetBar.jsx';
 import { mapAgentRun } from './lib/agentRuns.js';
-import { SKILLS, autoDetectSkill } from './lib/skills.js';
+import { SKILLS, autoDetectSkill, loadCustomSkills, getAllSkills } from './lib/skills.js';
 import { dismissNotification, markAllNotificationsRead, normalizeEventList, normalizeNotificationList, upsertEvent, upsertNotification } from './lib/activity.js';
 import { formatRelativeTime } from './lib/time.js';
 import { normalizeThread, normalizeThreadList } from './lib/threads.js';
@@ -299,6 +299,10 @@ const App = () => {
   // ── Load persisted app state on mount ────────────────────────
   useEffect(()=>{
     if(!window.electronAPI) return;
+    // Load custom skills (plugin system) in the background. They merge with
+    // the built-in SKILLS array; the InputBar and auto-detect pick them up
+    // via getAllSkills() on the next render.
+    loadCustomSkills().then(() => { /* triggers re-render via ref reads */ });
     window.electronAPI.listThreads().then(data=>{
       dbLoaded.current = true;
       if(data?.length){
@@ -704,7 +708,7 @@ const App = () => {
 
       const apiMessages = [systemPrompt];
       if (resolvedSkill) {
-        const skill = SKILLS.find(s => s.id === resolvedSkill);
+        const skill = getAllSkills().find(s => s.id === resolvedSkill) || SKILLS.find(s => s.id === resolvedSkill);
         if (skill) apiMessages.push({ role: 'system', content: skill.prompt });
       }
       if (systemMessages.length) apiMessages.push(...systemMessages);

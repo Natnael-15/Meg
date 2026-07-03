@@ -928,3 +928,65 @@ export function autoDetectSkill(message) {
   }
   return null;
 }
+
+// ── Custom skills (plugin system) ─────────────────────────────────────────
+// Custom skills are loaded from the userData/skills/ directory via IPC and
+// merged with the built-ins. Custom skills override built-ins on id collision.
+// The merged list is cached in `_allSkills` after the first loadCustomSkills()
+// call; call reloadCustomSkills() to force a re-fetch (e.g. after the user
+// adds/removes a skill file in Settings).
+
+let _customSkills = [];
+let _customSkillsLoaded = false;
+
+/** Fetch custom skills from the main process. Cached after first call. */
+export async function loadCustomSkills() {
+  if (_customSkillsLoaded) return _customSkills;
+  try {
+    const list = await window.electronAPI?.listCustomSkills?.();
+    if (Array.isArray(list)) {
+      _customSkills = list;
+    }
+  } catch {
+    // IPC unavailable (preview mode) — proceed with built-ins only.
+  }
+  _customSkillsLoaded = true;
+  return _customSkills;
+}
+
+/** Force a re-fetch of custom skills from the main process. */
+export async function reloadCustomSkills() {
+  _customSkillsLoaded = false;
+  return loadCustomSkills();
+}
+
+/**
+ * Get all skills (built-in + custom), with custom skills overriding
+ * built-ins on id collision. Returns the built-ins only if custom skills
+ * haven't been loaded yet (call loadCustomSkills() first on app startup).
+ */
+export function getAllSkills() {
+  if (!_customSkills.length) return SKILLS;
+  const customIds = new Set(_customSkills.map(s => s.id));
+  return [...SKILLS.filter(s => !customIds.has(s.id)), ..._customSkills];
+}
+
+/** Get a skill by id from the merged set (built-in + custom). */
+export function getSkillByIdMerged(id) {
+  return getAllSkills().find(s => s.id === id) || null;
+}
+
+/**
+ * Auto-detect skill from a message, considering custom skills too.
+ * Falls back to the built-in-only autoDetectSkill if custom skills aren't
+ * loaded (e.g. during the first render before loadCustomSkills resolves).
+ */
+export function autoDetectSkillMerged(message) {
+  const t = (message || '').toLowerCase();
+  for (const skill of getAllSkills()) {
+    if (skill.keywords && skill.keywords.some(k => t.includes(k))) {
+      return skill.id;
+    }
+  }
+  return null;
+}
