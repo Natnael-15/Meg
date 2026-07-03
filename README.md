@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="./assets/banner.png" alt="Meg Banner" width="400" style="border-radius: 12px; margin-bottom: 12px;" />
-
 # ✦ Meg ✦
 
 ### The local AI operating system for your desktop
