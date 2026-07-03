@@ -49,31 +49,7 @@ export const AgentCard = ({step}) => {
   );
 };
 
-/* ── Markdown renderer ─────────────────────────────────────── */
-export const CodeBlock = ({lang,code}) => {
-  const [copied,setCopied] = useState(false);
-  const copy = () => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(()=>setCopied(false),1500); };
-  const apply = () => {
-    window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'applyCode', value: code } }));
-  };
-  return (
-    <div style={{margin:'8px 0',borderRadius:8,overflow:'hidden',border:'1px solid var(--border)'}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'5px 12px',background:'var(--bg-active)',borderBottom:'1px solid var(--border)'}}>
-        <span style={{fontSize:11,fontFamily:'"JetBrains Mono",monospace',color:'var(--text-3)',fontWeight:500}}>{lang||'code'}</span>
-        <div style={{display:'flex',gap:12}}>
-          <button onClick={apply} style={{fontSize:11,color:'var(--accent)',border:'none',background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:0}}>
-            <Icon name="plus" size={11} color="var(--accent)"/>Apply to open file
-          </button>
-          <button onClick={copy} style={{fontSize:11,color:copied?'var(--green)':'var(--text-3)',border:'none',background:'transparent',cursor:'pointer',display:'flex',alignItems:'center',gap:4,padding:0}}>
-            <Icon name={copied?'check':'doc'} size={11} color={copied?'var(--green)':'var(--text-3)'}/>{copied?'Copied':'Copy'}
-          </button>
-        </div>
-      </div>
-      <pre style={{margin:0,padding:'12px 14px',fontSize:12.5,fontFamily:'"JetBrains Mono",monospace',lineHeight:1.55,overflowX:'auto',background:'var(--bg-2)',color:'var(--text)',whiteSpace:'pre'}}><code>{code}</code></pre>
-    </div>
-  );
-};
-
+/* ── Inline markdown renderer (used for user-message text) ── */
 export const renderInline = (text) => {
   if(!text) return null;
   const hash = text.length;
@@ -88,74 +64,6 @@ export const renderInline = (text) => {
       return <React.Fragment key={kj}>{p.split('\n').map((l,k,a)=><React.Fragment key={`${kj}-${k}`}>{l}{k<a.length-1&&<br/>}</React.Fragment>)}</React.Fragment>;
     });
   });
-};
-
-export const renderMarkdown = (raw, prefix = 'md') => {
-  if(!raw) return null;
-  const lines = raw.split('\n');
-  const out = []; let i = 0;
-  while(i < lines.length){
-    const line = lines[i];
-    // fenced code block
-    if(/^```/.test(line)){
-      const lang = line.slice(3).trim().toLowerCase();
-      const codeLines = []; i++;
-      while(i<lines.length && !/^```/.test(lines[i])){ codeLines.push(lines[i]); i++; }
-      out.push(<CodeBlock key={`${prefix}-cb-${i}`} lang={lang} code={codeLines.join('\n')}/>);
-      i++; continue;
-    }
-    // heading
-    const hm = line.match(/^(#{1,3})\s+(.+)/);
-    if(hm){
-      const lvl=hm[1].length; const sz=[0,17,14,13][lvl]; const mt=[0,14,10,8][lvl];
-      out.push(<div key={`${prefix}-h-${i}`} style={{fontSize:sz,fontWeight:700,color:'var(--text)',marginTop:mt,marginBottom:3}}>{renderInline(hm[2])}</div>);
-      i++; continue;
-    }
-    // table
-    if(/^\|/.test(line)){
-      const rows=[]; while(i<lines.length&&/^\|/.test(lines[i])){ rows.push(lines[i]); i++; }
-      const isDiv = l => /^\|[\s\-:|]+\|$/.test(l.replace(/\s/g,''));
-      const data = rows.filter(l=>!isDiv(l));
-      const parseRow = l => l.split('|').filter((_,x,a)=>x>0&&x<a.length-1).map(c=>c.trim());
-      if(data.length){
-        const [hdr,...body] = data;
-        out.push(<div key={`${prefix}-tbl-${i}`} style={{overflowX:'auto',margin:'8px 0'}}><table style={{borderCollapse:'collapse',fontSize:12.5,width:'100%'}}>
-          <thead><tr>{parseRow(hdr).map((c,j)=><th key={j} style={{padding:'6px 12px',textAlign:'left',borderBottom:'2px solid var(--border)',fontWeight:600,color:'var(--text)',whiteSpace:'nowrap'}}>{renderInline(c)}</th>)}</tr></thead>
-          <tbody>{body.map((row,ri)=><tr key={ri}>{parseRow(row).map((c,j)=><td key={j} style={{padding:'5px 12px',borderBottom:'1px solid var(--border-light)',color:'var(--text-2)'}}>{renderInline(c)}</td>)}</tr>)}</tbody>
-        </table></div>);
-      }
-      continue;
-    }
-    // blockquote
-    if(/^>\s?/.test(line)){
-      const qls=[]; while(i<lines.length&&/^>\s?/.test(lines[i])){ qls.push(lines[i].replace(/^>\s?/,'')); i++; }
-      out.push(<div key={`${prefix}-bq-${i}`} style={{borderLeft:'3px solid var(--accent)',paddingLeft:12,margin:'6px 0',color:'var(--text-2)'}}>{qls.map((l,j)=><div key={`${prefix}-ql-${i}-${j}`} style={{fontSize:13,lineHeight:1.5}}>{renderInline(l)}</div>)}</div>);
-      continue;
-    }
-    // hr
-    if(/^[-*_]{3,}$/.test(line.trim())){
-      out.push(<hr key={`hr-${i}`} style={{border:'none',borderTop:'1px solid var(--border)',margin:'10px 0'}}/>);
-      i++; continue;
-    }
-    // unordered list
-    if(/^[\-*+] /.test(line)){
-      const items=[]; while(i<lines.length&&/^[\-*+] /.test(lines[i])){ items.push(lines[i].replace(/^[\-*+] /,'')); i++; }
-      out.push(<ul key={`ul-${i}`} style={{margin:'4px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:2}}>{items.map((it,j)=><li key={`li-${i}-${j}`} style={{fontSize:13.5,lineHeight:1.55,color:'var(--text)'}}>{renderInline(it)}</li>)}</ul>);
-      continue;
-    }
-    // ordered list
-    if(/^\d+\. /.test(line)){
-      const items=[]; while(i<lines.length&&/^\d+\. /.test(lines[i])){ items.push(lines[i].replace(/^\d+\. /,'')); i++; }
-      out.push(<ol key={`ol-${i}`} style={{margin:'4px 0',paddingLeft:20,display:'flex',flexDirection:'column',gap:2}}>{items.map((it,j)=><li key={`li-${i}-${j}`} style={{fontSize:13.5,lineHeight:1.55,color:'var(--text)'}}>{renderInline(it)}</li>)}</ol>);
-      continue;
-    }
-    // blank
-    if(!line.trim()){ if(out.length) out.push(<div key={`sp${i}`} style={{height:5}}/>); i++; continue; }
-    // paragraph
-    out.push(<div key={i} style={{fontSize:13.5,lineHeight:1.65,color:'var(--text)'}}>{renderInline(line)}</div>);
-    i++;
-  }
-  return out.length ? out : null;
 };
 
 export const ToolCallCard = ({msg}) => {

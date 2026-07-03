@@ -124,8 +124,8 @@ function advanceGoalStepState(currentSteps, activeStepNum) {
   });
 }
 
-function createRun(input = {}) {
-  const activeWorkspace = workspace.getActive();
+async function createRun(input = {}) {
+  const activeWorkspace = await workspace.getActive();
   const createdAt = now();
   const isGoal = !!input.goal;
   const initialSteps = isGoal
@@ -379,7 +379,7 @@ Respond with ONLY the JSON array. Do not include markdown code block formatting 
     });
   }
 
-  const { streamChat } = require('./lmstudio');
+  const { streamChat, TOOL_CATEGORY_MAP } = require('./lmstudio');
 
   let stepContext = '';
   if (isStructured && plannedSteps) {
@@ -416,21 +416,22 @@ ${run.instruction || (isStructured ? 'Execute the planned workflow described in 
     },
   ];
 
-  const allowedTools = {};
-  if (Array.isArray(run.tools)) {
-    run.tools.forEach((t) => {
-      if (t === 'terminal') allowedTools['Terminal'] = true;
-      if (t === 'fs') allowedTools['File system'] = true;
-      if (t === 'browser') allowedTools['Browser'] = true;
-    });
-  }
+  // Build a per-agent tool allowlist as a Set of concrete tool names.
+  // streamChat uses this to (a) filter the tool definitions sent to the LLM
+  // and (b) reject any disallowed tool calls at execution time.
+  // When run.tools is empty/undefined, allowedToolNames stays null and all
+  // tools are available (backward-compatible with runs created before the
+  // Agent Builder tool picker existed).
+  const allowedToolNames = Array.isArray(run.tools) && run.tools.length > 0
+    ? new Set(run.tools.flatMap((t) => TOOL_CATEGORY_MAP[t] || []))
+    : null;
 
   let output = '';
   for await (const item of streamChat(messages, run.id, run.model, true, baseUrl, { 
     workspacePath: run.workspacePath,
     agentRunId: run.id,
     ctrl,
-    allowedTools,
+    allowedToolNames,
     skipApproval: !!run.goal
   })) {
     if (ctrl.cancelled || getRun(run.id)?.status === 'cancelled') return;
@@ -557,7 +558,7 @@ Once you are absolutely sure the goal has been fully met, provide a final confir
       workspacePath: run.workspacePath,
       agentRunId: run.id,
       ctrl,
-      allowedTools,
+      allowedToolNames,
       skipApproval: true
     })) {
       if (ctrl.cancelled || getRun(run.id)?.status === 'cancelled') return;

@@ -1,5 +1,5 @@
 const { ipcMain, dialog, app } = require('electron');
-const fs = require('fs');
+const fsp = require('fs/promises');
 const path = require('path');
 const { getModels, ping, streamChat } = require('./lmstudio');
 const { getBot, validate: validateTelegram, findChatId } = require('./telegram');
@@ -31,18 +31,18 @@ function setupIPC(win) {
   ipcMain.handle('git:status', (_, dirPath) => getStatus(dirPath));
 
   // ── Workspaces ────────────────────────────────────────────
-  ipcMain.handle('workspace:list', () => workspace.listWithMeta());
-  ipcMain.handle('workspace:active', () => workspace.getActive());
-  ipcMain.handle('workspace:upsert', (_, data) => {
-    try { return { ok: true, workspace: workspace.upsert(data) }; }
+  ipcMain.handle('workspace:list', async () => workspace.listWithMeta());
+  ipcMain.handle('workspace:active', async () => workspace.getActive());
+  ipcMain.handle('workspace:upsert', async (_, data) => {
+    try { return { ok: true, workspace: await workspace.upsert(data) }; }
     catch (e) { return { ok: false, error: e.message }; }
   });
-  ipcMain.handle('workspace:refreshMeta', (_, idOrWorkspace) => {
-    try { return { ok: true, workspace: workspace.refreshWorkspaceMeta(idOrWorkspace) }; }
+  ipcMain.handle('workspace:refreshMeta', async (_, idOrWorkspace) => {
+    try { return { ok: true, workspace: await workspace.refreshWorkspaceMeta(idOrWorkspace) }; }
     catch (e) { return { ok: false, error: e.message }; }
   });
-  ipcMain.handle('workspace:searchFiles', (_, { workspaceId, query, limit } = {}) => {
-    try { return { ok: true, ...workspace.searchFiles(workspaceId, query, limit) }; }
+  ipcMain.handle('workspace:searchFiles', async (_, { workspaceId, query, limit } = {}) => {
+    try { return { ok: true, ...(await workspace.searchFiles(workspaceId, query, limit)) }; }
     catch (e) { return { ok: false, error: e.message, results: [], total: 0, truncated: false }; }
   });
 
@@ -54,8 +54,8 @@ function setupIPC(win) {
   agentRunner.events.on('change', forwardAgentEvent);
 
   ipcMain.handle('agent:list', () => agentRunner.listRuns());
-  ipcMain.handle('agent:create', (_, data) => {
-    try { return { ok: true, run: agentRunner.createRun(data) }; }
+  ipcMain.handle('agent:create', async (_, data) => {
+    try { return { ok: true, run: await agentRunner.createRun(data) }; }
     catch (e) { return { ok: false, error: e.message }; }
   });
   ipcMain.handle('agent:cancel', (_, id) => {
@@ -71,8 +71,8 @@ function setupIPC(win) {
   automationRunner.events.on('change', forwardAutomationEvent);
 
   ipcMain.handle('automation:listRuns', () => automationRunner.listRuns());
-  ipcMain.handle('automation:createRun', (_, data) => {
-    try { return { ok: true, run: automationRunner.createRun(data) }; }
+  ipcMain.handle('automation:createRun', async (_, data) => {
+    try { return { ok: true, run: await automationRunner.createRun(data) }; }
     catch (e) { return { ok: false, error: e.message }; }
   });
   ipcMain.handle('automation:cancelRun', (_, id) => {
@@ -90,20 +90,15 @@ function setupIPC(win) {
   ipcMain.handle('approval:list', () => approvalQueue.list());
   ipcMain.handle('approval:applyStaged', async (_, { id, path: filePath }) => {
     try {
-      console.log('applyStaged', { id, filePath });
       const approval = approvalQueue.get(id);
-      console.log('approval found', !!approval);
       if (!approval) throw new Error(`Approval not found: ${id}`);
       if (filePath) {
         const content = approval.rawArgs?.content || approval.args?.content || '';
-        console.log('writing file', filePath);
-        fs.writeFileSync(filePath, content, 'utf8');
+        await fsp.writeFile(filePath, content, 'utf8');
       }
       const result = { ...(approval.result || {}), ok: true, applied: true };
-      console.log('marking approved');
       return { ok: true, approval: approvalQueue.markApproved(id, result), result };
     } catch (e) {
-      console.error('applyStaged error', e);
       return { ok: false, error: e.message };
     }
   });
@@ -118,7 +113,7 @@ function setupIPC(win) {
       if (approval.status !== 'pending') throw new Error(`Approval is already ${approval.status}`);
       approvalQueue.markRunning(id);
       if (approval.tool === 'write_file') {
-        const result = prepareStagedWrite(approval.rawArgs || approval.args, {
+        const result = await prepareStagedWrite(approval.rawArgs || approval.args, {
           threadId: approval.threadId,
           agentRunId: approval.agentRunId,
           workspacePath: approval.workspacePath,
@@ -138,8 +133,8 @@ function setupIPC(win) {
       catch { return { ok: false, error: e.message }; }
     }
   });
-  ipcMain.handle('workspace:setActive', (_, idOrWorkspace) => {
-    try { return { ok: true, workspace: workspace.setActive(idOrWorkspace) }; }
+  ipcMain.handle('workspace:setActive', async (_, idOrWorkspace) => {
+    try { return { ok: true, workspace: await workspace.setActive(idOrWorkspace) }; }
     catch (e) { return { ok: false, error: e.message }; }
   });
 
@@ -193,11 +188,6 @@ function setupIPC(win) {
   ipcMain.handle('settings:save', (_, data) => { settings.save(data); return true; });
   ipcMain.handle('settings:set',  (_, key, value) => {
     settings.set(key, value);
-    if (key === 'githubToken') {
-      // Refresh auth header in main process
-      const main = require('./index');
-      if (main.updateAuthHeader) main.updateAuthHeader();
-    }
     return true;
   });
   ipcMain.handle('settings:get',  (_, key) => settings.get(key));

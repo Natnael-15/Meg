@@ -129,10 +129,12 @@ async function* getAnthropicStream(model, messages, tools, apiKey, abortSignal) 
   };
   if (system) params.system = system;
 
+  // Pass the abort signal to the SDK so in-flight requests can be cancelled
+  // immediately (not just between streamed chunks).
   const stream = await anthropic.messages.create({
     ...params,
     stream: true,
-  });
+  }, abortSignal ? { signal: abortSignal } : undefined);
 
   for await (const event of stream) {
     if (abortSignal?.aborted) break;
@@ -265,11 +267,64 @@ async function summarizeMessages(client, model, messagesToSummarize, provider) {
   }
 }
 
+// Tool category → tool name mapping. Used by agentRunner to build a per-agent
+// tool allowlist, and respected by streamChat to both filter the tool
+// definitions sent to the LLM and reject disallowed tool calls at execution.
+const TOOL_CATEGORY_MAP = {
+  terminal: ['run_command'],
+  fs: ['read_file', 'write_file', 'rename_path', 'delete_path', 'make_directory', 'list_directory', 'search_files'],
+  browser: ['web_search'],
+};
+
+/**
+ * Non-streaming one-shot completion. Used by automationRunner for `document`
+ * actions that just need a single block of generated text.
+ * Routes through the same provider logic as streamChat.
+ */
+async function completeChat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_URL) {
+  const provider = resolveProvider(model);
+  const apiKeys = settings.get('apiKeys') || {};
+
+  if (provider === 'anthropic') {
+    const Anthropic = require('@anthropic-ai/sdk');
+    const key = apiKeys.Anthropic || '';
+    if (!key.trim()) throw new Error('Anthropic API key is missing. Please configure it in settings.');
+    const anthropic = new Anthropic({ apiKey: key });
+    const { system, messages: anthropicMessages } = translateMessagesToAnthropic(messages);
+    const params = {
+      model: model || 'claude-3-5-sonnet-20241022',
+      max_tokens: 2000,
+      messages: anthropicMessages,
+    };
+    if (system) params.system = system;
+    const resp = await anthropic.messages.create(params);
+    return resp.content.map((c) => c.text || '').join('').trim();
+  }
+
+  const client = getClientForModel(model, baseUrl);
+  const resp = await client.chat.completions.create({
+    model,
+    messages,
+    temperature: 0.3,
+    max_tokens: 2000,
+  });
+  return (resp.choices[0]?.message?.content || '').trim();
+}
+
 async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking = true, baseUrl = DEFAULT_URL, toolContext = {}) {
   const provider = resolveProvider(model);
   const { ctrl } = toolContext;
   const history = [...messages];
   const apiKeys = settings.get('apiKeys') || {};
+
+  // Per-agent tool allowlist. When set (a Set of tool names), the LLM only
+  // sees those tools and disallowed tool calls are rejected at execution.
+  const allowedToolNames = toolContext.allowedToolNames instanceof Set && toolContext.allowedToolNames.size > 0
+    ? toolContext.allowedToolNames
+    : null;
+  const effectiveTools = allowedToolNames
+    ? TOOL_DEFINITIONS.filter((t) => allowedToolNames.has(t.function.name))
+    : TOOL_DEFINITIONS;
 
   // Auto-Summarize history if exceeding the threshold
   const totalTokens = estimateMessagesTokens(history);
@@ -310,12 +365,20 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
     if (ctrl?.cancelled) break;
 
     const abortCtrl = new AbortController();
+    // Poll for external cancellation (ctrl.cancelled) so that an in-flight
+    // HTTP request is aborted immediately, not just between streamed chunks.
+    // Without this, `chat:abort` / `cancelRun` could hang for several seconds
+    // on cloud providers while the initial fetch completes.
+    const cancelWatcher = ctrl
+      ? setInterval(() => { if (ctrl.cancelled) abortCtrl.abort(); }, 50)
+      : null;
+
     let stream;
     try {
       if (provider === 'anthropic') {
         const key = apiKeys.Anthropic || '';
         if (!key.trim()) throw new Error('Anthropic API key is missing. Please configure it in settings.');
-        stream = getAnthropicStream(model, history, TOOL_DEFINITIONS, key, abortCtrl.signal);
+        stream = getAnthropicStream(model, history, effectiveTools, key, abortCtrl.signal);
       } else {
         const client = getClientForModel(model, baseUrl);
         stream = await client.chat.completions.create({
@@ -323,12 +386,13 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
           messages: history,
           stream: true,
           temperature: 0.3,
-          tools: TOOL_DEFINITIONS,
+          tools: effectiveTools,
           tool_choice: 'auto',
           extra_body: buildExtraBody(provider, model, thinking),
         }, { signal: abortCtrl.signal });
       }
     } catch (error) {
+      if (cancelWatcher) clearInterval(cancelWatcher);
       throw normalizeProviderError(error, provider);
     }
 
@@ -424,9 +488,12 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
         streamBuffer = '';
       }
     } catch (e) {
+      if (cancelWatcher) clearInterval(cancelWatcher);
       if (e.name === 'AbortError' || ctrl?.cancelled) break;
       throw normalizeProviderError(e, provider);
     }
+
+    if (cancelWatcher) clearInterval(cancelWatcher);
 
     if (ctrl?.cancelled) break;
 
@@ -479,6 +546,20 @@ async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking =
     for (const tc of pendingCalls) {
       if (ctrl?.cancelled) break;
 
+      // Enforce the per-agent tool allowlist. Even though effectiveTools
+      // filters what the LLM sees, a model can still hallucinate a tool name
+      // that was hidden — reject it explicitly so the LLM gets clear feedback.
+      if (allowedToolNames && !allowedToolNames.has(tc.name)) {
+        const denyMsg = `Tool "${tc.name}" is not allowed for this agent. Only the following tools are available: ${[...allowedToolNames].join(', ')}.`;
+        yield { type: 'tool_result', id: tc.id, name: tc.name, result: { error: denyMsg } };
+        history.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          content: JSON.stringify({ error: denyMsg }),
+        });
+        continue;
+      }
+
       let parsedArgs = {};
       try {
         parsedArgs = JSON.parse(tc.arguments);
@@ -523,10 +604,12 @@ module.exports = {
   getModels,
   ping,
   streamChat,
+  completeChat,
   getClient,
   getClientForModel,
   resolveProvider,
   isDeepSeekModel,
+  TOOL_CATEGORY_MAP,
   DEFAULT_MODEL,
   DEFAULT_URL,
   DEEPSEEK_URL,

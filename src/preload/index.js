@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listNotifications()   { return ipcRenderer.invoke('activity:listNotifications'); },
   upsertNotification(item) { return ipcRenderer.invoke('activity:upsertNotification', item); },
   dismissNotification(id) { return ipcRenderer.invoke('activity:dismissNotification', id); },
+  deleteNotification(id) { return ipcRenderer.invoke('activity:dismissNotification', id); },
   markAllNotificationsRead() { return ipcRenderer.invoke('activity:markAllNotificationsRead'); },
   saveNotifications(items) { return ipcRenderer.invoke('activity:saveNotifications', items); },
   listEvents()          { return ipcRenderer.invoke('activity:listEvents'); },
