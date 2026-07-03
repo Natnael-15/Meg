@@ -330,12 +330,12 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
   const hasUnsavedChanges = isEditing && editedCode !== displayCode;
 
   return (
-    <div style={{width:360,display:'flex',flexDirection:'column',background:'var(--code-bg)',borderLeft:'1px solid var(--border)',flexShrink:0}}>
-      <div style={{display:'flex',borderBottom:'1px solid var(--code-border)',background:'rgba(0,0,0,0.2)',flexShrink:0,justifyContent:'space-between',alignItems:'center'}}>
+    <div style={{width:360,display:'flex',flexDirection:'column',background:'var(--code-bg)',borderLeft:'1px solid var(--border-light)',flexShrink:0}}>
+      <div style={{display:'flex',borderBottom:'1px solid var(--border-light)',background:'var(--bg-panel)',flexShrink:0,justifyContent:'space-between',alignItems:'center'}}>
         <div style={{display:'flex'}}>
           {[{id:'code',icon:'code',label:fileName},{id:'terminal',icon:'terminal',label:'Terminal'}].map(t=>(
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'8px 14px',display:'flex',alignItems:'center',gap:5,background:'none',border:'none',cursor:'pointer',borderBottom:`2px solid ${tab===t.id?'var(--accent)':'transparent'}`,color:tab===t.id?'#c8c8e0':'#555',fontSize:11.5,fontFamily:'inherit',transition:'color 0.15s'}}>
-              <Icon name={t.icon} size={13} color={tab===t.id?'#9090c0':'#555'}/><span style={{fontFamily:'"JetBrains Mono",monospace'}}>{t.label}</span>
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'9px 14px',display:'flex',alignItems:'center',gap:5,background:'none',border:'none',cursor:'pointer',borderBottom:`2px solid ${tab===t.id?'var(--accent)':'transparent'}`,color:tab===t.id?'var(--text)':'var(--text-3)',fontSize:11.5,fontFamily:'inherit',transition:'color 0.15s'}}>
+              <Icon name={t.icon} size={13} color={tab===t.id?'var(--accent)':'var(--text-3)'}/><span style={{fontFamily:'"JetBrains Mono",monospace'}}>{t.label}</span>
             </button>
           ))}
         </div>
@@ -343,10 +343,10 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
           {tab==='code' && activeFile && (
             isEditing ? (
               <>
-                <div style={{display:'flex',alignItems:'center',gap:4,padding:'2px 7px',borderRadius:4,background:'rgba(255,255,255,0.05)',color:hasUnsavedChanges?'var(--orange)':'#777',fontSize:10.5,fontFamily:'"JetBrains Mono",monospace'}}>
+                <div style={{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',borderRadius:5,background:hasUnsavedChanges?'var(--orange-bg)':'var(--bg-active)',color:hasUnsavedChanges?'var(--orange)':'var(--text-3)',fontSize:10.5,fontFamily:'"JetBrains Mono",monospace'}}>
                   {hasUnsavedChanges ? `Unsaved changes: ${changedLines}` : 'No changes'}
                 </div>
-                <div style={{display:'flex',border:'1px solid var(--code-border)',borderRadius:4,overflow:'hidden'}}>
+                <div style={{display:'flex',border:'1px solid var(--border)',borderRadius:6,overflow:'hidden'}}>
                   {[
                     { id: 'edit', label: 'Edit' },
                     { id: 'diff', label: 'Diff' },
@@ -354,33 +354,32 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
                     <button
                       key={mode.id}
                       onClick={() => setCodeViewMode(mode.id)}
-                      style={{padding:'2px 8px',border:'none',background:codeViewMode===mode.id?'rgba(255,255,255,0.12)':'transparent',color:codeViewMode===mode.id?'#fff':'#777',fontSize:10.5,cursor:'pointer'}}
+                      style={{padding:'3px 9px',border:'none',background:codeViewMode===mode.id?'var(--bg-active)':'transparent',color:codeViewMode===mode.id?'var(--text)':'var(--text-3)',fontSize:10.5,cursor:'pointer'}}
                     >
                       {mode.label}
                     </button>
                   ))}
                 </div>
-                <button onClick={save} style={{padding:'2px 8px',borderRadius:4,background:'var(--green)',color:'#fff',fontSize:10.5,border:'none',cursor:'pointer',fontWeight:600}}>Save</button>
+                <button onClick={save} style={{padding:'4px 12px',borderRadius:6,background:'var(--green)',color:'#fff',fontSize:10.5,border:'none',cursor:'pointer',fontWeight:600,transition:'opacity 0.12s'}}>Save</button>
               </>
             ) : (
-              <button onClick={()=>setIsEditing(true)} style={{padding:'2px 8px',borderRadius:4,background:'var(--bg-active)',color:'var(--text-2)',fontSize:10.5,border:'1px solid var(--border)',cursor:'pointer'}}>Edit</button>
+              <button onClick={()=>setIsEditing(true)} style={{padding:'4px 12px',borderRadius:6,background:'var(--bg-active)',color:'var(--text-2)',fontSize:10.5,border:'1px solid var(--border)',cursor:'pointer',fontWeight:500,transition:'all 0.12s'}}>Edit</button>
             )
           )}
-          <span style={{fontFamily:'"JetBrains Mono",monospace',fontSize:10,color:'#555',background:'rgba(255,255,255,0.05)',padding:'2px 7px',borderRadius:3}}>{activeFile?'Local File':'localhost:3000'}</span>
         </div>
       </div>
       {tab==='code'?(
         <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',background:'var(--code-bg)'}}>
-          {saveState && <div style={{padding:'8px 12px',borderBottom:'1px solid var(--code-border)',fontSize:11.5,color:saveState.type==='success'?'var(--green)':'var(--red)',background:'rgba(255,255,255,0.03)'}}>{saveState.message}</div>}
+          {saveState && <div style={{padding:'8px 12px',borderBottom:'1px solid var(--border-light)',fontSize:11.5,fontWeight:500,color:saveState.type==='success'?'var(--green)':'var(--red)',background:saveState.type==='success'?'var(--green-bg)':'var(--red-bg)'}}>{saveState.message}</div>}
           {isEditing && codeViewMode === 'edit' ? (
-            <textarea value={editedCode} onChange={e=>setEditedCode(e.target.value)} style={{flex:1,width:'100%',background:'none',border:'none',outline:'none',padding:'12px 16px',color:'var(--code-text)',fontFamily:'"JetBrains Mono",monospace',fontSize:11,lineHeight:1.7,resize:'none'}}/>
+            <textarea value={editedCode} onChange={e=>setEditedCode(e.target.value)} style={{flex:1,width:'100%',background:'none',border:'none',outline:'none',padding:'14px 16px',color:'var(--code-text)',fontFamily:'"JetBrains Mono",monospace',fontSize:12,lineHeight:1.7,resize:'none',caretColor:'var(--accent)'}}/>
           ) : isEditing && codeViewMode === 'diff' ? (
-            <div style={{flex:1,overflowY:'auto',padding:'12px 16px'}}>
+            <div style={{flex:1,overflowY:'auto',padding:'14px 16px'}}>
               {hasUnsavedChanges ? (
                 <div style={{display:'flex',flexDirection:'column',gap:2}}>
                   {diffLines.map((line, index) => (
-                    <div key={`${line.type}-${line.line}-${index}`} style={{display:'grid',gridTemplateColumns:'44px 14px 1fr',gap:8,fontFamily:'"JetBrains Mono",monospace',fontSize:11,lineHeight:1.7,color:line.type==='add'?'var(--green)':line.type==='remove'?'var(--red)':'var(--code-text)',background:line.type==='add'?'rgba(26,158,92,0.08)':line.type==='remove'?'rgba(224,82,82,0.08)':'transparent',borderRadius:4,padding:'1px 6px'}}>
-                      <span style={{color:'#666'}}>{line.line}</span>
+                    <div key={`${line.type}-${line.line}-${index}`} style={{display:'grid',gridTemplateColumns:'40px 14px 1fr',gap:8,fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,lineHeight:1.7,color:line.type==='add'?'var(--green)':line.type==='remove'?'var(--red)':'var(--code-text)',background:line.type==='add'?'var(--green-bg)':line.type==='remove'?'var(--red-bg)':'transparent',padding:'1px 8px'}}>
+                      <span style={{color:'var(--text-3)'}}>{line.line}</span>
                       <span>{line.type==='add' ? '+' : line.type==='remove' ? '-' : ' '}</span>
                       <span style={{whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{line.text}</span>
                     </div>
@@ -389,8 +388,8 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
               ) : (
                 <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100%',textAlign:'center'}}>
                   <div>
-                    <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No unsaved changes</div>
-                    <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:6,lineHeight:1.5}}>Edit the file to preview a line-by-line diff before saving.</div>
+                    <div style={{width:44,height:44,borderRadius:11,background:'var(--bg-active)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px'}}><Icon name="check" size={20} color="var(--text-3)"/></div><div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No unsaved changes</div>
+                    <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:5,lineHeight:1.5}}>Edit the file to preview a diff before saving.</div>
                   </div>
                 </div>
               )}
@@ -398,7 +397,7 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
           ) : (
             displayCode ? (
               <div style={{flex:1,overflowY:'auto',padding:'12px 16px'}}>
-                <pre style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>
+                <pre style={{fontFamily:'"JetBrains Mono",monospace',fontSize:12,lineHeight:1.7,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>
                   {displayCode.split('\n').map((line,i)=>{
                     const isTag=/^\s*</.test(line);const hasClass=line.includes('class=');const hasStr=(line.includes('"')&&!hasClass)||line.includes("'");
                     return <span key={i} style={{color:isTag?'var(--code-blue)':hasClass?'var(--code-green)':hasStr?'var(--code-orange)':'var(--code-text)'}}>{line+'\n'}</span>;
@@ -408,8 +407,8 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
             ) : (
               <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',textAlign:'center'}}>
                 <div>
-                  <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No file open</div>
-                  <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:6,lineHeight:1.5}}>Open a file from the browser or workspace to inspect and edit it here.</div>
+                  <div style={{width:48,height:48,borderRadius:12,background:'var(--bg-active)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px'}}><Icon name="code" size={22} color="var(--text-3)"/></div><div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No file open</div>
+                  <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:5,lineHeight:1.5}}>Open a file from the browser or workspace to edit it here.</div>
                 </div>
               </div>
             )
@@ -417,19 +416,19 @@ export const SplitPane = ({activeFile, activeWorkspace, terminalHistory = [], on
         </div>
       ):(
         <div style={{flex:1,display:'flex',flexDirection:'column'}}>
-          <div style={{flex:1,overflowY:'auto',padding:'12px 14px',display:'flex',flexDirection:'column',gap:3}}>
+          <div style={{flex:1,overflowY:'auto',padding:'14px 14px',display:'flex',flexDirection:'column',gap:3}}>
             {terminalHistory.length === 0 ? (
               <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
                 <div>
-                  <div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No terminal history</div>
-                  <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:6,lineHeight:1.5}}>Run a command to start a terminal session for this workspace.</div>
+                  <div style={{width:48,height:48,borderRadius:12,background:'var(--bg-active)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px'}}><Icon name="terminal" size={22} color="var(--text-3)"/></div><div style={{fontSize:13,fontWeight:600,color:'var(--text)'}}>No terminal history</div>
+                  <div style={{fontSize:11.5,color:'var(--text-3)',marginTop:5,lineHeight:1.5}}>Run a command below to start a session.</div>
                 </div>
               </div>
-            ) : terminalHistory.map((l,i)=><div key={l.id || i} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,lineHeight:1.6,color:l.type==='cmd'?'var(--code-green)':l.type==='err'?'var(--red)':'var(--code-text)',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{l.text}</div>)}
+            ) : terminalHistory.map((l,i)=><div key={l.id || i} style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,lineHeight:1.6,color:l.type==='cmd'?'var(--green)':l.type==='err'?'var(--red)':'var(--code-text)',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{l.text}</div>)}
           </div>
-          <div style={{padding:'8px 12px',borderTop:'1px solid var(--code-border)',display:'flex',gap:6,alignItems:'center',flexShrink:0}}>
-            <span style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,color:'var(--code-green)',flexShrink:0}}>$</span>
-            <input value={termInput} onChange={e=>setTermInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runCmd()} placeholder="run a command…" style={{flex:1,background:'none',border:'none',outline:'none',fontFamily:'"JetBrains Mono",monospace',fontSize:11.5,color:'var(--code-text)',caretColor:'var(--code-green)'}}/>
+          <div style={{padding:'8px 12px',borderTop:'1px solid var(--border-light)',display:'flex',gap:6,alignItems:'center',flexShrink:0,background:'var(--bg-panel)'}}>
+            <span style={{fontFamily:'"JetBrains Mono",monospace',fontSize:12,color:'var(--green)',flexShrink:0,fontWeight:600}}>$</span>
+            <input value={termInput} onChange={e=>setTermInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runCmd()} placeholder="run a command…" style={{flex:1,background:'none',border:'none',outline:'none',fontFamily:'"JetBrains Mono",monospace',fontSize:12,color:'var(--code-text)',caretColor:'var(--green)'}}/>
           </div>
         </div>
       )}
