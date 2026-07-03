@@ -43,27 +43,32 @@ const CodeBlockToolbar = ({ lang, code }) => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '5px 12px',
-        background: 'var(--bg-active)',
-        borderBottom: '1px solid var(--border)',
+        padding: '6px 12px',
+        background: 'var(--bg-panel)',
+        borderBottom: '1px solid var(--border-light)',
         flexShrink: 0,
       }}>
-      <span style={{ fontSize: 11, fontFamily: '"JetBrains Mono", monospace', color: 'var(--text-3)', fontWeight: 500 }}>
+      <span style={{ fontSize: 10.5, fontFamily: '"JetBrains Mono", monospace', color: 'var(--text-3)', fontWeight: 600, textTransform: 'lowercase' }}>
         {lang || 'code'}
       </span>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
         <button
           onClick={apply}
-          style={{ fontSize: 11, color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-          Apply to open file
+          style={{ fontSize: 10.5, color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, padding: '3px 7px', borderRadius: 5, transition: 'background 0.12s' }}
+          onMouseEnter={e=>e.currentTarget.style.background='var(--accent-bg)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          Apply to file
         </button>
         <button
           onClick={copy}
           style={{
-            fontSize: 11, color: copied ? 'var(--green)' : 'var(--text-3)',
+            fontSize: 10.5, color: copied ? 'var(--green)' : 'var(--text-3)',
             background: 'transparent', border: 'none', cursor: 'pointer',
-          }}>
-          {copied ? 'Copied!' : 'Copy'}
+            padding: '3px 7px', borderRadius: 5, transition: 'background 0.12s',
+          }}
+          onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
+          onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+          {copied ? '✓ Copied' : 'Copy'}
         </button>
       </div>
     </div>
@@ -73,11 +78,11 @@ const CodeBlockToolbar = ({ lang, code }) => {
 export const CodeBlock = ({ lang, code }) => (
   <div
     style={{
-      margin: '8px 0',
-      borderRadius: 8,
+      margin: '10px 0',
+      borderRadius: 9,
       overflow: 'hidden',
-      border: '1px solid var(--border)',
-      background: 'var(--bg-2)',
+      border: '1px solid var(--border-light)',
+      background: 'var(--code-bg)',
     }}>
     <CodeBlockToolbar lang={lang} code={code} />
     <pre

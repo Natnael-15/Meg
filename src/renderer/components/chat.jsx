@@ -91,36 +91,40 @@ export const ToolCallCard = ({msg}) => {
         <span style={{fontSize:12,color:'#fff',fontWeight:700,letterSpacing:'-0.02em'}}>M</span>
       </div>
       <div style={{flex:1,minWidth:0}}>
-        <div style={{fontSize:11,color:'var(--text-3)',marginBottom:4,fontWeight:500}}>Meg</div>
-        <div style={{background:'var(--bg-2)',border:'1px solid var(--border-light)',borderRadius:'3px 10px 10px 10px',overflow:'hidden',maxWidth:'90%',boxShadow:'0 1px 3px var(--shadow)'}}>
-          <button onClick={()=>setOpen(o=>!o)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'none',border:'none',cursor:'pointer',textAlign:'left'}}>
-            <div style={{width:20,height:20,borderRadius:5,background:msg.pending?'var(--accent-bg)':'var(--bg-active)',border:`1px solid ${msg.pending?'var(--accent-border)':'var(--border)'}`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+        <div style={{fontSize:11,color:'var(--text-3)',marginBottom:5,fontWeight:500}}>Meg</div>
+        <div style={{background:'var(--bg-2)',border:'1px solid var(--border-light)',borderRadius:'4px 12px 12px 12px',overflow:'hidden',maxWidth:'88%',transition:'border-color 0.15s'}}>
+          <button onClick={()=>setOpen(o=>!o)} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'9px 13px',background:'none',border:'none',cursor:'pointer',textAlign:'left',transition:'background 0.1s'}}
+            onMouseEnter={e=>e.currentTarget.style.background='var(--bg-hover)'}
+            onMouseLeave={e=>e.currentTarget.style.background='none'}>
+            <div style={{width:22,height:22,borderRadius:6,background:msg.pending?'var(--accent-bg)':'var(--bg-active)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
               {msg.pending
                 ? <div style={{width:10,height:10,borderRadius:'50%',border:'2px solid var(--accent)',borderTopColor:'transparent',animation:'spin 0.7s linear infinite'}}/>
-                : <Icon name={TOOL_ICONS[msg.name]||'terminal'} size={10} color="var(--text-3)"/>
+                : <Icon name={TOOL_ICONS[msg.name]||'terminal'} size={11} color="var(--text-3)"/>
               }
             </div>
-            <span style={{fontSize:12,color:'var(--text)',fontWeight:500,flex:1}}>{actionLabel}</span>
-            {msg.pending && <div style={{fontSize:10,color:'var(--accent)',background:'var(--accent-bg)',padding:'1px 6px',borderRadius:4,fontWeight:600}}>RUNNING</div>}
-            <Icon name={open?'chevronDown':'chevronRight'} size={10} color="var(--text-3)"/>
+            <span style={{fontSize:12.5,color:'var(--text)',fontWeight:500,flex:1}}>{actionLabel}</span>
+            {msg.pending && <div style={{fontSize:9,color:'var(--accent)',background:'var(--accent-bg)',padding:'2px 7px',borderRadius:99,fontWeight:700,letterSpacing:'0.04em'}}>RUNNING</div>}
+            <Icon name={open?'chevronDown':'chevronRight'} size={11} color="var(--text-3)"/>
           </button>
           {msg.name === 'write_file' && msg.result?.staged && (
-            <div style={{padding:'0 12px 8px'}}>
-              <button onClick={() => window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'reviewFile', value: { approval: { rawArgs: msg.args, result: msg.result } } } }))} 
-                style={{width:'100%',padding:'6px',borderRadius:6,border:'1px solid var(--accent-border)',background:'var(--accent-bg)',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}>
-                <Icon name="splitH" size={11} color="var(--accent)"/>
+            <div style={{padding:'0 13px 9px'}}>
+              <button onClick={() => window.dispatchEvent(new CustomEvent('meg:action', { detail: { action: 'reviewFile', value: { approval: { rawArgs: msg.args, result: msg.result } } } }))}
+                style={{width:'100%',padding:'7px',borderRadius:7,border:'1px solid var(--accent-border)',background:'var(--accent-bg)',color:'var(--accent)',fontSize:11,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,transition:'all 0.12s'}}
+                onMouseEnter={e=>{e.currentTarget.style.background='var(--accent)';e.currentTarget.style.color='#fff';}}
+                onMouseLeave={e=>{e.currentTarget.style.background='var(--accent-bg)';e.currentTarget.style.color='var(--accent)';}}>
+                <Icon name="splitH" size={12} color="var(--accent)"/>
                 Review Draft
               </button>
             </div>
           )}
           {open && (
-            <div style={{borderTop:'1px solid var(--border-light)',padding:'8px 12px',display:'flex',flexDirection:'column',gap:6,background:'var(--code-bg)'}}>
-              <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase'}}>Input</div>
-              <pre style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-blue)',margin:0,whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{JSON.stringify(msg.args,null,2)}</pre>
+            <div style={{borderTop:'1px solid var(--border-light)',padding:'10px 13px',display:'flex',flexDirection:'column',gap:8,background:'var(--code-bg)'}}>
+              <div style={{fontSize:9,fontWeight:700,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Input</div>
+              <pre style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-blue)',margin:0,whiteSpace:'pre-wrap',wordBreak:'break-all',lineHeight:1.5}}>{JSON.stringify(msg.args,null,2)}</pre>
               {msg.result && (
                 <>
-                  <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',marginTop:4}}>Output</div>
-                  <div style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-text)',whiteSpace:'pre-wrap',wordBreak:'break-all',maxHeight:200,overflowY:'auto'}}>{typeof msg.result==='string'?msg.result:JSON.stringify(msg.result,null,2)}</div>
+                  <div style={{fontSize:9,fontWeight:700,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginTop:4}}>Output</div>
+                  <div style={{fontFamily:'"JetBrains Mono",monospace',fontSize:11,color:'var(--code-text)',whiteSpace:'pre-wrap',wordBreak:'break-all',maxHeight:220,overflowY:'auto',lineHeight:1.5}}>{typeof msg.result==='string'?msg.result:JSON.stringify(msg.result,null,2)}</div>
                 </>
               )}
             </div>

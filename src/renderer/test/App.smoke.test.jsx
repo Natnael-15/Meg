@@ -121,7 +121,7 @@ describe('App smoke flows', () => {
     render(<App />);
 
     expect(await screen.findByText('Chats')).toBeInTheDocument();
-    expect(screen.getByText('No chats yet')).toBeInTheDocument();
+    expect(screen.getByText('Start a conversation')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/Ask Meg anything/i)).toBeInTheDocument();
   });
 
@@ -437,7 +437,7 @@ describe('App smoke flows', () => {
       window.electronAPI.__emit('chat:done', { threadId });
     });
 
-    await user.click(await screen.findByText('Apply to open file'));
+    await user.click(await screen.findByText('Apply to file'));
 
     expect(await screen.findByText(/Unsaved changes:/)).toBeInTheDocument();
     expect(screen.getByText('Diff')).toBeInTheDocument();

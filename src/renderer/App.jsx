@@ -691,70 +691,64 @@ const App = () => {
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 9999,
-        color: '#fff',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        color: 'var(--text)',
+        fontFamily: 'inherit',
         userSelect: 'none'
       }}>
-        {/* Glowing aura background */}
+        {/* Subtle accent glow */}
         <div style={{
           position: 'absolute',
-          width: 500,
-          height: 500,
+          width: 400,
+          height: 400,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(147, 51, 234, 0.12) 0%, rgba(59, 110, 255, 0.04) 50%, transparent 100%)',
-          filter: 'blur(60px)',
-          animation: 'pulseGlow 8s infinite alternate'
+          background: 'radial-gradient(circle, var(--accent-bg) 0%, transparent 70%)',
+          filter: 'blur(50px)',
+          animation: 'pulseGlow 6s infinite alternate'
         }} />
 
-        {/* Logo Container */}
+        {/* Logo + progress */}
         <div style={{
           position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 24,
-          animation: 'splashFadeIn 1.8s cubic-bezier(0.16, 1, 0.3, 1) both'
+          gap: 20,
+          animation: 'splashFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) both'
         }}>
-          <img 
-            src={splashImg} 
-            alt="Meg" 
-            style={{
-              width: 'min(68vw, 480px)',
-              height: 'auto',
-              maxHeight: 180,
-              borderRadius: 18,
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.65), 0 0 40px rgba(168, 85, 247, 0.15)',
-              objectFit: 'contain',
-              animation: 'zoomSlow 4.5s cubic-bezier(0.16, 1, 0.3, 1) forwards'
-            }} 
-          />
-
-          {/* Minimalist Apple-like progress indicator */}
           <div style={{
-            width: 140,
+            width: 56, height: 56, borderRadius: 14,
+            background: 'var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 24px var(--accent-bg)',
+            animation: 'zoomSlow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+          }}>
+            <span style={{fontSize:24,color:'#fff',fontWeight:800,letterSpacing:'-0.03em'}}>M</span>
+          </div>
+
+          {/* Minimal progress bar */}
+          <div style={{
+            width: 120,
             height: 2,
-            background: 'rgba(255, 255, 255, 0.08)',
+            background: 'var(--border)',
             borderRadius: 99,
             overflow: 'hidden',
-            marginTop: 16,
             position: 'relative'
           }}>
             <div style={{
               position: 'absolute',
               height: '100%',
-              background: 'linear-gradient(90deg, #3b82f6, #a855f7, #ec4899)',
+              background: 'var(--accent)',
               borderRadius: 99,
-              animation: 'loadProgress 3.2s cubic-bezier(0.65, 0, 0.35, 1) forwards',
-              boxShadow: '0 0 8px rgba(168, 85, 247, 0.6)'
+              animation: 'loadProgress 2.5s cubic-bezier(0.65, 0, 0.35, 1) forwards'
             }} />
           </div>
 
           <span style={{
             fontSize: 10,
-            fontWeight: 500,
-            letterSpacing: '0.25em',
+            fontWeight: 600,
+            letterSpacing: '0.2em',
             textTransform: 'uppercase',
-            color: 'rgba(255, 255, 255, 0.3)',
+            color: 'var(--text-3)',
             marginTop: 10,
             animation: 'pulseText 2.5s infinite alternate'
           }}>
@@ -1014,12 +1008,12 @@ const App = () => {
               )}
               {!thread && (
                 <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',textAlign:'center'}}>
-                  <div style={{maxWidth:340}}>
-                    <div style={{width:44,height:44,borderRadius:12,background:'var(--bg-active)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
-                      <Icon name="chat" size={20} color="var(--text-3)"/>
+                  <div style={{maxWidth:360}}>
+                    <div style={{width:56,height:56,borderRadius:14,background:'var(--accent-bg)',border:'1px solid var(--accent-border)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 18px'}}>
+                      <Icon name="chat" size={24} color="var(--accent)"/>
                     </div>
-                    <h2 style={{fontSize:16,fontWeight:700,color:'var(--text)',marginBottom:8}}>No chats yet</h2>
-                    <p style={{fontSize:13,color:'var(--text-3)',lineHeight:1.6}}>Start a conversation below or create a new task from the tray.</p>
+                    <h2 style={{fontSize:17,fontWeight:700,color:'var(--text)',marginBottom:6,letterSpacing:'-0.01em'}}>Start a conversation</h2>
+                    <p style={{fontSize:13,color:'var(--text-3)',lineHeight:1.6}}>Ask Meg anything, paste code for review, or drop an image to analyze. Use <kbd style={{background:'var(--bg-active)',padding:'1px 5px',borderRadius:4,fontSize:11,border:'1px solid var(--border)',color:'var(--text-2)'}}>⌘K</kbd> to search.</p>
                   </div>
                 </div>
               )}
