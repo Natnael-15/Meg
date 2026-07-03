@@ -177,6 +177,13 @@ function createIpcHarness() {
       deleteTemplate: vi.fn(),
       BUILTIN_TEMPLATES: [],
     };
+    if (id === './semanticSearch') return {
+      semanticSearch: vi.fn(async () => []),
+      hasEmbeddingsEndpoint: vi.fn(async () => false),
+      scoreFile: vi.fn(() => 0),
+      getFileTypeWeight: vi.fn(() => 1),
+      SOURCE_EXTENSIONS: new Set(),
+    };
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/ipc.js'));
 

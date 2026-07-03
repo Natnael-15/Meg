@@ -204,6 +204,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   savePromptTemplate(t)   { return ipcRenderer.invoke('templates:save', t); },
   deletePromptTemplate(id){ return ipcRenderer.invoke('templates:delete', id); },
 
+  // ── Semantic search ──────────────────────────────────────
+  semanticSearch(workspaceId, query, limit) { return ipcRenderer.invoke('search:semantic', workspaceId, query, limit); },
+
   // ── Conversation export/import ───────────────────────────
   exportThread(threadId, format) { return ipcRenderer.invoke('thread:export', threadId, format); },
   importThread(content, format)  { return ipcRenderer.invoke('thread:import', content, format); },

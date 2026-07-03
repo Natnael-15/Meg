@@ -507,6 +507,23 @@ function setupIPC(win) {
     return { ok: true };
   });
 
+  // ── Semantic search ────────────────────────────────────────────────
+  // Scored file search across the workspace inventory. Falls back to the
+  // existing substring match when the query doesn't benefit from scoring.
+  const semanticSearch = require('./semanticSearch');
+  ipcMain.handle('search:semantic', async (_, workspaceId, query, limit) => {
+    try {
+      const ws = await workspace.resolveWorkspace(workspaceId);
+      if (!ws) return { ok: false, error: 'Workspace not found', results: [] };
+      const current = await workspace.refreshWorkspaceMeta(ws.id);
+      const inventory = Array.isArray(current?.inventory) ? current.inventory : [];
+      const results = await semanticSearch.semanticSearch(inventory, query, limit || 50, false);
+      return { ok: true, results, total: results.length };
+    } catch (e) {
+      return { ok: false, error: e.message, results: [] };
+    }
+  });
+
   // ── Conversation export/import ─────────────────────────────────────
   // Export a thread as JSON or Markdown; import restores it.
   ipcMain.handle('thread:export', async (_, threadId, format = 'json') => {

@@ -12,6 +12,7 @@ import { WinTitleBar } from './components/WinTitleBar.jsx';
 import { Onboarding } from './components/Onboarding.jsx';
 import { CommandPalette } from './components/CommandPalette.jsx';
 import { TokenBudgetBar } from './components/TokenBudgetBar.jsx';
+import { ShortcutsOverlay } from './components/ShortcutsOverlay.jsx';
 import { mapAgentRun } from './lib/agentRuns.js';
 import { SKILLS, autoDetectSkill, loadCustomSkills, getAllSkills } from './lib/skills.js';
 import { dismissNotification, markAllNotificationsRead, normalizeEventList, normalizeNotificationList, upsertEvent, upsertNotification } from './lib/activity.js';
@@ -88,6 +89,7 @@ const App = () => {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [quickCapOpen, setQuickCapOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [smsOpen, setSmsOpen] = useState(false);
@@ -262,12 +264,13 @@ const App = () => {
     document.documentElement.style.setProperty('--accent-border', dark?(darkBdMap[accent]||darkBdMap.blue):(bdMap[accent]||bdMap.blue));
   }, [accent, dark]);
 
-  // ⌘K, Ctrl+F and Ctrl+Shift+M
+  // ⌘K, Ctrl+F, Ctrl+Shift+M, and ? (shortcuts overlay)
   useEffect(()=>{
     const h = e => {
       if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();setCmdOpen(o=>!o);}
       if((e.ctrlKey||e.metaKey)&&e.key==='f'){e.preventDefault();setIsSearchOpen(true);}
       if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key==='M'){e.preventDefault();setQuickCapOpen(o=>!o);}
+      if(e.key==='?'&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&e.target.tagName!=='INPUT'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();setShortcutsOpen(o=>!o);}
     };
     window.addEventListener('keydown',h);
     return ()=>window.removeEventListener('keydown',h);
@@ -787,6 +790,7 @@ const App = () => {
 
       {showOnboarding && <Onboarding onDone={()=>setOnboardingCompleted(true)} onModelChange={m=>{setActiveModel(m);window.electronAPI?.setSetting?.('model',m);}} onOpenSettings={()=>{setOnboardingCompleted(true); setNav('settings');}} currentModel={activeModel} telegramConnected={telegramConnected} lmStatus={lmStatus}/>}
       {cmdOpen && <CommandPalette onClose={()=>setCmdOpen(false)} onAction={handleCmd} threads={threads} workspaces={workspaces} activeFile={activeFile}/>}
+      {shortcutsOpen && <ShortcutsOverlay onClose={()=>setShortcutsOpen(false)}/>}
       {quickCapOpen && <QuickCapture onClose={()=>setQuickCapOpen(false)} onSend={(t)=>{setNav('chat');addMessage(t);}} recentItems={quickCaptureItems}/>}
       {trayOpen && <TrayFlyout notifs={notifs} approvals={approvals} onApprove={approveTool} onDeny={denyTool} onClose={()=>setTrayOpen(false)} onMarkAllRead={()=>{ setNotifs(current => { const next = markAllNotificationsRead(current); next.filter(n => n.read && !current.find(c => c.id === n.id)?.read).forEach(n => window.electronAPI?.upsertNotification?.(n)); return next; }); }} onOpenMeg={openMegFromTray} onNewTask={createTaskFromTray}/>}
 
