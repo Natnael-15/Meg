@@ -33,6 +33,7 @@ import {
 } from './lib/appHelpers.js';
 import { buildSystemPrompt, buildFileContextMessage } from './lib/systemPrompt.js';
 import { isThinkingModel } from './lib/models.js';
+import { reviewFile, addEvent } from './lib/actions.js';
 import { useUpdater } from './hooks/useUpdater.js';
 import { useApprovals } from './hooks/useApprovals.js';
 import { useTelegram } from './hooks/useTelegram.js';
@@ -102,9 +103,7 @@ const App = () => {
     setTrayOpen(true);
   }, []);
   const handleStagedWrite = useCallback((approval) => {
-    window.dispatchEvent(new CustomEvent('meg:action', {
-      detail: { action: 'reviewFile', value: { approval } },
-    }));
+    reviewFile({ approval });
   }, []);
   const { approvals, setApprovals, approve: approveTool, deny: denyTool } = useApprovals({
     onCreated: handleApprovalCreated,
@@ -143,9 +142,7 @@ const App = () => {
   const telegramChatIdRef = useRef('');
   const handleTelegramIncoming = useCallback((msg) => {
     setNotifs((current) => upsertNotification(current, buildTelegramNotification(msg, telegramChatIdRef.current)));
-    window.dispatchEvent(new CustomEvent('meg:action', {
-      detail: { action: 'addEvent', value: buildTelegramEvent(msg) },
-    }));
+    addEvent(buildTelegramEvent(msg));
   }, []);
   const {
     integrations, setIntegrations,
@@ -897,7 +894,7 @@ const App = () => {
       {nav==='workspace' && <NavSection id="workspace"><WorkspaceView events={events} threads={threads} agentRuns={activeAgents} workspaces={workspaces} setWorkspaces={setWorkspaces} onActiveWorkspace={setActiveWorkspace}/></NavSection>}
       {nav==='timeline' && <NavSection id="timeline"><TimelineView events={events}/></NavSection>}
       {nav==='automations' && <NavSection id="automations"><AutomationsView/></NavSection>}
-      {nav==='agent' && <NavSection id="agent"><AgentDashboard activeAgents={activeAgents} onReviewFile={(target)=>window.dispatchEvent(new CustomEvent('meg:action',{detail:{action:'reviewFile',value:target}}))}/></NavSection>}
+      {nav==='agent' && <NavSection id="agent"><AgentDashboard activeAgents={activeAgents} onReviewFile={reviewFile}/></NavSection>}
       {nav==='filebrowser' && <NavSection id="filebrowser"><FileBrowser/></NavSection>}
       {nav==='build' && <NavSection id="build"><AgentBuilder/></NavSection>}
       {nav==='mobile' && <NavSection id="mobile"><MobileCompanion messages={telegramMessages} connected={telegramConnected} contactName={telegramContactName} onSend={sendTelegramMessage} sendError={telegramSendError}/></NavSection>}
