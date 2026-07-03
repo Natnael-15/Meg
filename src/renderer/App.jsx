@@ -133,6 +133,7 @@ const App = () => {
     return () => clearTimeout(timer);
   }, [loading]);
   const [typing, setTyping] = useState(false);
+  const [redactionNotices, setRedactionNotices] = useState({}); // { [threadId]: { count, provider, ts } }
   const [lmStatus, setLmStatus] = useState(undefined);
   const [activeModel, setActiveModel] = useState('qwen/qwen3.5-9b');
   const [memoryEnabled, setMemoryEnabled] = useState(true);
@@ -519,6 +520,13 @@ const App = () => {
       }));
     });
 
+    api.onRedacted(({count, provider, threadId})=>{
+      // Store the redaction notice so the chat header can show a badge
+      // ("3 secrets redacted before sending to OpenAI"). Overwrites any
+      // previous notice for this thread — the latest turn wins.
+      setRedactionNotices(prev => ({ ...prev, [threadId]: { count, provider, ts: Date.now() } }));
+    });
+
     api.onDone(({threadId})=>{
       setTyping(false);
       updateThreads(ts=>ts.map(t=>{
@@ -608,7 +616,7 @@ const App = () => {
       }));
     });
 
-    return ()=>api.removeListeners('chat:chunk','chat:done','chat:error','chat:tool_call','chat:tool_result','chat:resume','chat:thinking');
+    return ()=>api.removeListeners('chat:chunk','chat:done','chat:error','chat:tool_call','chat:tool_result','chat:resume','chat:thinking','chat:redacted');
   }, []);
 
   const addMessage = async (text, opts = {}) => {
@@ -1054,6 +1062,14 @@ const App = () => {
               {thread?.messages?.length > 0 && (
                 <TokenBudgetBar messages={thread.messages} model={activeModel} />
               )}
+              {redactionNotices[activeId] && (
+                <span
+                  title={`${redactionNotices[activeId].count} secret${redactionNotices[activeId].count > 1 ? 's' : ''} were redacted before sending to ${redactionNotices[activeId].provider}. Your API keys and tokens are stripped from the context before it leaves your machine.`}
+                  style={{fontSize:10,padding:'2px 8px',borderRadius:99,background:'rgba(124,58,237,0.12)',color:'#7c3aed',border:'1px solid rgba(124,58,237,0.3)',fontWeight:500,display:'flex',alignItems:'center',gap:4,cursor:'default',userSelect:'none',flexShrink:0}}
+                >
+                  🔒 {redactionNotices[activeId].count} redacted
+                </span>
+              )}
             </div>
             <div style={{display:'flex',gap:6,alignItems:'center'}}>
               {/* Workspace switcher */}
@@ -1126,7 +1142,13 @@ const App = () => {
               {thread?.messages.map(msg=>{
                 if(msg.role==='agent')     return <AgentCard key={msg.id} step={msg}/>;
                 if(msg.role==='tool_call') return <ToolCallCard key={msg.id} msg={msg}/>;
-                if(msg.role==='user')      return <Message key={msg.id} msg={msg} isUser={true} accent={accent}/>;
+                if(msg.role==='user')      return <Message key={msg.id} msg={msg} isUser={true} accent={accent} onFork={async (messageId) => {
+                  const r = await window.electronAPI?.forkThread?.(activeId, messageId);
+                  if (r?.ok && r.thread) {
+                    updateThreads(ts => [normalizeThread(r.thread), ...ts]);
+                    setActiveId(r.thread.id);
+                  }
+                }}/>;
                 return <Message key={msg.id} msg={msg} accent={accent}/>;
               })}
               {typing && <TypingIndicator/>}

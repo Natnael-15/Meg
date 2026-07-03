@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onWaitingApproval(cb) { ipcRenderer.on('chat:waiting_approval', (_, d) => cb(d)); },
   onResume(cb)     { ipcRenderer.on('chat:resume',      (_, d) => cb(d)); },
   onThinking(cb)   { ipcRenderer.on('chat:thinking',    (_, d) => cb(d)); },
+  onRedacted(cb)   { ipcRenderer.on('chat:redacted',    (_, d) => cb(d)); },
   
   removeListeners(...channels) {
     channels.forEach(ch => ipcRenderer.removeAllListeners(ch));
@@ -47,6 +48,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   upsertThread(item)    { return ipcRenderer.invoke('thread:upsert', item); },
   deleteThread(id)      { return ipcRenderer.invoke('thread:delete', id); },
   saveThreads(items)    { return ipcRenderer.invoke('thread:saveAll', items); },
+  forkThread(sourceThreadId, fromMessageId) { return ipcRenderer.invoke('thread:fork', sourceThreadId, fromMessageId); },
 
   // ── Activity ─────────────────────────────────────────────
   listNotifications()   { return ipcRenderer.invoke('activity:listNotifications'); },
@@ -174,4 +176,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   reloadCustomSkills()    { return ipcRenderer.invoke('skills:reload'); },
   saveCustomSkill(skillJson) { return ipcRenderer.invoke('skills:save', skillJson); },
   deleteCustomSkill(id)   { return ipcRenderer.invoke('skills:delete', id); },
+
+  // ── OS keychain (safeStorage) ────────────────────────────
+  isKeychainAvailable()   { return ipcRenderer.invoke('keychain:isAvailable'); },
+  getKeychainSecret(key)  { return ipcRenderer.invoke('keychain:get', key); },
+  setKeychainSecret(key, value) { return ipcRenderer.invoke('keychain:set', key, value); },
+  deleteKeychainSecret(key) { return ipcRenderer.invoke('keychain:delete', key); },
+  listKeychainSecrets()   { return ipcRenderer.invoke('keychain:list'); },
+  migrateKeychain()       { return ipcRenderer.invoke('keychain:migrate'); },
+
+  // ── Screenshot capture ───────────────────────────────────
+  captureScreen()         { return ipcRenderer.invoke('screenshot:captureScreen'); },
+  captureWindow(windowId) { return ipcRenderer.invoke('screenshot:captureWindow', windowId); },
+  listScreenshotSources() { return ipcRenderer.invoke('screenshot:listSources'); },
 });

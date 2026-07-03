@@ -64,6 +64,7 @@ const createElectronApiMock = () => {
   onToolResult: register('chat:tool_result'),
   onResume: register('chat:resume'),
   onThinking: register('chat:thinking'),
+  onRedacted: register('chat:redacted'),
   onWaitingApproval: register('chat:waiting_approval'),
   ping: vi.fn(async () => ({ ok: true })),
   removeListeners: vi.fn((...names) => {

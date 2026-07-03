@@ -114,6 +114,48 @@ function remove(id) {
   return next;
 }
 
+/**
+ * Fork a thread from a specific message.
+ *
+ * Creates a new thread that is a copy of the source thread up to (and
+ * including) the message with `fromMessageId`. The new thread gets a fresh
+ * id, a "(fork)" suffix on the title, and a `forkedFrom` reference pointing
+ * back to the source thread + message. Messages after `fromMessageId` are
+ * dropped — the user can take the conversation in a different direction.
+ *
+ * If `fromMessageId` is null, the entire thread is copied (full clone).
+ *
+ * Returns the new thread, or null if the source thread doesn't exist.
+ */
+function fork(sourceThreadId, fromMessageId = null) {
+  const source = list().find((t) => t.id === sourceThreadId);
+  if (!source) return null;
+  const sourceMessages = Array.isArray(source.messages) ? source.messages : [];
+  let cutMessages;
+  if (fromMessageId) {
+    const cutIdx = sourceMessages.findIndex((m) => m.id === fromMessageId);
+    if (cutIdx === -1) return null;
+    cutMessages = sourceMessages.slice(0, cutIdx + 1);
+  } else {
+    cutMessages = [...sourceMessages];
+  }
+  const newId = `chat-${Date.now()}`;
+  const forked = normalizeThread({
+    ...source,
+    id: newId,
+    title: `${source.title || 'Chat'} (fork)`,
+    subtitle: 'Forked conversation',
+    messages: cutMessages,
+    forkedFrom: { threadId: sourceThreadId, messageId: fromMessageId, at: new Date().toISOString() },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    unread: false,
+  });
+  const next = normalizeList([forked, ...list()]);
+  db.saveAll('threads', next);
+  return forked;
+}
+
 module.exports = {
   THREAD_SCHEMA_VERSION,
   MAX_THREADS,
@@ -122,5 +164,6 @@ module.exports = {
   saveAll,
   upsert,
   remove,
+  fork,
   normalizeThread,
 };

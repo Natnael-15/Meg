@@ -314,7 +314,33 @@ async function completeChat(messages, model = DEFAULT_MODEL, baseUrl = DEFAULT_U
 async function* streamChat(messages, threadId, model = DEFAULT_MODEL, thinking = true, baseUrl = DEFAULT_URL, toolContext = {}) {
   const provider = resolveProvider(model);
   const { ctrl } = toolContext;
-  const history = [...messages];
+
+  // ── Cloud context redaction ──────────────────────────────────────────
+  // When sending to a cloud provider (OpenAI/Anthropic/Google/DeepSeek),
+  // scan the message history for secrets (API keys, tokens, PEM blocks,
+  // env-style passwords) and replace them with [REDACTED:...] placeholders
+  // BEFORE the request leaves the process. Local LM Studio models skip
+  // this — the data never leaves the user's machine.
+  let history = [...messages];
+  let redactionCount = 0;
+  if (provider !== 'lmstudio') {
+    try {
+      const { redactMessages } = require('./redact');
+      const result = redactMessages(history);
+      history = result.messages;
+      redactionCount = result.totalRedacted;
+      if (redactionCount > 0) {
+        // Surface the redaction to the renderer so the UI can show a
+        // "X secrets were redacted before sending to <provider>" badge.
+        // We yield a special non-text event that the IPC layer forwards.
+        yield { type: 'redacted', count: redactionCount, provider };
+      }
+    } catch {
+      // Redaction should never block a chat turn — if it fails, send the
+      // original history. Better to risk a secret than to break the chat.
+    }
+  }
+
   const apiKeys = settings.get('apiKeys') || {};
 
   // Per-agent tool allowlist. When set (a Set of tool names), the LLM only

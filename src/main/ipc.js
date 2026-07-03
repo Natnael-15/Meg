@@ -151,6 +151,14 @@ function setupIPC(win) {
   ipcMain.handle('thread:upsert',  (_, item)    => ({ ok: true, item: threadStore.upsert(item) }));
   ipcMain.handle('thread:delete',  (_, id)      => ({ ok: true, items: threadStore.remove(id) }));
   ipcMain.handle('thread:saveAll', (_, items)   => ({ ok: true, items: threadStore.saveAll(items) }));
+  ipcMain.handle('thread:fork', (_, sourceThreadId, fromMessageId) => {
+    try {
+      const forked = threadStore.fork(sourceThreadId, fromMessageId);
+      return forked ? { ok: true, thread: forked } : { ok: false, error: 'Source thread or message not found' };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
 
   // ── Activity ─────────────────────────────────────────────
   ipcMain.handle('activity:listNotifications',     ()       => activityStore.listNotifications());
@@ -224,6 +232,11 @@ function setupIPC(win) {
           win.webContents.send('chat:tool_result', { id: item.id, name: item.name, result: item.result, threadId });
         } else if (item.type === 'resume') {
           win.webContents.send('chat:resume', { threadId });
+        } else if (item.type === 'redacted') {
+          // Cloud-context redaction notice — forwarded so the renderer can
+          // show a "N secrets were redacted before sending to <provider>"
+          // badge on the message.
+          win.webContents.send('chat:redacted', { count: item.count, provider: item.provider, threadId });
         }
       }
       if (!ctrl.cancelled) win.webContents.send('chat:done', { threadId });
@@ -442,6 +455,34 @@ function setupIPC(win) {
       return { ok: false, error: e.message };
     }
   });
+
+  // ── OS keychain (safeStorage) ──────────────────────────────────────
+  // Encrypt API keys + Telegram token via the OS-native credential store.
+  // Falls back to plaintext settings if safeStorage is unavailable.
+  const keychain = require('./keychain');
+  ipcMain.handle('keychain:isAvailable', () => keychain.isAvailable());
+  ipcMain.handle('keychain:get', (_, key) => keychain.getSecret(key));
+  ipcMain.handle('keychain:set', (_, key, value) => {
+    try { keychain.setSecret(key, value); return { ok: true }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  });
+  ipcMain.handle('keychain:delete', (_, key) => {
+    keychain.deleteSecret(key);
+    return { ok: true };
+  });
+  ipcMain.handle('keychain:list', () => {
+    const all = keychain.loadAll();
+    return Object.keys(all).map(k => ({ key: k, hasValue: !!all[k] }));
+  });
+  ipcMain.handle('keychain:migrate', () => keychain.migrateFromPlaintext());
+
+  // ── Screenshot capture ─────────────────────────────────────────────
+  // Grab the screen or a specific window as a PNG data URL. The renderer
+  // attaches the result to the next chat message as a vision input.
+  const screenshot = require('./screenshot');
+  ipcMain.handle('screenshot:captureScreen', async () => screenshot.captureScreen());
+  ipcMain.handle('screenshot:captureWindow', async (_, windowId) => screenshot.captureWindow(windowId));
+  ipcMain.handle('screenshot:listSources', async () => screenshot.listSources());
 }
 
 module.exports = { setupIPC };

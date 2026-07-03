@@ -155,6 +155,21 @@ function createIpcHarness() {
       getSkillsDirPath: vi.fn(() => '/tmp/skills'),
       ensureSkillsDir: vi.fn(() => '/tmp/skills'),
     };
+    if (id === './keychain') return {
+      isAvailable: vi.fn(() => false),
+      getSecret: vi.fn(() => null),
+      setSecret: vi.fn(),
+      deleteSecret: vi.fn(),
+      loadAll: vi.fn(() => ({})),
+      invalidateCache: vi.fn(),
+      migrateFromPlaintext: vi.fn(() => ({ migrated: [], skipped: [] })),
+      SECRET_KEYS: [],
+    };
+    if (id === './screenshot') return {
+      captureScreen: vi.fn(async () => ({ ok: true, dataUrl: 'data:image/png;base64,abc', width: 1920, height: 1080, name: 'screenshot.png', mime: 'image/png', sizeBytes: 100 })),
+      captureWindow: vi.fn(async () => ({ ok: true, dataUrl: 'data:image/png;base64,abc', width: 800, height: 600, name: 'window.png', mime: 'image/png', sizeBytes: 100 })),
+      listSources: vi.fn(async () => []),
+    };
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/ipc.js'));
 

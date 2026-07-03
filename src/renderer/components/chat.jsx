@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from './icons.jsx';
 import { StatusBadge } from './primitives.jsx';
 import MarkdownRenderer from './MarkdownRenderer.jsx';
+import { SpeakButton } from './SpeakButton.jsx';
 
 export const TypingIndicator = () => (
   <div className="msg-enter" style={{display:'flex',gap:8,marginBottom:14,alignItems:'flex-start'}}>
@@ -165,17 +166,36 @@ const ThinkBlock = ({text, unfinished}) => {
   );
 };
 
-export const Message = ({msg,isUser,accent}) => {
+export const Message = ({msg,isUser,accent,onFork}) => {
   const renderBody = (text, streaming) => (text||'').split(/(<think>[\s\S]*?<\/think>)/g).map((p,i)=>
     p.startsWith('<think>')&&p.endsWith('<\/think>')
       ?<ThinkBlock key={`think-${i}`} text={p.slice(7,-8)} unfinished={streaming}/>
       :<React.Fragment key={`text-${i}`}><MarkdownRenderer>{p}</MarkdownRenderer></React.Fragment>
   );
   if(isUser) return (
-    <div className="msg-enter" style={{display:'flex',justifyContent:'flex-end',marginBottom:14}}>
+    <div className="msg-enter" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',marginBottom:14,gap:4}}>
       <div style={{maxWidth:'70%',padding:'9px 13px',background:accent==='warm'?'#3d2b1f':accent==='green'?'#1a3d2b':'var(--accent)',color:'#fff',borderRadius:'10px 10px 3px 10px',fontSize:13.5,lineHeight:1.55,boxShadow:'0 1px 3px rgba(0,0,0,0.15)'}}>
+        {msg.images && msg.images.length > 0 && (
+          <div style={{display:'flex',gap:4,flexWrap:'wrap',marginBottom:msg.text?8:0}}>
+            {msg.images.map((img, i) => (
+              <img key={i} src={img.dataUrl} alt={img.name} style={{width:120,height:120,objectFit:'cover',borderRadius:6,display:'block'}}/>
+            ))}
+          </div>
+        )}
         {renderInline(msg.text)}
       </div>
+      {onFork && !msg.streaming && (
+        <button
+          onClick={() => onFork(msg.id)}
+          title="Fork conversation from this message — creates a new chat with everything up to here"
+          style={{fontSize:10,color:'var(--text-3)',background:'transparent',border:'none',cursor:'pointer',padding:'2px 6px',borderRadius:4,opacity:0,transition:'opacity 0.15s',display:'flex',alignItems:'center',gap:3}}
+          className="msg-fork-btn"
+          onMouseEnter={e=>{e.currentTarget.style.opacity='1';e.currentTarget.style.color='var(--accent)';}}
+          onMouseLeave={e=>{e.currentTarget.style.opacity='0';e.currentTarget.style.color='var(--text-3)';}}
+        >
+          <Icon name="splitH" size={10}/> Fork from here
+        </button>
+      )}
     </div>
   );
   if(!msg.text && !msg.streaming && !isUser) return null; // Don't render empty non-streaming meg messages
@@ -196,6 +216,11 @@ export const Message = ({msg,isUser,accent}) => {
             </div>
           )}
         </div>
+        {!msg.streaming && msg.text && (
+          <div style={{display:'flex',alignItems:'center',gap:4,marginTop:4,opacity:0.6,transition:'opacity 0.15s'}} className="msg-actions">
+            <SpeakButton text={msg.text} compact/>
+          </div>
+        )}
       </div>
     </div>
   );

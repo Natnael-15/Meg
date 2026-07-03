@@ -429,6 +429,21 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
               <span style={{position:'absolute',top:2,right:2,fontSize:8,fontWeight:700,color:'#fff',background:'var(--accent)',borderRadius:'50%',width:12,height:12,display:'flex',alignItems:'center',justifyContent:'center'}}>{pendingImages.length}</span>
             )}
           </button>
+          {/* Screenshot capture button — grabs the primary screen and attaches it as an image */}
+          <button
+            title="Capture screenshot (attach to next message)"
+            onClick={async () => {
+              const result = await window.electronAPI?.captureScreen?.();
+              if (result?.ok && result.dataUrl) {
+                addImageFiles([new File([await (await fetch(result.dataUrl)).blob()], result.name || `screenshot-${Date.now()}.png`, { type: 'image/png' })]);
+              }
+            }}
+            style={{width:30,height:30,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--text-3)',background:'transparent',border:'none',transition:'background 0.12s,color 0.12s'}}
+            onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-hover)';e.currentTarget.style.color='var(--text-2)';}}
+            onMouseLeave={e=>{e.currentTarget.style.background='none';e.currentTarget.style.color='var(--text-3)';}}
+          >
+            <Icon name="appearance" size={15}/>
+          </button>
           <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
           {/* Skill picker button */}
           <button data-skill-picker onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
