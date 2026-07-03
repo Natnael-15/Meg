@@ -3,7 +3,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { getModels, ping, streamChat } = require('./lmstudio');
 const { getBot, validate: validateTelegram, findChatId } = require('./telegram');
-const { getStatus } = require('./git');
+const { getStatus, getDetailedStatus, stage, unstage, commit, getDiff, getLog, getBranches, checkout } = require('./git');
 const settings = require('./settings');
 const db = require('./db');
 const workspace = require('./workspace');
@@ -29,6 +29,14 @@ function setupIPC(win) {
 
   // ── Git ───────────────────────────────────────────────────
   ipcMain.handle('git:status', (_, dirPath) => getStatus(dirPath));
+  ipcMain.handle('git:detailedStatus', async (_, dirPath) => getDetailedStatus(dirPath));
+  ipcMain.handle('git:stage', async (_, dirPath, paths) => stage(dirPath, paths));
+  ipcMain.handle('git:unstage', async (_, dirPath, paths) => unstage(dirPath, paths));
+  ipcMain.handle('git:commit', async (_, dirPath, message) => commit(dirPath, message));
+  ipcMain.handle('git:diff', async (_, dirPath, filePath, staged) => getDiff(dirPath, filePath, staged));
+  ipcMain.handle('git:log', async (_, dirPath, limit) => getLog(dirPath, limit));
+  ipcMain.handle('git:branches', async (_, dirPath) => getBranches(dirPath));
+  ipcMain.handle('git:checkout', async (_, dirPath, branch) => checkout(dirPath, branch));
 
   // ── Workspaces ────────────────────────────────────────────
   ipcMain.handle('workspace:list', async () => workspace.listWithMeta());
@@ -483,6 +491,157 @@ function setupIPC(win) {
   ipcMain.handle('screenshot:captureScreen', async () => screenshot.captureScreen());
   ipcMain.handle('screenshot:captureWindow', async (_, windowId) => screenshot.captureWindow(windowId));
   ipcMain.handle('screenshot:listSources', async () => screenshot.listSources());
+
+  // ── Prompt templates ───────────────────────────────────────────────
+  // Save/reuse common prompts. Built-ins ship with Meg; user templates
+  // override on id collision.
+  const promptTemplates = require('./promptTemplates');
+  ipcMain.handle('templates:list', () => promptTemplates.getAllTemplates());
+  ipcMain.handle('templates:listUser', () => promptTemplates.getUserTemplates());
+  ipcMain.handle('templates:save', (_, template) => {
+    try { return { ok: true, template: promptTemplates.saveTemplate(template) }; }
+    catch (e) { return { ok: false, error: e.message }; }
+  });
+  ipcMain.handle('templates:delete', (_, id) => {
+    promptTemplates.deleteTemplate(id);
+    return { ok: true };
+  });
+
+  // ── Conversation export/import ─────────────────────────────────────
+  // Export a thread as JSON or Markdown; import restores it.
+  ipcMain.handle('thread:export', async (_, threadId, format = 'json') => {
+    try {
+      const thread = threadStore.list().find(t => t.id === threadId);
+      if (!thread) return { ok: false, error: 'Thread not found' };
+      if (format === 'markdown' || format === 'md') {
+        const md = exportThreadAsMarkdown(thread);
+        return { ok: true, content: md, filename: `${sanitizeFilename(thread.title)}-${thread.id}.md` };
+      }
+      return { ok: true, content: JSON.stringify(thread, null, 2), filename: `${sanitizeFilename(thread.title)}-${thread.id}.json` };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+  ipcMain.handle('thread:import', async (_, content, format = 'json') => {
+    try {
+      let thread;
+      if (format === 'json') {
+        thread = JSON.parse(content);
+      } else {
+        thread = importThreadFromMarkdown(content);
+      }
+      // Give it a fresh id so it doesn't collide with an existing thread.
+      thread.id = `chat-${Date.now()}`;
+      thread.createdAt = new Date().toISOString();
+      thread.updatedAt = new Date().toISOString();
+      thread.forkedFrom = { imported: true, at: new Date().toISOString() };
+      const saved = threadStore.upsert(thread);
+      return { ok: true, thread: saved };
+    } catch (e) {
+      return { ok: false, error: e.message };
+    }
+  });
+}
+
+// ─── Conversation export/import helpers ───────────────────────────────────
+
+function sanitizeFilename(name) {
+  return String(name || 'chat').replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'chat';
+}
+
+function exportThreadAsMarkdown(thread) {
+  const lines = [];
+  lines.push(`# ${thread.title || 'Conversation'}`);
+  lines.push('');
+  lines.push(`> Exported from Meg on ${new Date().toISOString()}`);
+  lines.push(`> Thread ID: \`${thread.id}\``);
+  if (thread.createdAt) lines.push(`> Created: ${thread.createdAt}`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+  for (const msg of thread.messages || []) {
+    if (msg.role === 'user') {
+      lines.push(`## You`);
+      lines.push('');
+      lines.push(msg.text || '');
+      lines.push('');
+    } else if (msg.role === 'meg') {
+      lines.push(`## Meg`);
+      lines.push('');
+      if (msg.thinking) {
+        lines.push('<details><summary>Thinking</summary>');
+        lines.push('');
+        lines.push(msg.thinking);
+        lines.push('');
+        lines.push('</details>');
+        lines.push('');
+      }
+      lines.push(msg.text || '');
+      lines.push('');
+    } else if (msg.role === 'tool_call') {
+      lines.push(`### 🔧 Tool: \`${msg.name}\``);
+      lines.push('');
+      lines.push('```json');
+      lines.push(JSON.stringify(msg.args, null, 2));
+      lines.push('```');
+      if (msg.result) {
+        lines.push('');
+        lines.push('*Result:*');
+        lines.push('```');
+        lines.push(typeof msg.result === 'string' ? msg.result : JSON.stringify(msg.result, null, 2));
+        lines.push('```');
+      }
+      lines.push('');
+    }
+  }
+  return lines.join('\n');
+}
+
+function importThreadFromMarkdown(content) {
+  // Simple parser: extracts the title from the first # heading, then
+  // splits on ## headings to recover messages. This is best-effort —
+  // round-tripping through markdown loses tool_call structure, so we
+  // import as user/meg text pairs only.
+  const lines = content.split('\n');
+  let title = 'Imported conversation';
+  const messages = [];
+  let currentRole = null;
+  let currentText = [];
+
+  const flush = () => {
+    if (currentRole && currentText.length) {
+      messages.push({
+        id: `msg-${Date.now()}-${messages.length}`,
+        role: currentRole,
+        text: currentText.join('\n').trim(),
+      });
+    }
+    currentText = [];
+  };
+
+  for (const line of lines) {
+    if (line.startsWith('# ')) {
+      title = line.slice(2).trim();
+    } else if (line.startsWith('## You')) {
+      flush();
+      currentRole = 'user';
+    } else if (line.startsWith('## Meg')) {
+      flush();
+      currentRole = 'meg';
+    } else if (line.startsWith('---')) {
+      flush();
+    } else if (currentRole) {
+      currentText.push(line);
+    }
+  }
+  flush();
+
+  return {
+    title,
+    subtitle: 'Imported from Markdown',
+    messages,
+    iconName: 'chat',
+  };
 }
 
 module.exports = { setupIPC };

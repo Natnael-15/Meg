@@ -33,7 +33,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSetting(key)       { return ipcRenderer.invoke('settings:get', key); },
 
   // ── Git ───────────────────────────────────────────────────
-  gitStatus(dirPath)    { return ipcRenderer.invoke('git:status', dirPath); },
+  gitStatus(dirPath)          { return ipcRenderer.invoke('git:status', dirPath); },
+  gitDetailedStatus(dirPath)  { return ipcRenderer.invoke('git:detailedStatus', dirPath); },
+  gitStage(dirPath, paths)    { return ipcRenderer.invoke('git:stage', dirPath, paths); },
+  gitUnstage(dirPath, paths)  { return ipcRenderer.invoke('git:unstage', dirPath, paths); },
+  gitCommit(dirPath, message) { return ipcRenderer.invoke('git:commit', dirPath, message); },
+  gitDiff(dirPath, filePath, staged) { return ipcRenderer.invoke('git:diff', dirPath, filePath, staged); },
+  gitLog(dirPath, limit)      { return ipcRenderer.invoke('git:log', dirPath, limit); },
+  gitBranches(dirPath)        { return ipcRenderer.invoke('git:branches', dirPath); },
+  gitCheckout(dirPath, branch){ return ipcRenderer.invoke('git:checkout', dirPath, branch); },
 
   // ── Workspaces ────────────────────────────────────────────
   listWorkspaces()      { return ipcRenderer.invoke('workspace:list'); },
@@ -189,4 +197,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   captureScreen()         { return ipcRenderer.invoke('screenshot:captureScreen'); },
   captureWindow(windowId) { return ipcRenderer.invoke('screenshot:captureWindow', windowId); },
   listScreenshotSources() { return ipcRenderer.invoke('screenshot:listSources'); },
+
+  // ── Prompt templates ─────────────────────────────────────
+  listPromptTemplates()   { return ipcRenderer.invoke('templates:list'); },
+  listUserTemplates()     { return ipcRenderer.invoke('templates:listUser'); },
+  savePromptTemplate(t)   { return ipcRenderer.invoke('templates:save', t); },
+  deletePromptTemplate(id){ return ipcRenderer.invoke('templates:delete', id); },
+
+  // ── Conversation export/import ───────────────────────────
+  exportThread(threadId, format) { return ipcRenderer.invoke('thread:export', threadId, format); },
+  importThread(content, format)  { return ipcRenderer.invoke('thread:import', content, format); },
 });

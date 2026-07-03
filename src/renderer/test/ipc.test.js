@@ -170,6 +170,13 @@ function createIpcHarness() {
       captureWindow: vi.fn(async () => ({ ok: true, dataUrl: 'data:image/png;base64,abc', width: 800, height: 600, name: 'window.png', mime: 'image/png', sizeBytes: 100 })),
       listSources: vi.fn(async () => []),
     };
+    if (id === './promptTemplates') return {
+      getAllTemplates: vi.fn(() => []),
+      getUserTemplates: vi.fn(() => []),
+      saveTemplate: vi.fn(),
+      deleteTemplate: vi.fn(),
+      BUILTIN_TEMPLATES: [],
+    };
     throw new Error(`Unexpected module: ${id}`);
   }, module, module.exports, path.resolve(__dirname, '../../main'), path.resolve(__dirname, '../../main/ipc.js'));
 

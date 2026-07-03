@@ -59,6 +59,8 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
   const [matchingFiles, setMatchingFiles] = useState([]);
   const [fileSearchError, setFileSearchError] = useState(false);
   const [skillOpen,setSkillOpen] = useState(false);
+  const [templateOpen,setTemplateOpen] = useState(false);
+  const [templates,setTemplates] = useState([]);
   // Pending image attachments (multi-modal input). Each entry is
   // { name, dataUrl, mime, sizeBytes }. Cleared on send.
   const [pendingImages, setPendingImages] = useState([]);
@@ -236,6 +238,32 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
     return () => document.removeEventListener('mousedown', handler);
   }, [skillOpen]);
 
+  // Load prompt templates on mount + when templateOpen is toggled
+  useEffect(() => {
+    if (!templateOpen) return;
+    window.electronAPI?.listPromptTemplates?.().then(list => {
+      if (Array.isArray(list)) setTemplates(list);
+    });
+  }, [templateOpen]);
+
+  // Close template picker when clicking outside
+  useEffect(() => {
+    if (!templateOpen) return;
+    const handler = (e) => {
+      if (!e.target.closest('[data-template-picker]')) {
+        setTemplateOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [templateOpen]);
+
+  const insertTemplate = (template) => {
+    setVal(prev => prev.trim() ? `${prev}\n\n${template.prompt}` : template.prompt);
+    setTemplateOpen(false);
+    resetHeight();
+  };
+
   return (
     <div style={{padding:'10px 14px',borderTop:'1px solid var(--border-light)',background:'var(--bg)',flexShrink:0}}>
       {/* Skill picker popover */}
@@ -275,6 +303,36 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {/* Template picker popover */}
+      {templateOpen && (
+        <div data-template-picker style={{marginBottom:8,background:'rgba(var(--bg-2-rgb, 255, 255, 255), 0.76)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',border:'1px solid var(--border)',borderRadius:12,padding:'10px',boxShadow:'0 8px 32px var(--shadow-lg)',maxHeight:340,overflowY:'auto',animation:'slideDown 0.15s ease-out'}}>
+          <div style={{fontSize:10,fontWeight:600,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>
+            Prompt Templates — click to insert
+          </div>
+          {templates.length === 0 && (
+            <div style={{fontSize:11,color:'var(--text-3)',padding:'8px 4px'}}>Loading templates…</div>
+          )}
+          {Object.entries(templates.reduce((acc, t) => { (acc[t.category||'Other'] = acc[t.category||'Other'] || []).push(t); return acc; }, {})).map(([cat, items]) => (
+            <div key={cat} style={{marginBottom:10}}>
+              <div style={{fontSize:9,fontWeight:700,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:5}}>{cat}</div>
+              <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                {items.map(t => (
+                  <button key={t.id} onClick={() => insertTemplate(t)}
+                    style={{padding:'7px 10px',borderRadius:7,border:'1px solid var(--border-light)',background:'var(--bg)',cursor:'pointer',display:'flex',alignItems:'center',gap:8,textAlign:'left',transition:'all 0.12s'}}
+                    onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.background='var(--accent-bg)';}}
+                    onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border-light)';e.currentTarget.style.background='var(--bg)';}}>
+                    <span style={{fontSize:13,flexShrink:0}}>{t.icon||'📋'}</span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:11.5,fontWeight:600,color:'var(--text)'}}>{t.name}{t.builtin && <span style={{fontSize:9,color:'var(--text-3)',fontWeight:400,marginLeft:4}}>built-in</span>}</div>
+                      <div style={{fontSize:10,color:'var(--text-3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{t.prompt?.slice(0,80)}…</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {/* Active skill badge */}
@@ -445,6 +503,12 @@ export const InputBar = ({onSend,onAbort,typing,placeholder,thinking,onToggleThi
             <Icon name="appearance" size={15}/>
           </button>
           <VoiceInput onTranscribe={t=>{setVal(t);resetHeight();}}/>
+          {/* Template picker button */}
+          <button data-template-picker onClick={()=>setTemplateOpen(o=>!o)} title="Insert prompt template"
+            style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${templateOpen?'var(--accent-border)':'var(--border)'}`,background:templateOpen?'var(--accent-bg)':'transparent',color:templateOpen?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>
+            <span style={{fontSize:12}}>📋</span>
+            Templates
+          </button>
           {/* Skill picker button */}
           <button data-skill-picker onClick={()=>setSkillOpen(o=>!o)} title="Select skill"
             style={{height:30,padding:'0 8px',borderRadius:6,display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:500,border:`1px solid ${activeSkill?'var(--accent-border)':'var(--border)'}`,background:activeSkill?'var(--accent-bg)':'transparent',color:activeSkill?'var(--accent)':'var(--text-3)',cursor:'pointer',transition:'all 0.15s',flexShrink:0}}>

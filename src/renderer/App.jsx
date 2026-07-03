@@ -972,6 +972,22 @@ const App = () => {
               <button onClick={()=>setSplitOpen(o=>!o)} style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',background:splitOpen?'var(--bg-active)':'transparent',color:splitOpen?'var(--text)':'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,transition:'all 0.12s'}}>
                 <Icon name="splitH" size={12} color={splitOpen?'var(--text)':'var(--text-3)'}/> split
               </button>
+              {activeId && (
+                <button onClick={async () => {
+                  const r = await window.electronAPI?.exportThread?.(activeId, 'markdown');
+                  if (r?.ok) {
+                    const blob = new Blob([r.content], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = r.filename;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }
+                }} title="Export conversation as Markdown" style={{fontSize:11,padding:'3px 8px',borderRadius:5,border:'1px solid var(--border)',color:'var(--text-3)',cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',gap:4,background:'transparent',transition:'all 0.12s'}} onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent-border)';e.currentTarget.style.color='var(--accent)';}} onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)';}}>
+                  <Icon name="extern" size={11}/> Export
+                </button>
+              )}
             </div>
           </div>
           <div style={{flex:1,display:'flex',overflow:'hidden'}}>
