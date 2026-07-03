@@ -12,19 +12,25 @@
 
 <br />
 
-<a href="https://github.com/Natnael-15/Meg/releases/latest">
-  <img src="https://img.shields.io/badge/⬇_Download-Latest_Release-3b6eff?style=for-the-badge&logo=github&logoColor=white" height="40" alt="Download Meg" />
+<a href="https://github.com/Natnael-15/Meg/releases/latest/download/Meg-Setup.exe">
+  <img src="https://img.shields.io/badge/⬇_Download-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="40" alt="Download for Windows" />
 </a>
 &nbsp;
-<a href="https://github.com/Natnael-15/Meg/releases/latest">
-  <img src="https://img.shields.io/badge-Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white" height="40" alt="Windows" />
+<a href="https://github.com/Natnael-15/Meg/releases/latest/download/Meg-arm64.dmg">
+  <img src="https://img.shields.io/badge/⬇_Download-macOS_(Apple_Silicon)-000000?style=for-the-badge&logo=apple&logoColor=white" height="40" alt="Download for macOS Apple Silicon" />
 </a>
-<a href="https://github.com/Natnael-15/Meg/releases/latest">
-  <img src="https://img.shields.io/badge-macOS-000000?style=for-the-badge&logo=apple&logoColor=white" height="40" alt="macOS" />
+<a href="https://github.com/Natnael-15/Meg/releases/latest/download/Meg-x64.dmg">
+  <img src="https://img.shields.io/badge/⬇_Download-macOS_(Intel)-000000?style=for-the-badge&logo=apple&logoColor=white" height="40" alt="Download for macOS Intel" />
 </a>
-<a href="https://github.com/Natnael-15/Meg/releases/latest">
-  <img src="https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" height="40" alt="Linux" />
+&nbsp;
+<a href="https://github.com/Natnael-15/Meg/releases/latest/download/Meg.AppImage">
+  <img src="https://img.shields.io/badge/⬇_Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" height="40" alt="Download for Linux" />
 </a>
+
+<br />
+<br />
+
+<sub>macOS: Apple Silicon (M1/M2/M3) uses <code>Meg-arm64.dmg</code>, Intel Macs use <code>Meg-x64.dmg</code>. Linux: <code>.AppImage</code> — make executable with <code>chmod +x Meg.AppImage</code> and run. For DEB/tar.gz builds, see the <a href="https://github.com/Natnael-15/Meg/releases/latest">releases page</a>.</sub>
 
 <br />
 <br />

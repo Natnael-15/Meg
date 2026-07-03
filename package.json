@@ -40,7 +40,7 @@
       "target": "nsis"
     },
     "nsis": {
-      "artifactName": "Meg-Setup-${version}.${ext}",
+      "artifactName": "Meg-Setup.${ext}",
       "oneClick": true,
       "allowToChangeInstallationDirectory": false
     },
@@ -57,7 +57,7 @@
       "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "dmg": {
-      "artifactName": "Meg-${version}-${arch}.${ext}",
+      "artifactName": "Meg-${arch}.${ext}",
       "contents": [
         { "x": 130, "y": 220 },
         { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
@@ -74,7 +74,7 @@
       "maintainer": "Natnael-15"
     },
     "appImage": {
-      "artifactName": "Meg-${version}-${arch}.${ext}"
+      "artifactName": "Meg.${ext}"
     },
     "publish": [
       {
