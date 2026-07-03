@@ -1,0 +1,1592 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meg - Desktop AI Assistant UI</title>
+  
+  <!-- CSS Variables & Apple Design Tokens -->
+  <style>
+    :root {
+      --bg: #ffffff;
+      --surface: #f5f5f7;
+      --surface-warm: #fbfbfd;
+      --fg: #1d1d1f;
+      --fg-2: #424245;
+      --muted: #6e6e73;
+      --meta: #86868b;
+      --border: #d2d2d7;
+      --border-soft: #e8e8ed;
+      --accent: #0071e3;
+      --accent-on: #ffffff;
+      --accent-hover: #0077ed;
+      --accent-active: #0066cc;
+      --success: #16a34a;
+      --warn: #eab308;
+      --danger: #dc2626;
+      --font-display: "SF Pro Display", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --font-body: "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+      --text-xs: 12px;
+      --text-sm: 14px;
+      --text-base: 17px;
+      --text-lg: 21px;
+      --text-xl: 28px;
+      --text-2xl: 40px;
+      --text-3xl: 56px;
+      --text-4xl: 80px;
+      --leading-body: 1.47;
+      --leading-tight: 1.05;
+      --tracking-display: -0.015em;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-12: 48px;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-pill: 980px;
+      --elev-flat: none;
+      --elev-ring: 0 0 0 1px var(--border);
+      --elev-raised: 0 12px 32px rgba(0, 0, 0, 0.08);
+      --focus-ring: 0 0 0 4px rgba(0, 113, 227, 0.35);
+      --motion-fast: 150ms;
+      --motion-base: 220ms;
+      --ease-standard: cubic-bezier(0.28, 0, 0.22, 1);
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f0f0f;
+      --surface: #1d1d1f;
+      --surface-warm: #171719;
+      --fg: #f0f0f0;
+      --fg-2: #d2d2d7;
+      --muted: #86868b;
+      --meta: #6e6e73;
+      --border: #424245;
+      --border-soft: #272729;
+      --accent: #2997ff;
+      --accent-hover: #3ca1ff;
+      --accent-active: #0071e3;
+      --elev-raised: 0 12px 32px rgba(0, 0, 0, 0.35);
+      --focus-ring: 0 0 0 4px rgba(41, 151, 255, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--fg);
+      font-family: var(--font-body);
+      line-height: var(--leading-body);
+      -webkit-font-smoothing: antialiased;
+      transition: background-color var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard);
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-display);
+      letter-spacing: var(--tracking-display);
+      font-weight: 600;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--meta);
+    }
+
+    /* Custom classes matching the Apple specs */
+    .btn-capsule-primary {
+      background-color: var(--accent);
+      color: var(--accent-on);
+      border-radius: var(--radius-pill);
+      padding: 10px 24px;
+      font-size: 15px;
+      font-weight: 500;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+    }
+    .btn-capsule-primary:hover {
+      background-color: var(--accent-hover);
+    }
+    .btn-capsule-primary:active {
+      background-color: var(--accent-active);
+      transform: scale(0.98);
+    }
+
+    .btn-capsule-secondary {
+      background-color: var(--surface);
+      color: var(--fg);
+      border-radius: var(--radius-pill);
+      padding: 10px 24px;
+      font-size: 15px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background-color var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+    }
+    .btn-capsule-secondary:hover {
+      background-color: var(--border);
+    }
+    .btn-capsule-secondary:active {
+      transform: scale(0.98);
+    }
+
+    .card-editorial {
+      background-color: var(--surface-warm);
+      border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      transition: border-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard);
+    }
+    .card-editorial:hover {
+      border-color: var(--border);
+      box-shadow: var(--elev-raised);
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-soft);
+    }
+    [data-theme="dark"] .glass {
+      background: rgba(29, 29, 31, 0.72);
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    /* Keyframe Animations */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin {
+      animation: spin 1s linear infinite;
+    }
+  </style>
+
+  <!-- React UMD and Babel standalone -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <!-- Tailwind CSS v3 via CDN (Note: cdn.tailwindcss.com is v3) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ─── Inline SVG Icon Set ───
+    const Icon = ({ name, size = 16, className = "" }) => {
+      const paths = {
+        chat: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />,
+        workspace: <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
+        timeline: <path d="M12 8v4l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />,
+        automation: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
+        agent: <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />,
+        files: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6" />,
+        settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.1a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
+        plus: <path d="M12 5v14M5 12h14" />,
+        search: <><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.3-4.3" /></>,
+        trash: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />,
+        check: <path d="M20 6L9 17l-5-5" />,
+        close: <path d="M18 6L6 18M6 6l12 12" />,
+        terminal: <path d="M4 17l6-6-6-6M12 19h8" />,
+        git: <><circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><circle cx="6" cy="18" r="3" /><path d="M18 15V9a4 4 0 0 0-4-4H9M6 9v6" /></>,
+        chevronDown: <path d="M6 9l6 6 6-6" />,
+        splitH: <path d="M12 2v20M2 12h20" />,
+        spinner: <path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9" />,
+        bolt: <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />,
+        lock: <><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></>,
+        memory: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+        sms: <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />,
+        info: <><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></>,
+        chevronRight: <path d="M9 18l6-6-6-6" />,
+        laptop: <><rect x="2" y="3" width="20" height="14" rx="2" /><line x1="2" y1="20" x2="22" y2="20" /><line x1="12" y1="17" x2="12" y2="20" /></>
+      };
+
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`inline-block ${className}`}
+        >
+          {paths[name] || <circle cx="12" cy="12" r="10" />}
+        </svg>
+      );
+    };
+
+    // ─── Main Application Component ───
+    const App = () => {
+      // Global UI State
+      const [inApp, setInApp] = useState(false);
+      const [nav, setNav] = useState('chat');
+      const [theme, setTheme] = useState('dark'); // Default to Apple cinematic dark
+      const [sidebarWidth, setSidebarWidth] = useState('comfortable'); // comfortable, compact
+      const [accentColor, setAccentColor] = useState('blue'); // blue, graphite
+      const [showCmdPalette, setShowCmdPalette] = useState(false);
+      const [showTelegram, setShowTelegram] = useState(false);
+
+      // Onboarding state
+      const [onboardingStep, setOnboardingStep] = useState(0);
+
+      // Chat Data & Thread State
+      const [activeThreadId, setActiveThreadId] = useState(1);
+      const [threads, setThreads] = useState([
+        { id: 1, title: 'Add Vitest to Agent Runner', subtitle: 'qwen3.5-9b · 5m ago', iconName: 'chat', messages: [
+          { role: 'user', content: 'Configure Vitest test coverage for the local agentRunner.js component.' },
+          { role: 'agent', isThinking: false, thinkingProcess: 'Searching repository for test suites...', status: 'done', content: 'I have analyzed `test/agentRunner.test.js` and successfully loaded the Vitest mock environments. All 15 tests are passing. Would you like me to configure a file watcher for active testing?' }
+        ] },
+        { id: 2, title: 'Debug Path Traversal Filter', subtitle: 'gpt-4o · 1h ago', iconName: 'lock', messages: [
+          { role: 'user', content: 'Are write operations sandboxed properly against relative paths?' },
+          { role: 'agent', isThinking: false, content: 'Yes, path traversal is intercepted in `workspace.js` using path.relative checks. Any write attempt containing `..` will throw a security boundary exception.' }
+        ] },
+        { id: 3, title: 'Write Release Notes Beta 9', subtitle: 'claude-3-5-sonnet · 1d ago', iconName: 'files', messages: [
+          { role: 'user', content: 'Generate release highlights for Meg version 1.0.0-beta.9.' },
+          { role: 'agent', isThinking: false, content: 'Highlights for beta-9:\n- Migrated prompt dialogs to React modals\n- Standardized file approval diff checks\n- Bound maximum thread retention logs to 500 lines' }
+        ] }
+      ]);
+
+      // Chat Inputs
+      const [chatInput, setChatInput] = useState('');
+      const [activeSkill, setActiveSkill] = useState('DevOps');
+      const [thinkingMode, setThinkingMode] = useState(true);
+
+      // Workspace State
+      const [workspaces, setWorkspaces] = useState([
+        { id: 1, name: 'Meg Desktop Client', path: 'C:/Users/natna/Downloads/MEG/Meg', branch: 'main', dirty: true, ahead: 2, color: '#0071e3', files: 42, lang: 'React/Node' },
+        { id: 2, name: 'Agent Runner Core', path: 'C:/Users/natna/Downloads/MEG/Core', branch: 'develop', dirty: false, ahead: 0, color: '#16a34a', files: 18, lang: 'JavaScript' }
+      ]);
+      const [activeWorkspaceId, setActiveWorkspaceId] = useState(1);
+      const [fileQuery, setFileQuery] = useState('');
+      const [splitOpen, setSplitOpen] = useState(true);
+
+      // Staged Writes / Diff Approvals Queue
+      const [approvals, setApprovals] = useState([
+        { id: 1, file: 'src/main/tools.js', desc: 'Secure cmd execution filter', added: 4, removed: 1, before: 'function run(cmd) {\n  return exec(cmd);\n}', after: 'function run(cmd) {\n  if (isDangerous(cmd)) throw new Error("Denied");\n  return exec(cmd);\n}' }
+      ]);
+
+      // Automations State
+      const [automations, setAutomations] = useState([
+        { id: 1, name: 'PR Review', triggerType: 'pull_request', triggerDetail: 'on PR opened', actionType: 'agent_run', actionTarget: 'pr-reviewer', enabled: true, runs: 12, lastRun: '10m ago' },
+        { id: 2, name: 'Weekly Progress Draft', triggerType: 'schedule', triggerDetail: 'Every Friday 5pm', actionType: 'document', actionTarget: 'reports/weekly.md', enabled: false, runs: 0, lastRun: 'Never' }
+      ]);
+
+      // Agent runs State
+      const [agentRuns, setAgentRuns] = useState([
+        { id: 1, task: 'Secure cmd filter checks', status: 'running', doneSteps: 2, steps: 4, model: 'qwen3.5-9b', duration: '12s', thread: 'Add Vitest to Agent Runner', logs: [
+          { level: 'INFO', message: 'Loading file workspace system configs' },
+          { level: 'INFO', message: 'Testing command lines for dangerous patterns' }
+        ], liveSteps: [
+          { label: 'Initializing tool suite mocks', status: 'done' },
+          { label: 'Scanning C:/Users/natna/Downloads/MEG/Meg for security boundaries', status: 'active' },
+          { label: 'Writing secure execution filters', status: 'waiting' },
+          { label: 'Verifying test paths', status: 'waiting' }
+        ] }
+      ]);
+
+      // Timeline events
+      const [timelineEvents, setTimelineEvents] = useState([
+        { id: 1, category: 'agent', title: 'Agent secure cmd filter checks started', detail: 'Thread: Add Vitest to Agent Runner', date: 'Just now' },
+        { id: 2, category: 'commit', title: 'Committed: Security boundary rules added', detail: 'Author: Natna · SHA: 5b2210a', date: '2h ago' },
+        { id: 3, category: 'sms', title: 'Telegram keyword run-pr triggered', detail: 'Fired agent run for pull requests', date: '1d ago' }
+      ]);
+
+      // Settings state
+      const [settingsSection, setSettingsSection] = useState('model');
+      const [memories, setMemories] = useState([
+        'Wants local-first models preferred',
+        'Telegram connection authorized for PR runs',
+        'Auto-approval disabled for shell commands'
+      ]);
+
+      // Command Palette state
+      const [cmdQuery, setCmdQuery] = useState('');
+
+      // Telegram Companion Chat
+      const [telegramInput, setTelegramInput] = useState('');
+      const [telegramMessages, setTelegramMessages] = useState([
+        { id: 1, sender: 'bot', text: 'Meg Remote Bot Online. Send /status to query or /run [action] to execute.' }
+      ]);
+
+      // Apply theme choice to document
+      useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+      }, [theme]);
+
+      const activeThread = useMemo(() => {
+        return threads.find(t => t.id === activeThreadId);
+      }, [threads, activeThreadId]);
+
+      const activeWorkspace = useMemo(() => {
+        return workspaces.find(w => w.id === activeWorkspaceId);
+      }, [workspaces, activeWorkspaceId]);
+
+      // Simulated Thread Message Actions
+      const handleSendMessage = (text) => {
+        if (!text.trim()) return;
+        
+        // Add user message
+        const newMsg = { role: 'user', content: text };
+        const updatedThreads = threads.map(t => {
+          if (t.id === activeThreadId) {
+            return {
+              ...t,
+              subtitle: 'Just now',
+              messages: [...t.messages, newMsg]
+            };
+          }
+          return t;
+        });
+        setThreads(updatedThreads);
+        setChatInput('');
+
+        // Simulate Agent Thinking & Tool logs
+        const runId = Date.now();
+        const agentRun = {
+          id: runId,
+          task: text.slice(0, 30) + '...',
+          status: 'running',
+          doneSteps: 1,
+          steps: 3,
+          model: 'qwen3.5-9b',
+          duration: '1s',
+          thread: activeThread.title,
+          logs: [
+            { level: 'INFO', message: 'Analyzing prompt' }
+          ],
+          liveSteps: [
+            { label: 'Decomposing task specifications', status: 'done' },
+            { label: 'Executing read_files on workspace', status: 'active' },
+            { label: 'Summarizing outcome', status: 'waiting' }
+          ]
+        };
+        setAgentRuns(prev => [agentRun, ...prev]);
+
+        // Streaming agent response
+        setTimeout(() => {
+          setAgentRuns(prev => prev.map(r => {
+            if (r.id === runId) {
+              return {
+                ...r,
+                doneSteps: 2,
+                logs: [...r.logs, { level: 'INFO', message: 'Executing tool read_files' }],
+                liveSteps: [
+                  { label: 'Decomposing task specifications', status: 'done' },
+                  { label: 'Executing read_files on workspace', status: 'done' },
+                  { label: 'Summarizing outcome', status: 'active' }
+                ]
+              };
+            }
+            return r;
+          }));
+        }, 1200);
+
+        setTimeout(() => {
+          const agentMsg = {
+            role: 'agent',
+            isThinking: false,
+            content: 'I have reviewed the files inside the workspace. All security boundary rules are properly bound to :root, and there are no path traversals found.'
+          };
+
+          setThreads(currentThreads => currentThreads.map(t => {
+            if (t.id === activeThreadId) {
+              return {
+                ...t,
+                messages: [...t.messages, agentMsg]
+              };
+            }
+            return t;
+          }));
+
+          setAgentRuns(prev => prev.map(r => {
+            if (r.id === runId) {
+              return {
+                ...r,
+                status: 'done',
+                doneSteps: 3,
+                duration: '2.5s',
+                logs: [...r.logs, { level: 'INFO', message: 'Task complete' }],
+                liveSteps: [
+                  { label: 'Decomposing task specifications', status: 'done' },
+                  { label: 'Executing read_files on workspace', status: 'done' },
+                  { label: 'Summarizing outcome', status: 'done' }
+                ]
+              };
+            }
+            return r;
+          }));
+        }, 2500);
+      };
+
+      // Trigger Workflow run from workspace view
+      const runWorkspaceWorkflow = (workflowName) => {
+        const text = `Run action: ${workflowName}`;
+        setNav('chat');
+        handleSendMessage(text);
+      };
+
+      // Manage Approvals Diff
+      const handleApproveDiff = (id) => {
+        setApprovals(prev => prev.filter(a => a.id !== id));
+        // Add event to timeline
+        const event = {
+          id: Date.now(),
+          category: 'file',
+          title: 'Modified tools.js approved & written',
+          detail: 'Diff committed successfully to local disk',
+          date: 'Just now'
+        };
+        setTimelineEvents(prev => [event, ...prev]);
+      };
+
+      // Manage Telegram Remote control simulator
+      const handleTelegramSend = () => {
+        if (!telegramInput.trim()) return;
+        const userMsg = { id: Date.now(), sender: 'user', text: telegramInput };
+        setTelegramMessages(prev => [...prev, userMsg]);
+        setTelegramInput('');
+
+        // Simulate remote replies
+        setTimeout(() => {
+          let replyText = 'Unknown command. Send /status or /run [action] to execute.';
+          if (userMsg.text.startsWith('/status')) {
+            replyText = `Status Report: Active Workspace: "${activeWorkspace.name}". Client running on branch ${activeWorkspace.branch}. Staged approvals: ${approvals.length}.`;
+          } else if (userMsg.text.startsWith('/run pr-review')) {
+            replyText = 'Spawning agent "PR Reviewer" remotely...';
+            // Trigger agent run
+            runWorkspaceWorkflow('PR Review');
+          }
+          setTelegramMessages(prev => [...prev, { id: Date.now(), sender: 'bot', text: replyText }]);
+        }, 800);
+      };
+
+      // Command Palette actions
+      const handleCmdSelect = (action) => {
+        setShowCmdPalette(false);
+        if (action === 'chat') setNav('chat');
+        if (action === 'workspace') setNav('workspace');
+        if (action === 'automations') setNav('automations');
+        if (action === 'settings') setNav('settings');
+        if (action === 'timeline') setNav('timeline');
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col transition-colors duration-300">
+          
+          {/* ────────────────── LANDING / MARKETING VIEW ────────────────── */}
+          {!inApp && (
+            <div className="flex-1 flex flex-col justify-between" style={{ backgroundColor: 'var(--bg)' }}>
+              {/* Header */}
+              <header className="glass sticky top-0 z-50 h-[64px] flex items-center px-8 justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'var(--accent)' }}>
+                    <span className="text-white font-bold text-sm font-display">M</span>
+                  </div>
+                  <span className="text-lg font-bold tracking-tight">Meg</span>
+                </div>
+                <div className="flex items-center gap-6">
+                  <button 
+                    onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} 
+                    aria-label="Toggle Dark Mode"
+                    className="p-2 rounded-lg text-[var(--muted)] hover:text-[var(--fg)]"
+                  >
+                    <Icon name="bolt" size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setInApp(true)} 
+                    className="btn-capsule-primary"
+                  >
+                    Launch client preview <Icon name="chevronRight" size={12} />
+                  </button>
+                </div>
+              </header>
+
+              {/* Main Marketing */}
+              <main className="flex-1 max-w-6xl mx-auto px-6 py-16 flex flex-col justify-center items-center text-center">
+                <div className="max-w-3xl">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)] mb-4 block font-mono">1.0.0-beta.9 release</span>
+                  <h1 className="text-5xl md:text-7xl font-semibold tracking-tighter leading-none mb-6">
+                    A local assistant with a full desktop workspace.
+                  </h1>
+                  <p className="text-lg md:text-xl text-[var(--muted)] max-w-2xl mx-auto mb-10">
+                    Connect local LLMs to your files, terminal outputs, script executors, and Telegram channels. Local first, secure, and fully sandboxed.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-4 mb-16">
+                    <button onClick={() => setInApp(true)} className="btn-capsule-primary">
+                      Open workspace preview
+                    </button>
+                    <a href="#features" className="btn-capsule-secondary">
+                      Explore features
+                    </a>
+                  </div>
+                </div>
+
+                {/* Dashboard Screenshot Mockup */}
+                <div id="features" className="w-full rounded-2xl border border-[var(--border)] overflow-hidden shadow-2xl transition-all duration-350" style={{ backgroundColor: 'var(--surface-warm)' }}>
+                  <div className="h-10 bg-[var(--surface)] border-b border-[var(--border-soft)] px-4 flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <span className="w-3 h-3 rounded-full bg-red-400"></span>
+                      <span className="w-3 h-3 rounded-full bg-yellow-400"></span>
+                      <span className="w-3 h-3 rounded-full bg-green-400"></span>
+                    </div>
+                    <span className="text-xs text-[var(--muted)] font-mono">meg-workspace - beta.9</span>
+                    <span className="w-10"></span>
+                  </div>
+                  <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                    <div className="card-editorial">
+                      <div className="mb-4 text-[var(--accent)]">
+                        <Icon name="workspace" size={24} />
+                      </div>
+                      <h3 className="text-lg font-bold mb-2">Desktop Workspaces</h3>
+                      <p className="text-sm text-[var(--muted)]">Switch context folders easily. Keep track of file trees, search lists, and git repository details natively.</p>
+                    </div>
+                    <div className="card-editorial">
+                      <div className="mb-4 text-[var(--accent)]">
+                        <Icon name="bolt" size={24} />
+                      </div>
+                      <h3 className="text-lg font-bold mb-2">Agentic Loops</h3>
+                      <p className="text-sm text-[var(--muted)]">Spawn sub-agents to process files and execute command arrays. Review staged code diff files before approval.</p>
+                    </div>
+                    <div className="card-editorial">
+                      <div className="mb-4 text-[var(--accent)]">
+                        <Icon name="automation" size={24} />
+                      </div>
+                      <h3 className="text-lg font-bold mb-2">Automations & SMS</h3>
+                      <p className="text-sm text-[var(--muted)]">Configure crons or repository webhook triggers. Control the desktop agent remotely via secure Telegram messaging.</p>
+                    </div>
+                  </div>
+                </div>
+              </main>
+
+              {/* Footer */}
+              <footer className="border-t border-[var(--border-soft)] py-8 text-center text-xs text-[var(--meta)]">
+                &copy; 2026 Meg Assistant Project. Built with Apple style guidelines. No em-dashes allowed.
+              </footer>
+            </div>
+          )}
+
+          {/* ────────────────── ELECTRON APPLICATION CLIENT SIMULATOR ────────────────── */}
+          {inApp && (
+            <div className="flex-1 flex flex-col h-screen overflow-hidden select-none" style={{ color: 'var(--fg)', backgroundColor: 'var(--bg)' }}>
+              
+              {/* Fake Window OS Header */}
+              <div className="h-10 bg-[var(--surface)] border-b border-[var(--border)] px-4 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="flex gap-1.5 mr-2">
+                    <button onClick={() => setInApp(false)} title="Close Preview" className="w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] text-red-900 font-bold hover:opacity-80">×</button>
+                    <span className="w-3.5 h-3.5 rounded-full bg-yellow-500"></span>
+                    <span className="w-3.5 h-3.5 rounded-full bg-green-500"></span>
+                  </div>
+                  <span className="text-xs text-[var(--muted)] font-mono flex items-center gap-2">
+                    <Icon name="laptop" size={12} />
+                    Meg Client - v1.0.0-beta.9
+                  </span>
+                </div>
+                
+                {/* Active workspace name */}
+                <div className="text-xs font-semibold text-[var(--fg-2)]">
+                  {activeWorkspace.name} ({activeWorkspace.branch})
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {/* Notification badge */}
+                  {approvals.length > 0 && (
+                    <span className="bg-[var(--accent)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                      {approvals.length} check needed
+                    </span>
+                  )}
+                  <button 
+                    onClick={() => setShowCmdPalette(true)}
+                    className="text-[var(--muted)] hover:text-[var(--fg)] p-1 rounded hover:bg-[var(--border-soft)] transition-colors"
+                    title="Command Palette (⌘K)"
+                  >
+                    <Icon name="search" size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Client Shell */}
+              <div className="flex-1 flex overflow-hidden">
+                
+                {/* ── Left OS Dock (Navigation) ── */}
+                <div className="w-[58px] bg-[var(--surface-warm)] border-r border-[var(--border)] flex flex-col items-center py-4 justify-between flex-shrink-0">
+                  <div className="flex flex-col items-center gap-5 w-full">
+                    {[
+                      { id: 'chat', icon: 'chat', label: 'Conversations' },
+                      { id: 'workspace', icon: 'workspace', label: 'Workspaces' },
+                      { id: 'agent', icon: 'agent', label: 'Agent runs' },
+                      { id: 'automations', icon: 'automation', label: 'Automations' },
+                      { id: 'filebrowser', icon: 'files', label: 'File browser' },
+                      { id: 'timeline', icon: 'timeline', label: 'Event log' }
+                    ].map(item => (
+                      <button
+                        key={item.id}
+                        onClick={() => setNav(item.id)}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                          nav === item.id 
+                            ? 'bg-[var(--accent)] text-white shadow-md' 
+                            : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--border-soft)]'
+                        }`}
+                        title={item.label}
+                      >
+                        <Icon name={item.icon} size={20} />
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Telegram Bot shortcut */}
+                    <button 
+                      onClick={() => setShowTelegram(t => !t)}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${
+                        showTelegram ? 'bg-green-600 text-white' : 'text-green-600 hover:bg-green-500/10'
+                      }`}
+                      title="Telegram Mobile Companion"
+                    >
+                      <Icon name="sms" size={16} />
+                    </button>
+                    {/* Settings */}
+                    <button 
+                      onClick={() => setNav('settings')}
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                        nav === 'settings' 
+                          ? 'bg-[var(--accent)] text-white' 
+                          : 'text-[var(--muted)] hover:text-[var(--fg)] hover:bg-[var(--border-soft)]'
+                      }`}
+                      title="Settings"
+                    >
+                      <Icon name="settings" size={20} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Main View Panel ── */}
+                <div className="flex-1 flex overflow-hidden">
+                  
+                  {/* VIEW 1: Chat View & Sidebar */}
+                  {nav === 'chat' && (
+                    <div className="flex-1 flex overflow-hidden">
+                      {/* Threads list */}
+                      <div className="w-[240px] bg-[var(--surface-warm)] border-r border-[var(--border)] flex flex-col flex-shrink-0">
+                        <div className="p-3 border-b border-[var(--border-soft)] flex justify-between items-center">
+                          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] font-mono">Threads</span>
+                          <button 
+                            onClick={() => {
+                              const newId = Date.now();
+                              const newT = { id: newId, title: 'New Conversation', subtitle: 'qwen3.5-9b · Just now', iconName: 'chat', messages: [] };
+                              setThreads([newT, ...threads]);
+                              setActiveThreadId(newId);
+                            }}
+                            className="p-1.5 rounded hover:bg-[var(--border)] text-[var(--muted)]"
+                          >
+                            <Icon name="plus" size={14} />
+                          </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                          {threads.map(t => (
+                            <button
+                              key={t.id}
+                              onClick={() => setActiveThreadId(t.id)}
+                              className={`w-full text-left p-2.5 rounded-lg flex items-start gap-3 transition-colors ${
+                                activeThreadId === t.id ? 'bg-[var(--border-soft)]' : 'hover:bg-[var(--surface)]'
+                              }`}
+                            >
+                              <div className="mt-0.5 text-[var(--muted)]">
+                                <Icon name={t.iconName} size={14} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[13px] font-semibold truncate text-[var(--fg)]">{t.title}</div>
+                                <div className="text-[11px] text-[var(--meta)] truncate mt-0.5">{t.subtitle}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Chat messages area */}
+                      <div className="flex-1 flex flex-col overflow-hidden bg-[var(--bg)]">
+                        {/* Chat header */}
+                        <div className="h-[48px] px-4 border-b border-[var(--border-soft)] flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[13px] font-semibold">{activeThread?.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => setSplitOpen(s => !s)} 
+                              className={`text-[11px] px-2.5 py-1 rounded border border-[var(--border)] flex items-center gap-1.5 ${
+                                splitOpen ? 'bg-[var(--border-soft)]' : ''
+                              }`}
+                            >
+                              <Icon name="splitH" size={12} /> Split View
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Message log */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                          {activeThread?.messages.map((m, index) => (
+                            <div key={index} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`max-w-[80%] rounded-2xl p-3 text-sm ${
+                                m.role === 'user' 
+                                  ? 'bg-[var(--accent)] text-white rounded-br-none' 
+                                  : 'bg-[var(--surface)] text-[var(--fg)] border border-[var(--border-soft)] rounded-bl-none'
+                              }`}>
+                                <div className="font-semibold text-[11px] opacity-75 mb-1">
+                                  {m.role === 'user' ? 'You' : 'Meg Assistant'}
+                                </div>
+                                <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {/* Live Agent Activity Indicators */}
+                          {agentRuns.some(r => r.status === 'running') && (
+                            <div className="border border-[var(--border-soft)] bg-[var(--surface-warm)] rounded-xl p-4 space-y-3 shadow-sm animate-pulse">
+                              <div className="flex items-center justify-between text-xs border-b border-[var(--border-soft)] pb-2">
+                                <span className="font-mono font-semibold text-[var(--accent)] flex items-center gap-1.5">
+                                  <span className="animate-spin"><Icon name="spinner" size={12} /></span>
+                                  Agent runner is processing...
+                                </span>
+                                <span className="text-[var(--meta)]">Model: qwen3.5-9b</span>
+                              </div>
+                              <div className="space-y-2">
+                                {agentRuns[0]?.liveSteps.map((step, idx) => (
+                                  <div key={idx} className="flex items-center gap-3 text-xs">
+                                    <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                      step.status === 'done' ? 'bg-green-100 text-green-700' : step.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
+                                    }`}>
+                                      {step.status === 'done' ? '✓' : step.status === 'active' ? '●' : '○'}
+                                    </div>
+                                    <span className={step.status === 'waiting' ? 'text-[var(--muted)]' : 'text-[var(--fg)]'}>{step.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Input bar */}
+                        <div className="p-4 border-t border-[var(--border-soft)] bg-[var(--surface-warm)]">
+                          <div className="flex gap-2 items-center mb-3">
+                            {/* Skills Selector */}
+                            <select 
+                              value={activeSkill} 
+                              onChange={(e) => setActiveSkill(e.target.value)}
+                              className="text-[11px] bg-[var(--bg)] border border-[var(--border)] rounded px-2 py-1 outline-none text-[var(--fg-2)]"
+                            >
+                              <option value="DevOps">DevOps Skill</option>
+                              <option value="Frontend">Frontend-Taste Skill</option>
+                              <option value="Python">Python Integrator</option>
+                            </select>
+
+                            {/* Thinking Toggle */}
+                            <button 
+                              onClick={() => setThinkingMode(t => !t)}
+                              className={`text-[11px] px-2.5 py-1 rounded border border-[var(--border)] flex items-center gap-1.5 transition-colors ${
+                                thinkingMode ? 'bg-[var(--accent)] text-white border-transparent' : 'text-[var(--muted)]'
+                              }`}
+                            >
+                              <Icon name="bolt" size={11} /> Thinking Mode
+                            </button>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={chatInput}
+                              onChange={(e) => setChatInput(e.target.value)}
+                              onKeyDown={(e) => { if(e.key === 'Enter') handleSendMessage(chatInput); }}
+                              placeholder="Describe your design task or execute scripts..."
+                              className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-sm outline-none text-[var(--fg)]"
+                            />
+                            <button 
+                              onClick={() => handleSendMessage(chatInput)}
+                              className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg text-sm hover:bg-[var(--accent-hover)] transition-colors"
+                            >
+                              Send
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Split Editor / Diff preview Panel */}
+                      {splitOpen && (
+                        <div className="w-[420px] border-l border-[var(--border)] flex flex-col bg-[var(--surface-warm)]">
+                          <div className="h-[48px] px-4 border-b border-[var(--border-soft)] flex items-center justify-between flex-shrink-0">
+                            <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] font-mono">Workspace Split</span>
+                            <span className="text-[11px] text-[var(--meta)] font-mono">tools.js</span>
+                          </div>
+                          
+                          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {/* Staged Approvals Queue */}
+                            {approvals.length > 0 ? (
+                              <div className="space-y-3">
+                                <div className="text-xs font-semibold text-orange-600 flex items-center gap-1.5">
+                                  <Icon name="lock" size={13} />
+                                  Security Verification Required
+                                </div>
+                                <div className="bg-[var(--bg)] border border-[var(--border)] rounded-xl overflow-hidden shadow-sm">
+                                  <div className="p-3 bg-[var(--surface)] border-b border-[var(--border-soft)] flex justify-between items-center">
+                                    <span className="text-xs font-mono font-semibold">{approvals[0].file}</span>
+                                    <span className="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-mono font-bold">STAGED</span>
+                                  </div>
+                                  
+                                  {/* Code Diff Render */}
+                                  <div className="p-3 font-mono text-[11px] space-y-1 overflow-x-auto bg-[#1e1e1e] text-gray-200">
+                                    <div className="text-gray-500">// Before changes:</div>
+                                    <div className="text-red-300 bg-red-950/50 px-1 truncate">{approvals[0].before}</div>
+                                    <div className="text-gray-500 mt-2">// Proposed changes:</div>
+                                    <div className="text-green-300 bg-green-950/50 px-1 truncate">{approvals[0].after}</div>
+                                  </div>
+
+                                  <div className="p-3 bg-[var(--surface-warm)] flex gap-2 justify-end">
+                                    <button 
+                                      onClick={() => setApprovals([])}
+                                      className="text-xs px-3 py-1.5 border border-[var(--border)] rounded-md hover:bg-gray-100 transition-colors text-[var(--fg)]"
+                                    >
+                                      Reject
+                                    </button>
+                                    <button 
+                                      onClick={() => handleApproveDiff(approvals[0].id)}
+                                      className="text-xs px-3 py-1.5 bg-[var(--accent)] text-white rounded-md hover:bg-[var(--accent-hover)] transition-colors"
+                                    >
+                                      Approve and Write
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center py-8 text-[var(--muted)] text-xs">
+                                No pending file modifications to approve.
+                              </div>
+                            )}
+
+                            {/* Terminal History */}
+                            <div className="border border-[var(--border-soft)] bg-[var(--bg)] rounded-xl p-3">
+                              <div className="text-xs font-semibold text-[var(--fg)] mb-2 flex items-center gap-1.5">
+                                <Icon name="terminal" size={13} />
+                                Local Terminal output
+                              </div>
+                              <div className="font-mono text-[10.5px] text-[var(--muted)] space-y-1 bg-[var(--surface)] p-2.5 rounded-lg border border-[var(--border-soft)]">
+                                <div>$ npm run dev</div>
+                                <div className="text-green-600">✔ Vite server started at http://localhost:5173</div>
+                                <div>$ git status</div>
+                                <div>On branch main · Ahead of origin by 2 commits.</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* VIEW 2: Workspace View */}
+                  {nav === 'workspace' && (
+                    <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg)]">
+                      <div className="max-w-4xl mx-auto space-y-6">
+                        <div className="flex justify-between items-end border-b border-[var(--border-soft)] pb-4">
+                          <div>
+                            <span className="text-xs font-semibold text-[var(--accent)] uppercase tracking-wider font-mono">Workspace directory</span>
+                            <h2 className="text-3xl font-bold mt-1">{activeWorkspace.name}</h2>
+                          </div>
+                          <span className="text-xs font-mono text-[var(--meta)]">{activeWorkspace.path}</span>
+                        </div>
+
+                        {/* Git details bar */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="bg-[var(--surface-warm)] border border-[var(--border-soft)] p-4 rounded-xl">
+                            <div className="text-xs text-[var(--muted)]">Active Branch</div>
+                            <div className="text-base font-semibold mt-1 flex items-center gap-2">
+                              <Icon name="git" size={14} className="text-purple-600" />
+                              {activeWorkspace.branch}
+                            </div>
+                          </div>
+                          <div className="bg-[var(--surface-warm)] border border-[var(--border-soft)] p-4 rounded-xl">
+                            <div className="text-xs text-[var(--muted)]">Git status</div>
+                            <div className="text-base font-semibold mt-1">
+                              {activeWorkspace.dirty ? (
+                                <span className="text-orange-600 font-semibold">Dirty (2 unstaged changes)</span>
+                              ) : (
+                                <span className="text-green-600 font-semibold">Clean</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="bg-[var(--surface-warm)] border border-[var(--border-soft)] p-4 rounded-xl">
+                            <div className="text-xs text-[var(--muted)]">Sync offset</div>
+                            <div className="text-base font-semibold mt-1 font-mono">
+                              {activeWorkspace.ahead > 0 ? `Ahead of main by ${activeWorkspace.ahead}` : 'Synced'}
+                            </div>
+                          </div>
+                          <div className="bg-[var(--surface-warm)] border border-[var(--border-soft)] p-4 rounded-xl">
+                            <div className="text-xs text-[var(--muted)]">Workspace Files</div>
+                            <div className="text-base font-semibold mt-1 font-mono">{activeWorkspace.files} files</div>
+                          </div>
+                        </div>
+
+                        {/* Automated Workflows Trigger Panel */}
+                        <div className="bg-[var(--surface-warm)] border border-[var(--border-soft)] p-6 rounded-2xl">
+                          <h3 className="text-lg font-bold mb-4">Trigger Quick Action Workflows</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button 
+                              onClick={() => runWorkspaceWorkflow('Code Review')}
+                              className="bg-[var(--bg)] border border-[var(--border)] p-4 rounded-xl text-left hover:border-[var(--accent)] hover:shadow-md transition-all group"
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 mb-3 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                <Icon name="search" size={16} />
+                              </div>
+                              <div className="font-bold text-sm text-[var(--fg)]">Code Review</div>
+                              <div className="text-xs text-[var(--muted)] mt-1">Run complete analysis on modified code. Identify security path gaps.</div>
+                            </button>
+                            
+                            <button 
+                              onClick={() => runWorkspaceWorkflow('Docs Draft')}
+                              className="bg-[var(--bg)] border border-[var(--border)] p-4 rounded-xl text-left hover:border-[var(--accent)] hover:shadow-md transition-all group"
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center text-green-600 mb-3 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                                <Icon name="files" size={16} />
+                              </div>
+                              <div className="font-bold text-sm text-[var(--fg)]">Docs Draft</div>
+                              <div className="text-xs text-[var(--muted)] mt-1">Draft comprehensive setup instructions based on codebase config.</div>
+                            </button>
+
+                            <button 
+                              onClick={() => runWorkspaceWorkflow('Progress Report')}
+                              className="bg-[var(--bg)] border border-[var(--border)] p-4 rounded-xl text-left hover:border-[var(--accent)] hover:shadow-md transition-all group"
+                            >
+                              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center text-orange-600 mb-3 group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                                <Icon name="timeline" size={16} />
+                              </div>
+                              <div className="font-bold text-sm text-[var(--fg)]">Progress Report</div>
+                              <div className="text-xs text-[var(--muted)] mt-1">Generate a summary timeline of recent commits and agent jobs.</div>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Search files */}
+                        <div className="space-y-3">
+                          <h3 className="text-base font-bold">Search Workspace Files</h3>
+                          <div className="flex gap-2">
+                            <input 
+                              type="text" 
+                              value={fileQuery} 
+                              onChange={(e) => setFileQuery(e.target.value)}
+                              placeholder="Search by file name (e.g. tools.js, workspace.js)..."
+                              className="flex-1 bg-[var(--surface-warm)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm outline-none text-[var(--fg)]"
+                            />
+                          </div>
+                          
+                          <div className="bg-[var(--bg)] border border-[var(--border-soft)] rounded-xl divide-y divide-[var(--border-soft)]">
+                            {[
+                              { name: 'tools.js', size: '4.2 KB', path: 'src/main/tools.js' },
+                              { name: 'workspace.js', size: '12.5 KB', path: 'src/main/workspace.js' },
+                              { name: 'agentRunner.js', size: '32.1 KB', path: 'src/main/agentRunner.js' }
+                            ]
+                            .filter(f => f.name.toLowerCase().includes(fileQuery.toLowerCase()))
+                            .map((file, i) => (
+                              <div key={i} className="p-3 flex justify-between items-center text-xs">
+                                <div className="flex items-center gap-2">
+                                  <Icon name="files" size={13} className="text-blue-500" />
+                                  <span className="font-mono text-[var(--fg)]">{file.name}</span>
+                                  <span className="text-[var(--meta)] font-mono">{file.path}</span>
+                                </div>
+                                <span className="font-mono text-[var(--muted)]">{file.size}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VIEW 3: Agent Dashboard */}
+                  {nav === 'agent' && (
+                    <div className="flex-1 flex overflow-hidden">
+                      {/* Active Run lists */}
+                      <div className="w-[280px] bg-[var(--surface-warm)] border-r border-[var(--border)] flex flex-col flex-shrink-0">
+                        <div className="p-3 border-b border-[var(--border-soft)] flex justify-between items-center">
+                          <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] font-mono">Agent Runs</span>
+                          {agentRuns.some(a => a.status === 'running') && (
+                            <span className="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full font-bold">1 active</span>
+                          )}
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                          {agentRuns.map(run => (
+                            <button
+                              key={run.id}
+                              className="w-full text-left p-3 rounded-lg bg-[var(--bg)] border border-[var(--border-soft)] hover:border-[var(--accent)] transition-all space-y-2"
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs font-mono font-bold truncate max-w-[70%] text-[var(--fg)]">{run.task}</span>
+                                <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                                  run.status === 'running' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
+                                }`}>{run.status.toUpperCase()}</span>
+                              </div>
+                              
+                              <div className="h-1 bg-[var(--border-soft)] rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${run.status === 'running' ? 'bg-[var(--accent)]' : 'bg-green-600'}`}
+                                  style={{ width: `${(run.doneSteps / run.steps) * 100}%` }}
+                                ></div>
+                              </div>
+                              
+                              <div className="flex justify-between text-[10px] text-[var(--muted)]">
+                                <span>{run.model}</span>
+                                <span>{run.duration}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Detail Agent Run log */}
+                      <div className="flex-1 flex flex-col bg-[var(--bg)] overflow-hidden">
+                        <div className="p-6 border-b border-[var(--border-soft)] space-y-2 flex-shrink-0">
+                          <div className="flex items-center gap-3">
+                            <h2 className="text-2xl font-bold">{agentRuns[0]?.task}</h2>
+                            <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded font-semibold">{agentRuns[0]?.status.toUpperCase()}</span>
+                          </div>
+                          <div className="flex gap-6 text-xs text-[var(--muted)]">
+                            <div><span className="font-semibold text-[var(--fg-2)]">Duration:</span> {agentRuns[0]?.duration}</div>
+                            <div><span className="font-semibold text-[var(--fg-2)]">Steps:</span> {agentRuns[0]?.doneSteps}/{agentRuns[0]?.steps}</div>
+                            <div><span className="font-semibold text-[var(--fg-2)]">Thread:</span> {agentRuns[0]?.thread}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Live progression */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] font-mono">Progression Steps</h3>
+                            <div className="space-y-3">
+                              {agentRuns[0]?.liveSteps.map((step, i) => (
+                                <div key={i} className="flex gap-3 items-start">
+                                  <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
+                                    step.status === 'done' ? 'bg-green-100 text-green-700' : step.status === 'active' ? 'bg-blue-100 text-blue-700 animate-spin' : 'bg-gray-100 text-gray-400'
+                                  }`}>
+                                    {step.status === 'done' ? '✓' : step.status === 'active' ? '●' : '○'}
+                                  </div>
+                                  <div>
+                                    <div className={`text-xs font-semibold ${step.status === 'waiting' ? 'text-[var(--muted)]' : 'text-[var(--fg)]'}`}>
+                                      {step.label}
+                                    </div>
+                                    <div className="text-[10px] text-[var(--meta)] mt-0.5">
+                                      {step.status === 'done' ? 'Completed' : step.status === 'active' ? 'Running now...' : 'Scheduled'}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tool execution logs */}
+                          <div className="space-y-4">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-[var(--muted)] font-mono">Tool Log Output</h3>
+                            <div className="bg-[var(--surface)] border border-[var(--border-soft)] rounded-xl p-4 font-mono text-[11px] text-[var(--muted)] space-y-2 h-[260px] overflow-y-auto">
+                              {agentRuns[0]?.logs.map((log, index) => (
+                                <div key={index} className="flex gap-2">
+                                  <span className="text-blue-500">[{log.level}]</span>
+                                  <span>{log.message}</span>
+                                </div>
+                              ))}
+                              <div className="text-gray-400 animate-pulse">&gt; waiting on execution flow...</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VIEW 4: Automations View */}
+                  {nav === 'automations' && (
+                    <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg)]">
+                      <div className="max-w-4xl mx-auto space-y-6">
+                        <div className="flex justify-between items-end border-b border-[var(--border-soft)] pb-4">
+                          <div>
+                            <span className="text-xs font-semibold text-[var(--accent)] uppercase tracking-wider font-mono">Automations Engine</span>
+                            <h2 className="text-3xl font-bold mt-1">Schedules & Event Triggers</h2>
+                          </div>
+                          <button 
+                            onClick={() => {
+                              const newAuto = { id: Date.now(), name: 'New Workspace Hook', triggerType: 'repository', triggerDetail: 'on push', actionType: 'command', actionTarget: 'npm run test', enabled: false, runs: 0, lastRun: 'Never' };
+                              setAutomations([...automations, newAuto]);
+                            }}
+                            className="btn-capsule-primary"
+                          >
+                            <Icon name="plus" size={14} /> New Automation
+                          </button>
+                        </div>
+
+                        {/* List */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {automations.map(auto => (
+                            <div key={auto.id} className="card-editorial flex flex-col justify-between h-[200px]">
+                              <div>
+                                <div className="flex justify-between items-start">
+                                  <h3 className="text-base font-bold truncate text-[var(--fg)]">{auto.name}</h3>
+                                  <button 
+                                    onClick={() => setAutomations(prev => prev.map(a => a.id === auto.id ? {...a, enabled: !a.enabled} : a))}
+                                    className={`w-9 h-5 rounded-full p-0.5 transition-colors ${
+                                      auto.enabled ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'
+                                    }`}
+                                    aria-label="Toggle Automation"
+                                  >
+                                    <div className={`w-4 h-4 bg-white rounded-full transition-transform ${
+                                      auto.enabled ? 'translate-x-4' : 'translate-x-0'
+                                    }`}></div>
+                                  </button>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 mt-4">
+                                  <div>
+                                    <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--meta)] block">Trigger Event</span>
+                                    <span className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--fg-2)]">
+                                      <Icon name={auto.triggerType === 'schedule' ? 'timeline' : 'git'} size={12} />
+                                      {auto.triggerDetail}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] uppercase font-mono tracking-wider text-[var(--meta)] block">Action Task</span>
+                                    <span className="text-xs font-semibold mt-1 flex items-center gap-1.5 text-[var(--fg-2)]">
+                                      <Icon name="terminal" size={12} />
+                                      {auto.actionTarget}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="border-t border-[var(--border-soft)] pt-3 mt-4 flex justify-between text-[11px] text-[var(--muted)] font-mono">
+                                <span>Runs executed: {auto.runs}</span>
+                                <span>Last run: {auto.lastRun}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Pre-built Templates */}
+                        <div className="bg-[var(--surface-warm)] border border-[var(--border-soft)] p-6 rounded-2xl">
+                          <h3 className="text-base font-bold mb-4">Recommended Automation Templates</h3>
+                          <div className="space-y-3">
+                            {[
+                              { name: 'Auto Deploy on Main Merge', desc: 'Runs staging deployment and notifies Telegram owner on successful GitHub merge events.' },
+                              { name: 'Nightly Security Scan Audit', desc: 'Executes a comprehensive vulnerability check using local python scripts every night at 2 AM.' }
+                            ].map((tpl, i) => (
+                              <div key={i} className="p-4 bg-[var(--bg)] border border-[var(--border-soft)] rounded-xl flex justify-between items-center">
+                                <div>
+                                  <div className="text-sm font-bold text-[var(--fg)]">{tpl.name}</div>
+                                  <div className="text-xs text-[var(--muted)] mt-0.5">{tpl.desc}</div>
+                                </div>
+                                <button 
+                                  onClick={() => {
+                                    const newA = { id: Date.now(), name: tpl.name, triggerType: 'schedule', triggerDetail: 'Scheduled trigger', actionType: 'command', actionTarget: 'run audit', enabled: true, runs: 0, lastRun: 'Never' };
+                                    setAutomations([...automations, newA]);
+                                  }}
+                                  className="text-xs px-3 py-1.5 bg-[var(--surface)] border border-[var(--border)] rounded-md hover:bg-[var(--border-soft)] transition-colors text-[var(--fg)]"
+                                >
+                                  Configure
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VIEW 5: File Browser */}
+                  {nav === 'filebrowser' && (
+                    <div className="flex-1 flex overflow-hidden">
+                      {/* Directory tree side */}
+                      <div className="w-[260px] bg-[var(--surface-warm)] border-r border-[var(--border)] flex flex-col flex-shrink-0 overflow-y-auto p-4 space-y-3">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] font-mono">Repository Tree</span>
+                        <div className="space-y-1 text-xs">
+                          {[
+                            { name: 'src', type: 'dir', children: ['main', 'preload', 'renderer'] },
+                            { name: 'src/main/tools.js', type: 'file' },
+                            { name: 'src/main/workspace.js', type: 'file' },
+                            { name: 'src/main/agentRunner.js', type: 'file' },
+                            { name: 'package.json', type: 'file' },
+                            { name: 'vite.config.js', type: 'file' }
+                          ].map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-2 p-1.5 rounded hover:bg-[var(--border-soft)] cursor-pointer text-[var(--fg-2)]">
+                              <Icon name={item.type === 'dir' ? 'workspace' : 'files'} size={13} className="text-blue-500" />
+                              <span className="font-mono">{item.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* File Editor Mock */}
+                      <div className="flex-1 bg-[var(--bg)] flex flex-col overflow-hidden">
+                        <div className="h-[48px] px-4 border-b border-[var(--border-soft)] flex items-center justify-between flex-shrink-0">
+                          <span className="text-xs font-mono font-semibold">src/main/workspace.js</span>
+                          <span className="text-xs text-[var(--muted)] font-mono">12.5 KB · JavaScript</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 bg-[#1e1e1e] text-gray-200 font-mono text-xs leading-relaxed space-y-1">
+                          <div><span className="text-gray-500">1</span> <span className="text-purple-400">const</span> path = require(<span className="text-green-300">'path'</span>);</div>
+                          <div><span className="text-gray-500">2</span> <span className="text-purple-400">const</span> fs = require(<span className="text-green-300">'fs/promises'</span>);</div>
+                          <div><span className="text-gray-500">3</span> </div>
+                          <div><span className="text-gray-500">4</span> <span className="text-gray-400">// Intercepts and sandboxes all file writes against relative paths</span></div>
+                          <div><span className="text-gray-500">5</span> <span className="text-purple-400">function writeSecureFile(workspacePath, targetFile, content) &#123;</span></div>
+                          <div><span className="text-gray-500">6</span>   <span className="text-purple-400">const</span> relative = path.relative(workspacePath, targetFile);</div>
+                          <div><span className="text-gray-500">7</span>   <span className="text-purple-400">if</span> (relative.startsWith(<span className="text-green-300">'..'</span>) || path.isAbsolute(relative)) &#123;</div>
+                          <div><span className="text-gray-500">8</span>     <span className="text-purple-400">throw new</span> Error(<span className="text-green-300">'Security boundary exception: Path traversal denied.'</span>);</div>
+                          <div><span className="text-gray-500">9</span>   &#125;</div>
+                          <div><span className="text-gray-500">10</span>  <span className="text-purple-400">return</span> fs.writeFile(targetFile, content, <span className="text-green-300">'utf-8'</span>);</div>
+                          <div><span className="text-gray-500">11</span> &#125;</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VIEW 6: Timeline View */}
+                  {nav === 'timeline' && (
+                    <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg)]">
+                      <div className="max-w-3xl mx-auto space-y-6">
+                        <div className="border-b border-[var(--border-soft)] pb-4">
+                          <span className="text-xs font-semibold text-[var(--accent)] uppercase tracking-wider font-mono">Workspace activity log</span>
+                          <h2 className="text-3xl font-bold mt-1">Audit Event Timeline</h2>
+                        </div>
+
+                        <div className="relative border-l border-[var(--border)] pl-6 ml-2 space-y-8">
+                          {timelineEvents.map(ev => (
+                            <div key={ev.id} className="relative">
+                              {/* Circle icon marker */}
+                              <div className="absolute -left-[35px] top-0 w-[18px] h-[18px] rounded-full bg-[var(--bg)] border-2 border-[var(--accent)] flex items-center justify-center">
+                                <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]"></div>
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="font-bold text-[var(--fg)]">{ev.title}</span>
+                                  <span className="font-mono text-[var(--meta)]">{ev.date}</span>
+                                </div>
+                                <div className="text-xs text-[var(--muted)] font-mono">{ev.detail}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* VIEW 7: Settings View */}
+                  {nav === 'settings' && (
+                    <div className="flex-1 flex overflow-hidden">
+                      {/* Sub-nav sidebar */}
+                      <div className="w-[200px] bg-[var(--surface-warm)] border-r border-[var(--border)] flex flex-col flex-shrink-0 p-3 space-y-1">
+                        {[
+                          { id: 'model', label: 'Models & Providers' },
+                          { id: 'permissions', label: 'Tool Permissions' },
+                          { id: 'memory', label: 'Synced Memory' }
+                        ].map(sec => (
+                          <button
+                            key={sec.id}
+                            onClick={() => setSettingsSection(sec.id)}
+                            className={`w-full text-left p-2 rounded-md text-xs font-semibold transition-colors ${
+                              settingsSection === sec.id ? 'bg-[var(--border-soft)] text-[var(--fg)]' : 'text-[var(--muted)] hover:bg-[var(--surface)]'
+                            }`}
+                          >
+                            {sec.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Detail Settings section */}
+                      <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg)]">
+                        <div className="max-w-2xl space-y-6">
+                          
+                          {/* Sub-section 1: Model config */}
+                          {settingsSection === 'model' && (
+                            <div className="space-y-6">
+                              <h3 className="text-lg font-bold border-b border-[var(--border-soft)] pb-2">Active LLM Settings</h3>
+                              
+                              <div className="space-y-4">
+                                <div>
+                                  <label className="text-xs font-semibold text-[var(--fg-2)] block mb-1.5">Model Endpoint Provider</label>
+                                  <select className="w-full bg-[var(--surface-warm)] border border-[var(--border)] rounded-lg p-2.5 text-sm outline-none text-[var(--fg)]">
+                                    <option>LM Studio (Local endpoint: http://localhost:1234)</option>
+                                    <option>OpenAI API SDK Client</option>
+                                    <option>Anthropic Claude Endpoint</option>
+                                    <option>Google Gemini API</option>
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="text-xs font-semibold text-[var(--fg-2)] block mb-1.5">Default Thread Model</label>
+                                  <input 
+                                    type="text" 
+                                    defaultValue="qwen/qwen3.5-9b" 
+                                    className="w-full bg-[var(--surface-warm)] border border-[var(--border)] rounded-lg p-2.5 text-sm outline-none font-mono text-[var(--fg)]"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sub-section 2: Tool permissions */}
+                          {settingsSection === 'permissions' && (
+                            <div className="space-y-6">
+                              <h3 className="text-lg font-bold border-b border-[var(--border-soft)] pb-2">Default Tool Authorizations</h3>
+                              <p className="text-xs text-[var(--muted)]">Configure which sandbox operations require explicit UI confirmation before executing.</p>
+                              
+                              <div className="space-y-3">
+                                {[
+                                  { label: 'Require approval for local shell commands', checked: true },
+                                  { label: 'Require approval for file write/modify options', checked: true },
+                                  { label: 'Allow webSearch queries without prompt', checked: false },
+                                  { label: 'Allow Telegram messaging client hook', checked: true }
+                                ].map((perm, idx) => (
+                                  <div key={idx} className="flex justify-between items-center p-3 bg-[var(--surface-warm)] border border-[var(--border-soft)] rounded-lg">
+                                    <span className="text-xs font-semibold text-[var(--fg-2)]">{perm.label}</span>
+                                    <button 
+                                      className={`w-9 h-5 rounded-full p-0.5 transition-colors ${perm.checked ? 'bg-[var(--accent)]' : 'bg-gray-300'}`}
+                                      aria-label="Toggle Tool Permission"
+                                    >
+                                      <div className={`w-4 h-4 bg-white rounded-full transition-transform ${perm.checked ? 'translate-x-4' : 'translate-x-0'}`}></div>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Sub-section 3: Synced memory */}
+                          {settingsSection === 'memory' && (
+                            <div className="space-y-6">
+                              <h3 className="text-lg font-bold border-b border-[var(--border-soft)] pb-2">Synced Memory & Facts</h3>
+                              <p className="text-xs text-[var(--muted)]">These facts are sync-loaded automatically into active thread context rules.</p>
+                              
+                              <div className="space-y-2">
+                                {memories.map((mem, i) => (
+                                  <div key={i} className="p-3 bg-[var(--surface-warm)] border border-[var(--border-soft)] rounded-lg flex justify-between items-center text-xs">
+                                    <span className="font-semibold text-[var(--fg-2)]">{mem}</span>
+                                    <button 
+                                      onClick={() => setMemories(prev => prev.filter((_, idx) => idx !== i))}
+                                      className="text-red-500 hover:text-red-700"
+                                      aria-label="Delete Synced Memory"
+                                    >
+                                      <Icon name="trash" size={13} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
+              {/* ─── Telegram companion simulator popup ─── */}
+              {showTelegram && (
+                <div className="absolute bottom-16 left-20 w-[300px] h-[400px] bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl flex flex-col overflow-hidden z-50 animate-slide-up">
+                  {/* Telegram header */}
+                  <div className="h-10 bg-[#0088cc] text-white px-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Icon name="sms" size={14} />
+                      <span className="text-xs font-bold">Telegram bot client</span>
+                    </div>
+                    <button onClick={() => setShowTelegram(false)} className="text-white hover:opacity-80">×</button>
+                  </div>
+                  
+                  {/* Message logs */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-[#e7ebf0]">
+                    {telegramMessages.map(m => (
+                      <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] rounded-lg p-2 text-xs ${
+                          m.sender === 'user' ? 'bg-[#effdde] text-black shadow-sm' : 'bg-white text-black shadow-sm'
+                        }`}>
+                          <div className="whitespace-pre-wrap">{m.text}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Telegram inputs */}
+                  <div className="p-2 border-t border-[var(--border-soft)] bg-white flex gap-1.5">
+                    <input 
+                      type="text" 
+                      value={telegramInput}
+                      onChange={(e) => setTelegramInput(e.target.value)}
+                      onKeyDown={(e) => { if(e.key === 'Enter') handleTelegramSend(); }}
+                      placeholder="Type /status or /run pr-review..."
+                      className="flex-1 bg-gray-50 border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none text-black"
+                    />
+                    <button 
+                      onClick={handleTelegramSend}
+                      className="px-3 py-1 bg-[#0088cc] text-white rounded text-xs hover:opacity-90"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Command Palette Modal (⌘K) ─── */}
+              {showCmdPalette && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999] flex items-start justify-center pt-24" onClick={() => setShowCmdPalette(false)}>
+                  <div 
+                    className="w-[480px] bg-[var(--bg)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden animate-scale-in"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="p-3 border-b border-[var(--border-soft)] flex items-center gap-2">
+                      <Icon name="search" size={15} className="text-[var(--muted)]" />
+                      <input 
+                        type="text"
+                        value={cmdQuery}
+                        onChange={(e) => setCmdQuery(e.target.value)}
+                        placeholder="Search threads, workflows, and workspace views..."
+                        className="flex-1 bg-transparent text-sm outline-none text-[var(--fg)]"
+                        autoFocus
+                      />
+                    </div>
+                    
+                    <div className="p-2 divide-y divide-[var(--border-soft)] max-h-[300px] overflow-y-auto">
+                      {[
+                        { label: 'Navigate to Chat view', action: 'chat', desc: 'View active threads & local logs' },
+                        { label: 'Navigate to Workspace', action: 'workspace', desc: 'Inspect Git and quick actions' },
+                        { label: 'Navigate to Automations', action: 'automations', desc: 'Configure triggers and crons' },
+                        { label: 'Navigate to Timeline Log', action: 'timeline', desc: 'Chronological events list' },
+                        { label: 'Navigate to Settings', action: 'settings', desc: 'LLM providers & permissions' }
+                      ]
+                      .filter(i => i.label.toLowerCase().includes(cmdQuery.toLowerCase()))
+                      .map((item, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleCmdSelect(item.action)}
+                          className="w-full text-left p-3 hover:bg-[var(--border-soft)] transition-colors rounded-lg flex justify-between items-center text-xs"
+                        >
+                          <div>
+                            <div className="font-semibold text-[var(--fg)]">{item.label}</div>
+                            <div className="text-[10px] text-[var(--meta)] mt-0.5">{item.desc}</div>
+                          </div>
+                          <span className="text-[10px] bg-[var(--surface)] px-2 py-0.5 rounded font-mono">Select</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ─── Collapsible Floating Tweaks Panel (Apple style) ─── */}
+              <div className="fixed bottom-4 right-4 z-50 bg-[var(--surface-warm)] border border-[var(--border)] rounded-2xl shadow-xl p-4 w-[280px]">
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[var(--muted)] font-mono flex items-center gap-1.5">
+                    <Icon name="bolt" size={13} />
+                    Design Configurator
+                  </span>
+                </div>
+                
+                <div className="space-y-3 text-xs">
+                  {/* Theme toggle */}
+                  <div className="flex justify-between items-center">
+                    <span>Color theme</span>
+                    <select 
+                      value={theme} 
+                      onChange={(e) => setTheme(e.target.value)}
+                      className="bg-[var(--bg)] border border-[var(--border)] rounded p-1 outline-none text-[var(--fg)]"
+                    >
+                      <option value="light">Apple Light</option>
+                      <option value="dark">Apple Dark</option>
+                    </select>
+                  </div>
+
+                  {/* Sidebar Width */}
+                  <div className="flex justify-between items-center">
+                    <span>Sidebar width</span>
+                    <select 
+                      value={sidebarWidth} 
+                      onChange={(e) => setSidebarWidth(e.target.value)}
+                      className="bg-[var(--bg)] border border-[var(--border)] rounded p-1 outline-none text-[var(--fg)]"
+                    >
+                      <option value="comfortable">Comfortable</option>
+                      <option value="compact">Compact</option>
+                    </select>
+                  </div>
+
+                  {/* Accent Color */}
+                  <div className="flex justify-between items-center">
+                    <span>Accent color</span>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => {
+                          setAccentColor('blue');
+                          document.documentElement.style.setProperty('--accent', theme === 'dark' ? '#2997ff' : '#0071e3');
+                        }}
+                        className={`w-4 h-4 rounded-full bg-blue-600 ${accentColor === 'blue' ? 'ring-2 ring-white' : ''}`}
+                        title="Blue Accent"
+                      ></button>
+                      <button 
+                        onClick={() => {
+                          setAccentColor('graphite');
+                          document.documentElement.style.setProperty('--accent', '#6e6e73');
+                        }}
+                        className={`w-4 h-4 rounded-full bg-zinc-600 ${accentColor === 'graphite' ? 'ring-2 ring-white' : ''}`}
+                        title="Graphite Accent"
+                      ></button>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setInApp(false)}
+                    className="w-full mt-2 py-1.5 bg-red-600/10 text-red-500 rounded text-center font-semibold hover:bg-red-600/20 transition-colors border border-red-500/20"
+                  >
+                    Return to marketing page
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      );
+    };
+
+    // Render application
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      ReactDOM.createRoot(rootElement).render(<App />);
+    }
+  </script>
+</body>
+</html>

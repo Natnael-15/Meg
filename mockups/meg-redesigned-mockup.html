@@ -1,0 +1,3072 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✦ Meg — Redesigned Desktop Assistant ✦</title>
+  <!-- Google Fonts: Outfit (Display) & Plus Jakarta Sans (Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ══════════════════════════════════════════════════════
+       DESIGN TOKENS & SYSTEM BASE
+       ══════════════════════════════════════════════════════ */
+    :root {
+      /* Palette (Dark Theme Default) */
+      --bg: #09070f;
+      --bg-rgb: 9, 7, 15;
+      --bg-panel: rgba(18, 14, 30, 0.75);
+      --bg-active: rgba(255, 255, 255, 0.08);
+      --bg-hover: rgba(255, 255, 255, 0.04);
+      --bg-input: rgba(255, 255, 255, 0.02);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-light: rgba(255, 255, 255, 0.04);
+      --border-glow: rgba(124, 58, 237, 0.25);
+      
+      --text: #f3f1f6;
+      --text-2: #c4bdcd;
+      --text-3: #7d7289;
+      --text-inverse: #09070f;
+      
+      /* Accents */
+      --accent-hue: 260;
+      --accent: hsl(var(--accent-hue), 85%, 65%);
+      --accent-bg: hsla(var(--accent-hue), 85%, 65%, 0.12);
+      --accent-border: hsla(var(--accent-hue), 85%, 65%, 0.25);
+      --accent-glow: hsla(var(--accent-hue), 85%, 65%, 0.4);
+      
+      /* Signals */
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.1);
+      --green-border: rgba(16, 185, 129, 0.2);
+      --red: #f43f5e;
+      --red-bg: rgba(244, 63, 94, 0.1);
+      --red-border: rgba(244, 63, 94, 0.2);
+      --orange: #f59e0b;
+      --orange-bg: rgba(245, 158, 11, 0.1);
+      --orange-border: rgba(245, 158, 11, 0.2);
+      
+      /* Fonts */
+      --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      /* Shadows & Blurs */
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.5);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.6);
+      --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.8);
+      --glass-blur: 24px;
+      --panel-opacity: 0.75;
+      
+      /* Radii */
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 22px;
+      
+      /* Transitions */
+      --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+      --transition: all 0.3s var(--ease-smooth);
+    }
+    
+    /* Light Theme Override */
+    :root.light-theme {
+      --bg: #f8f6fb;
+      --bg-rgb: 248, 246, 251;
+      --bg-panel: rgba(255, 255, 255, 0.78);
+      --bg-active: rgba(0, 0, 0, 0.06);
+      --bg-hover: rgba(0, 0, 0, 0.03);
+      --bg-input: rgba(0, 0, 0, 0.01);
+      --border: rgba(0, 0, 0, 0.08);
+      --border-light: rgba(0, 0, 0, 0.04);
+      --border-glow: rgba(124, 58, 237, 0.15);
+      
+      --text: #1b1725;
+      --text-2: #4f465c;
+      --text-3: #8e839e;
+      --text-inverse: #ffffff;
+      
+      --accent: hsl(var(--accent-hue), 75%, 55%);
+      --accent-bg: hsla(var(--accent-hue), 75%, 55%, 0.08);
+      --accent-border: hsla(var(--accent-hue), 75%, 55%, 0.18);
+      --accent-glow: hsla(var(--accent-hue), 75%, 55%, 0.25);
+      
+      --green: #059669;
+      --green-bg: rgba(5, 150, 105, 0.08);
+      --green-border: rgba(5, 150, 105, 0.16);
+      --red: #e11d48;
+      --red-bg: rgba(225, 29, 72, 0.08);
+      --red-border: rgba(225, 29, 72, 0.16);
+      --orange: #d97706;
+      --orange-bg: rgba(217, 119, 6, 0.08);
+      --orange-border: rgba(217, 119, 6, 0.16);
+      
+      --shadow-sm: 0 2px 8px rgba(27, 23, 37, 0.05);
+      --shadow-md: 0 8px 24px rgba(27, 23, 37, 0.08);
+      --shadow-lg: 0 24px 60px rgba(27, 23, 37, 0.12);
+    }
+    
+    /* Reset & Core Styles */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    *::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    *::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    *::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 99px;
+    }
+    *::-webkit-scrollbar-thumb:hover {
+      background: var(--text-3);
+    }
+    
+    body {
+      font-family: var(--font-body);
+      background-color: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.4s var(--ease-smooth);
+    }
+    
+    /* Background Canvas Glows */
+    .glow-canvas {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .glow-canvas-blobs {
+      position: absolute;
+      inset: 0;
+    }
+    .glow-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.35;
+      mix-blend-mode: screen;
+      animation: drift 25s ease-in-out infinite alternate;
+    }
+    .glow-1 {
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+      top: -150px;
+      right: -100px;
+    }
+    .glow-2 {
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, hsla(200, 85%, 60%, 0.8) 0%, transparent 70%);
+      bottom: -200px;
+      left: -150px;
+      animation-delay: -5s;
+    }
+    
+    @keyframes drift {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(60px, 40px) scale(1.1); }
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       DESKTOP WINDOW FRAME
+       ══════════════════════════════════════════════════════ */
+    .titlebar {
+      height: 40px;
+      background: rgba(var(--bg-rgb), 0.4);
+      backdrop-filter: blur(var(--glass-blur));
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+      z-index: 100;
+    }
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .window-dots {
+      display: flex;
+      gap: 8px;
+    }
+    .window-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      position: relative;
+    }
+    .window-dot.close { background: #ff5f56; }
+    .window-dot.minimize { background: #ffbd2e; }
+    .window-dot.maximize { background: #27c93f; }
+    
+    .logo-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 8px;
+    }
+    .logo-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent) 0%, #3b82f6 100%);
+      box-shadow: 0 0 10px var(--accent-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 800;
+      font-size: 11px;
+      font-family: var(--font-display);
+    }
+    .logo-text {
+      font-size: 13.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text);
+      font-family: var(--font-display);
+    }
+    .logo-version {
+      font-size: 10px;
+      background: var(--bg-active);
+      color: var(--text-3);
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    
+    .titlebar-center {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .model-selector-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 99px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .model-selector-bar:hover {
+      border-color: var(--accent-border);
+      background: var(--bg-active);
+    }
+    
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-2);
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+    .status-dot.offline {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+    
+    .btn-update {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: var(--transition);
+    }
+    .btn-update:hover {
+      background: var(--accent);
+      color: var(--text-inverse);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       MAIN APP LAYOUT
+       ══════════════════════════════════════════════════════ */
+    .app-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* Sidebar styling */
+    .sidebar {
+      width: 240px;
+      background: rgba(var(--bg-rgb), 0.35);
+      backdrop-filter: blur(var(--glass-blur));
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    
+    .sidebar-header {
+      padding: 16px;
+    }
+    .workspace-picker {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .workspace-picker:hover {
+      border-color: var(--accent-border);
+      background: var(--bg-active);
+    }
+    .workspace-picker-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+    }
+    .workspace-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .workspace-path {
+      font-size: 10px;
+      color: var(--text-3);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      font-family: var(--font-mono);
+    }
+    
+    .sidebar-nav {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: transparent;
+      border: none;
+      color: var(--text-2);
+      border-radius: var(--radius-md);
+      font-size: 13.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: var(--transition);
+      width: 100%;
+    }
+    .nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+    .nav-btn.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-weight: 600;
+      border: 1px solid var(--accent-border);
+      box-shadow: 0 0 10px rgba(124, 58, 237, 0.05);
+    }
+    .nav-badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 99px;
+      background: var(--accent);
+      color: var(--text-inverse);
+      font-weight: 600;
+    }
+    .nav-badge.orange {
+      background: var(--orange-bg);
+      color: var(--orange);
+      border: 1px solid var(--orange-border);
+    }
+    
+    .sidebar-footer {
+      padding: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .telegram-sync-quick {
+      background: rgba(34, 158, 217, 0.05);
+      border: 1px solid rgba(34, 158, 217, 0.15);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .telegram-sync-quick:hover {
+      background: rgba(34, 158, 217, 0.1);
+      border-color: rgba(34, 158, 217, 0.3);
+    }
+    .tg-sync-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: #229ed9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+    .tg-sync-info {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .tg-sync-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .tg-sync-status {
+      font-size: 9.5px;
+      color: var(--green);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    
+    .user-profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .user-status {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       MAIN CONTENT CONTAINER
+       ══════════════════════════════════════════════════════ */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: rgba(var(--bg-rgb), 0.2);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* Glass Panel Card Base */
+    .glass-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      transition: var(--transition);
+    }
+    
+    .view-container {
+      display: none;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .view-container.active {
+      display: flex;
+      animation: viewIn 0.4s var(--ease-smooth) both;
+    }
+    
+    @keyframes viewIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       VIEW: CHAT & ASSISTANT SURFACE
+       ══════════════════════════════════════════════════════ */
+    .chat-layout {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      position: relative;
+    }
+    
+    .chat-header {
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(var(--bg-rgb), 0.3);
+    }
+    .chat-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-active-title {
+      font-size: 15px;
+      font-weight: 600;
+      font-family: var(--font-display);
+    }
+    .token-counter {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-3);
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 99px;
+    }
+    .token-bar {
+      width: 60px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .token-fill {
+      height: 100%;
+      background: var(--accent);
+      width: 30%;
+      border-radius: 2px;
+    }
+    
+    .chat-messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .message {
+      display: flex;
+      gap: 16px;
+      max-width: 80%;
+      animation: messageIn 0.3s var(--ease-smooth);
+    }
+    @keyframes messageIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+    .message.assistant {
+      align-self: flex-start;
+    }
+    
+    .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .message.user .msg-avatar {
+      background: var(--bg-active);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+    }
+    .message.assistant .msg-avatar {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      color: var(--accent);
+    }
+    
+    .msg-bubble {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .message.user .msg-bubble-content {
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 18px 18px 2px 18px;
+      font-size: 13.5px;
+      line-height: 1.6;
+    }
+    .message.assistant .msg-bubble-content {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      padding: 14px 18px;
+      border-radius: 2px 18px 18px 18px;
+      font-size: 13.5px;
+      line-height: 1.65;
+      box-shadow: var(--shadow-sm);
+    }
+    
+    /* Thinking Process Card */
+    .thinking-box {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .thinking-header {
+      padding: 8px 12px;
+      background: var(--bg-hover);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      font-size: 11.5px;
+      color: var(--text-3);
+      font-weight: 500;
+    }
+    .thinking-header:hover {
+      color: var(--text-2);
+    }
+    .thinking-body {
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-3);
+      line-height: 1.6;
+      border-top: 1px solid var(--border-light);
+      background: rgba(0, 0, 0, 0.15);
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    
+    /* Interactive Tool Execution Card */
+    .tool-card {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      margin: 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: var(--shadow-sm);
+    }
+    .tool-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tool-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tool-icon.terminal {
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      color: var(--accent);
+    }
+    .tool-icon.file {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      color: var(--orange);
+    }
+    .tool-content {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border-light);
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: var(--text-2);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .tool-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-3);
+    }
+    .tool-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-approve, .btn-reject {
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: var(--transition);
+    }
+    .btn-approve {
+      background: var(--green-bg);
+      border: 1px solid var(--green-border);
+      color: var(--green);
+    }
+    .btn-approve:hover {
+      background: var(--green);
+      color: var(--bg);
+    }
+    .btn-reject {
+      background: var(--red-bg);
+      border: 1px solid var(--red-border);
+      color: var(--red);
+    }
+    .btn-reject:hover {
+      background: var(--red);
+      color: var(--bg);
+    }
+    
+    /* Input Container & Smart Bar */
+    .chat-input-area {
+      padding: 16px 24px 24px;
+      position: relative;
+      background: linear-gradient(180deg, transparent 0%, rgba(var(--bg-rgb), 0.8) 100%);
+    }
+    .input-bar-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .input-bar {
+      width: 100%;
+      background: var(--bg-panel);
+      backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: var(--shadow-lg);
+      transition: var(--transition);
+    }
+    .input-bar:focus-within {
+      border-color: var(--accent-border);
+      box-shadow: 0 0 20px var(--accent-glow), var(--shadow-lg);
+    }
+    .input-field-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .chat-textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 13.5px;
+      resize: none;
+      height: 24px;
+      line-height: 1.5;
+      padding-top: 2px;
+    }
+    .chat-textarea::placeholder {
+      color: var(--text-3);
+    }
+    
+    .chat-input-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-light);
+      padding-top: 10px;
+    }
+    .input-tools-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .input-tool-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+    .input-tool-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-2);
+    }
+    .input-tool-btn.active {
+      color: var(--accent);
+      background: var(--accent-bg);
+      border: 1px solid var(--accent-border);
+    }
+    .btn-send-chat {
+      background: var(--accent);
+      color: var(--text-inverse);
+      border: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 12px var(--accent-glow);
+      transition: var(--transition);
+    }
+    .btn-send-chat:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 16px var(--accent);
+    }
+    
+    /* Autocomplete Popover Dropdown */
+    .autocomplete-popover {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      width: 280px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-lg);
+      margin-bottom: 8px;
+      overflow: hidden;
+      z-index: 120;
+      display: none;
+      flex-direction: column;
+      animation: popOver 0.2s var(--ease-smooth);
+    }
+    @keyframes popOver {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .popover-header {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-3);
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-light);
+      background: rgba(0,0,0,0.1);
+      letter-spacing: 0.05em;
+    }
+    .popover-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      width: 100%;
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      color: var(--text-2);
+      font-size: 12.5px;
+      transition: var(--transition);
+    }
+    .popover-item:hover, .popover-item.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       VIEW: WORKSPACE EXPLORER
+       ══════════════════════════════════════════════════════ */
+    .workspace-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .ws-pane-left {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: rgba(var(--bg-rgb), 0.2);
+    }
+    
+    .ws-pane-title {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-3);
+    }
+    
+    .ws-quick-actions {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn-ws-action {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text-2);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: left;
+    }
+    .btn-ws-action:hover {
+      background: var(--bg-active);
+      border-color: var(--accent-border);
+      color: var(--text);
+    }
+    
+    .ws-git-card {
+      margin: 16px;
+      padding: 14px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+    }
+    .git-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .git-branch {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .git-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid var(--green-border);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .git-log-entry {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-3);
+      line-height: 1.5;
+    }
+    
+    .ws-pane-right {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 24px;
+      gap: 20px;
+    }
+    
+    .file-explorer-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .file-card-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .search-input-wrapper {
+      position: relative;
+      width: 240px;
+    }
+    .search-input-wrapper input {
+      width: 100%;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px 6px 30px;
+      font-size: 12.5px;
+      color: var(--text);
+      outline: none;
+      transition: var(--transition);
+    }
+    .search-input-wrapper input:focus {
+      border-color: var(--accent-border);
+      background: var(--bg-active);
+    }
+    
+    .file-list-view {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .file-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1.2fr;
+      padding: 10px 16px;
+      border-radius: 6px;
+      align-items: center;
+      cursor: pointer;
+      font-size: 13px;
+      transition: var(--transition);
+    }
+    .file-row:hover {
+      background: var(--bg-hover);
+    }
+    .file-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .file-size-cell {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-3);
+    }
+    .file-time-cell {
+      font-size: 12px;
+      color: var(--text-3);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       VIEW: BACKGROUND AGENTS
+       ══════════════════════════════════════════════════════ */
+    .agents-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .agents-list-pane {
+      border-right: 1px solid var(--border);
+      background: rgba(var(--bg-rgb), 0.2);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 10px;
+    }
+    
+    .agent-list-card {
+      padding: 14px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: left;
+      transition: var(--transition);
+    }
+    .agent-list-card:hover {
+      border-color: var(--accent-border);
+      background: var(--bg-hover);
+    }
+    .agent-list-card.active {
+      border-color: var(--accent);
+      background: var(--accent-bg);
+    }
+    
+    .agent-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .agent-progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .agent-progress-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.6s var(--ease-smooth);
+    }
+    .agent-progress-fill.done {
+      background: var(--green);
+    }
+    
+    .agent-detail-pane {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 24px;
+      gap: 20px;
+    }
+    
+    .agent-detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .agent-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+    }
+    .agent-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .agent-meta-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.05em;
+    }
+    .agent-meta-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text);
+    }
+    
+    .agent-steps-wrapper {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 20px;
+      overflow: hidden;
+    }
+    .agent-steps-scroll {
+      overflow-y: auto;
+      padding-right: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .agent-step-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+    }
+    .step-indicator {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--bg-active);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .step-indicator.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      border: 1px solid var(--accent-border);
+    }
+    .step-indicator.done {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid var(--green-border);
+    }
+    
+    .agent-console-box {
+      background: #05040a;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       VIEW: AUTOMATIONS BUILDER
+       ══════════════════════════════════════════════════════ */
+    .automations-grid {
+      flex: 1;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+      overflow-y: auto;
+    }
+    .automation-card {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+    .auto-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .auto-title {
+      font-size: 15px;
+      font-weight: 700;
+      font-family: var(--font-display);
+    }
+    .auto-trigger-banner {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-light);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+    }
+    .auto-actions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .auto-action-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      color: var(--text-2);
+    }
+    
+    /* Toggle switch primitive */
+    .switch-toggle {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+    .switch-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider-toggle {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: var(--border);
+      transition: .4s;
+      border-radius: 34px;
+    }
+    .slider-toggle:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #fff;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider-toggle {
+      background-color: var(--accent);
+    }
+    input:checked + .slider-toggle:before {
+      transform: translateX(16px);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       VIEW: TELEGRAM LINK SYNC
+       ══════════════════════════════════════════════════════ */
+    .tg-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 24px;
+      padding: 24px;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .tg-setup-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+    
+    .tg-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tg-input-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    .tg-input-field {
+      width: 100%;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      outline: none;
+      transition: var(--transition);
+    }
+    .tg-input-field:focus {
+      border-color: var(--accent-border);
+    }
+    
+    .btn-tg-link {
+      background: var(--accent);
+      color: var(--text-inverse);
+      font-weight: 600;
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    /* Smartphone Mockup Preview */
+    .phone-mockup {
+      width: 320px;
+      height: 560px;
+      border: 10px solid #1a1525;
+      border-radius: 36px;
+      background: #08060c;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .phone-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .phone-header {
+      height: 44px;
+      background: rgba(18, 14, 28, 0.9);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 11px;
+      color: #fff;
+    }
+    .phone-chat-title {
+      font-weight: 600;
+      color: #fff;
+      font-size: 12px;
+    }
+    .phone-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: radial-gradient(circle at top, #140f22 0%, #08060c 100%);
+    }
+    .phone-bubble {
+      max-width: 75%;
+      padding: 8px 12px;
+      border-radius: 14px;
+      font-size: 11.5px;
+      line-height: 1.5;
+    }
+    .phone-bubble.inbound {
+      align-self: flex-start;
+      background: #1e1b29;
+      color: #e2dfeb;
+      border-bottom-left-radius: 2px;
+    }
+    .phone-bubble.outbound {
+      align-self: flex-end;
+      background: #0088cc;
+      color: #fff;
+      border-bottom-right-radius: 2px;
+    }
+    .phone-input {
+      padding: 8px 12px;
+      background: rgba(18, 14, 28, 0.9);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .phone-input-field {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      padding: 6px 12px;
+      border-radius: 16px;
+      color: #fff;
+      font-size: 11.5px;
+      outline: none;
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       VIEW: SYSTEM SETTINGS
+       ══════════════════════════════════════════════════════ */
+    .settings-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    .settings-sidebar {
+      border-right: 1px solid var(--border);
+      background: rgba(var(--bg-rgb), 0.2);
+      padding: 16px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    .settings-section-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-2);
+      font-size: 12.5px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .settings-section-btn:hover {
+      background: var(--bg-hover);
+    }
+    .settings-section-btn.active {
+      background: var(--accent-bg);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    
+    .settings-body {
+      flex: 1;
+      padding: 24px 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .settings-section-view {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .settings-section-view.active {
+      display: flex;
+      animation: viewIn 0.3s var(--ease-smooth);
+    }
+    
+    .settings-form-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .settings-form-row label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-2);
+    }
+    
+    /* Matrix permissions check box */
+    .perms-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    .perm-card {
+      padding: 12px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .perm-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .perm-name {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .perm-desc {
+      font-size: 10px;
+      color: var(--text-3);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       FLOATING INTERACTIVE TWEAKS SYSTEM
+       ══════════════════════════════════════════════════════ */
+    .tweaks-console {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 280px;
+      z-index: 999;
+      background: var(--bg-panel);
+      backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+      transition: var(--transition);
+      display: none;
+      flex-direction: column;
+    }
+    .tweaks-console.visible {
+      display: flex;
+      animation: tweaksIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+    @keyframes tweaksIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    
+    .tweaks-header {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: grab;
+    }
+    .tweaks-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+    }
+    .btn-tweaks-close {
+      background: transparent;
+      border: none;
+      color: var(--text-3);
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .tweaks-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .tweak-section-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--text-3);
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .tweak-control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tweak-control-row.horizontal {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .tweak-control-label {
+      font-size: 11.5px;
+      color: var(--text-2);
+      font-weight: 500;
+    }
+    .tweak-colors-grid {
+      display: flex;
+      gap: 8px;
+    }
+    .tweak-color-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: var(--transition);
+    }
+    .tweak-color-dot.active {
+      border-color: var(--text);
+      transform: scale(1.1);
+    }
+    
+    /* ══════════════════════════════════════════════════════
+       UTILITY COMPONENTS / TOASTS / OVERLAYS
+       ══════════════════════════════════════════════════════ */
+    .toast-overlay {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(40px);
+      z-index: 2000;
+      background: rgba(18, 14, 28, 0.95);
+      border: 1px solid var(--accent-border);
+      box-shadow: var(--shadow-lg);
+      padding: 12px 24px;
+      border-radius: 99px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #fff;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .toast-overlay.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge.accent { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+    .badge.green { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+    .badge.red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+    .badge.orange { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange-border); }
+  </style>
+</head>
+<body>
+
+  <!-- Background Layer Grid -->
+  <div class="glow-canvas">
+    <div class="glow-canvas-blobs">
+      <div class="glow-blob glow-1"></div>
+      <div class="glow-blob glow-2"></div>
+    </div>
+  </div>
+
+  <!-- Custom Title Bar -->
+  <div class="titlebar">
+    <div class="titlebar-left">
+      <div class="window-dots">
+        <div class="window-dot close"></div>
+        <div class="window-dot minimize"></div>
+        <div class="window-dot maximize"></div>
+      </div>
+      <div class="logo-badge">
+        <div class="logo-icon">M</div>
+        <span class="logo-text">✦ MEG ✦</span>
+        <span class="logo-version">v1.0.0-beta.10</span>
+      </div>
+    </div>
+    
+    <div class="titlebar-center">
+      <div class="model-selector-bar" onclick="openSettingsSection('model')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <span style="font-size:11.5px; font-weight:600; font-family: var(--font-mono);" id="active-model-display">qwen/qwen3.5-9b</span>
+        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-3);"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+    </div>
+    
+    <div class="titlebar-right">
+      <button class="btn-update" onclick="showToast('Checking for updates... All packages up-to-date.')">
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275Z"/></svg>
+        Sync Updates
+      </button>
+      <div class="status-item" id="lm-studio-connection" title="LM Studio connection status: Online">
+        <div class="status-dot"></div>
+        <span style="font-size: 11px;">LM Studio: <strong style="color: var(--green);">1234</strong></span>
+      </div>
+      <button onclick="toggleTweaksConsole()" style="background: transparent; border: none; color: var(--text-2); cursor: pointer;" title="Open UI Tweaks">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- App Main Area -->
+  <div class="app-container">
+    
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="sidebar-header">
+          <div class="workspace-picker" onclick="showTab('workspace')">
+            <div class="workspace-picker-info">
+              <span class="workspace-title">Downloads/MEG/Meg</span>
+              <span class="workspace-path">C:\Users\natna\Downloads\MEG\Meg</span>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-3);"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>
+          </div>
+        </div>
+
+        <div class="sidebar-nav">
+          <button class="nav-btn active" onclick="switchNav(this, 'chat')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            AI Chat
+            <span class="nav-badge" id="chat-badge" style="display: none;">0</span>
+          </button>
+          
+          <button class="nav-btn" onclick="switchNav(this, 'workspace')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Workspace
+          </button>
+          
+          <button class="nav-btn" onclick="switchNav(this, 'agents')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m10 8 6 4-6 4V8z"/></svg>
+            Background Agents
+            <span class="nav-badge orange" id="agents-count-badge">1</span>
+          </button>
+          
+          <button class="nav-btn" onclick="switchNav(this, 'automations')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            Automations
+          </button>
+          
+          <button class="nav-btn" onclick="switchNav(this, 'telegram')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>
+            Telegram Link
+          </button>
+          
+          <button class="nav-btn" onclick="switchNav(this, 'settings')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="telegram-sync-quick" onclick="showTab('telegram')">
+          <div class="tg-sync-avatar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg>
+          </div>
+          <div class="tg-sync-info">
+            <span class="tg-sync-label" id="tg-sync-label-display">Telegram Link</span>
+            <span class="tg-sync-status" id="tg-sync-status-display">
+              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              Active
+            </span>
+          </div>
+        </div>
+
+        <div class="user-profile">
+          <div class="user-avatar">PM</div>
+          <div class="user-info">
+            <span class="user-name">Project Manager</span>
+            <span class="user-status">Local Session Mode</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Panel -->
+    <div class="main-content">
+      
+      <!-- ══════════════════════════════════════════════════════
+           VIEW: AI CHAT (ACTIVE BY DEFAULT)
+           ══════════════════════════════════════════════════════ -->
+      <div id="view-chat" class="view-container active">
+        <div class="chat-layout">
+          <div class="chat-header">
+            <div class="chat-meta">
+              <span class="chat-active-title">Local Dev-Loop Chat</span>
+              <span class="badge accent">Workspace Aware</span>
+            </div>
+            <div class="token-counter" title="Dynamic context limits to protect model performance">
+              <span style="font-weight: 500;">Context Size:</span>
+              <span style="font-family: var(--font-mono); font-weight: 600;">2,450 / 8,000 tokens</span>
+              <div class="token-bar"><div class="token-fill"></div></div>
+            </div>
+          </div>
+
+          <div class="chat-messages-container" id="chat-messages">
+            <!-- Initial Assistant message -->
+            <div class="message assistant">
+              <div class="msg-avatar">M</div>
+              <div class="msg-bubble">
+                <div class="msg-bubble-content">
+                  Hello! I am linked to your current workspace directory at <code style="font-family: var(--font-mono); background: var(--bg-hover); padding: 1px 4px; border-radius: 4px;">Downloads/MEG/Meg</code>.<br/><br/>
+                  I can run terminal tasks, edit files, manage background agents, or schedule actions. Ask me something or try typing <code style="font-family: var(--font-mono); color: var(--accent);">/</code> or <code style="font-family: var(--font-mono); color: var(--accent);">@</code>.
+                </div>
+              </div>
+            </div>
+
+            <!-- User message example -->
+            <div class="message user">
+              <div class="msg-avatar">U</div>
+              <div class="msg-bubble">
+                <div class="msg-bubble-content">
+                  Review the recent project changes in Meg and tell me what tasks we should run next.
+                </div>
+              </div>
+            </div>
+
+            <!-- Assistant response with DeepSeek-style thinking and tool calls -->
+            <div class="message assistant">
+              <div class="msg-avatar">M</div>
+              <div class="msg-bubble">
+                <!-- Collapsible Thinking Card -->
+                <div class="thinking-box">
+                  <div class="thinking-header" onclick="toggleThinkingBody(this)">
+                    <span style="display:flex; align-items:center; gap:6px;">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                      Thinking Process (duration: 3.2s)
+                    </span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+                  </div>
+                  <div class="thinking-body">
+                    - The user wants a review of the workspace.<br/>
+                    - Locating the active project repository: Downloads/MEG/Meg.<br/>
+                    - Initiating git status command to see what changes are uncommitted.<br/>
+                    - Reviewing file browser directory metadata...
+                  </div>
+                </div>
+
+                <!-- Staged tool call card requiring approval -->
+                <div class="tool-card">
+                  <div class="tool-header" style="color: var(--orange);">
+                    <div class="tool-icon file">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <span>Staged Tool Approval Request</span>
+                    <span class="badge orange" style="margin-left: auto;">Requires Confirmation</span>
+                  </div>
+                  <div class="tool-content">Action: run_command<br/>Args: { "command": "git status --porcelain" }</div>
+                  <div class="tool-footer">
+                    <span>Executing in workspace root</span>
+                    <div class="tool-actions">
+                      <button class="btn-reject" onclick="handleToolAction(this, 'rejected')">Reject</button>
+                      <button class="btn-approve" onclick="handleToolAction(this, 'approved')">Approve</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="msg-bubble-content">
+                  I've staged a git status check request to verify current modifications before deciding on the next steps. Please review and approve the terminal tool call above.
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Smart Input Area -->
+          <div class="chat-input-area">
+            <div class="input-bar-wrapper">
+              
+              <!-- Autocomplete Popover Dropdown -->
+              <div class="autocomplete-popover" id="autocomplete-list">
+                <div class="popover-header" id="popover-title">Trigger Auto-complete</div>
+                <!-- Options populated dynamically by script -->
+              </div>
+              
+              <div class="input-bar">
+                <div class="input-field-row">
+                  <input type="text" class="chat-textarea" id="chat-input" placeholder="Type a message or use '/' commands..." oninput="handleInputAutocomplete(this)" onkeydown="handleInputKeydown(event, this)">
+                  <button class="btn-send-chat" onclick="submitChatMessage()">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7M12 5v14"/></svg>
+                  </button>
+                </div>
+                
+                <div class="chat-input-actions">
+                  <div class="input-tools-left">
+                    <button class="input-tool-btn" id="tool-terminal-btn" onclick="toggleInputTool('tool-terminal-btn')" title="Allow terminal script executions">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    </button>
+                    <button class="input-tool-btn active" id="tool-file-btn" onclick="toggleInputTool('tool-file-btn')" title="Link project directories context">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    </button>
+                    <button class="input-tool-btn" id="tool-search-btn" onclick="toggleInputTool('tool-search-btn')" title="Allow web references matching">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    </button>
+                  </div>
+                  <span style="font-size: 11px; color: var(--text-3);">Type <kbd style="background:var(--bg-hover); padding: 1px 4px; border-radius: 4px; border: 1px solid var(--border);">⌘K</kbd> to launch prompt settings</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           VIEW: WORKSPACE EXPLORER
+           ══════════════════════════════════════════════════════ -->
+      <div id="view-workspace" class="view-container">
+        <div class="workspace-layout">
+          <!-- Left Workspace Controls Pane -->
+          <div class="ws-pane-left">
+            <span class="ws-pane-title">Workspace Utilities</span>
+            <div class="ws-quick-actions">
+              <button class="btn-ws-action" onclick="simulateWorkspaceAction('Run Dev Server', 'npm run dev')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Run Dev Server
+              </button>
+              <button class="btn-ws-action" onclick="simulateWorkspaceAction('Run Tests Suite', 'npm test')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);"><path d="m12 14 4-4M3.34 19a10 10 0 1 1 17.32 0Z"/></svg>
+                Run Tests Suite
+              </button>
+              <button class="btn-ws-action" onclick="simulateWorkspaceAction('Auto Code Review', 'review-agent')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--orange);"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>
+                Perform Code Review
+              </button>
+            </div>
+            
+            <div class="ws-git-card">
+              <div class="git-status-row">
+                <div class="git-branch">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                  <span>main</span>
+                </div>
+                <span class="git-badge">2 commits ahead</span>
+              </div>
+              <div class="git-log-entry" style="margin-bottom: 6px;">
+                <span style="color: var(--text-2);">• Add autocomplete mentions checks</span><br/>
+                <span style="font-size: 9.5px;">Author: PM · 2 hours ago</span>
+              </div>
+              <div class="git-log-entry">
+                <span style="color: var(--text-2);">• Fix diagnostics date parses</span><br/>
+                <span style="font-size: 9.5px;">Author: Developer · 1 day ago</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right File Listing Pane -->
+          <div class="ws-pane-right">
+            <div class="glass-panel file-explorer-card">
+              <div class="file-card-header">
+                <span style="font-size: 14px; font-weight: 600; font-family: var(--font-display);">File Registry Browser</span>
+                <div class="search-input-wrapper">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3);"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  <input type="text" placeholder="Search registry files..." id="file-search-bar" oninput="filterMockFiles(this.value)">
+                </div>
+              </div>
+              
+              <div class="file-list-view" id="ws-file-list">
+                <!-- Javascript populated mock files -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           VIEW: BACKGROUND AGENTS
+           ══════════════════════════════════════════════════════ -->
+      <div id="view-agents" class="view-container">
+        <div class="agents-layout">
+          <!-- Background Agents List Pane -->
+          <div class="agents-list-pane" id="agents-sidebar-list">
+            <!-- Populated via script -->
+          </div>
+
+          <!-- Selected Agent Details Pane -->
+          <div class="agent-detail-pane">
+            <div class="agent-detail-header">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent); animation: spin 4s linear infinite;"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                <span style="font-family: var(--font-mono); font-size: 15px; font-weight: 700;" id="agent-detail-title">Code review workspace changes</span>
+              </div>
+              <span class="badge accent" id="agent-detail-status">Running</span>
+            </div>
+
+            <div class="agent-meta-grid">
+              <div class="agent-meta-item">
+                <span class="agent-meta-label">Task Run ID</span>
+                <span class="agent-meta-value" style="font-family: var(--font-mono);" id="agent-detail-id">run-17180491</span>
+              </div>
+              <div class="agent-meta-item">
+                <span class="agent-meta-label">Target Model</span>
+                <span class="agent-meta-value" style="font-family: var(--font-mono);">qwen/qwen3.5-9b</span>
+              </div>
+              <div class="agent-meta-item">
+                <span class="agent-meta-label">Duration</span>
+                <span class="agent-meta-value" id="agent-detail-duration">00:02:44</span>
+              </div>
+              <div class="agent-meta-item">
+                <span class="agent-meta-label">Steps Completed</span>
+                <span class="agent-meta-value" id="agent-detail-steps-ratio">2 / 3</span>
+              </div>
+            </div>
+
+            <div class="agent-steps-wrapper">
+              <div class="glass-panel" style="padding: 16px; display: flex; flex-direction: column; overflow: hidden; height: 100%;">
+                <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-3); margin-bottom: 12px; display: block;">Execution Steps</span>
+                <div class="agent-steps-scroll" id="agent-detail-steps">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+              
+              <div style="display: flex; flex-direction: column; gap: 20px; overflow: hidden; height: 100%;">
+                <div class="glass-panel" style="flex: 1; padding: 16px; display: flex; flex-direction: column; overflow: hidden;">
+                  <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: var(--text-3); margin-bottom: 8px; display: block;">Tool Log</span>
+                  <div class="agent-console-box" id="agent-detail-logs">
+                    <!-- Populated dynamically -->
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           VIEW: AUTOMATIONS BUILDER
+           ══════════════════════════════════════════════════════ -->
+      <div id="view-automations" class="view-container">
+        <div class="automations-grid" id="automations-list-container">
+          <!-- Automation cards dynamically generated here -->
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           VIEW: TELEGRAM LINK SYNC
+           ══════════════════════════════════════════════════════ -->
+      <div id="view-telegram" class="view-container">
+        <div class="tg-layout">
+          <!-- Setup configuration pane -->
+          <div class="tg-setup-panel">
+            <div class="glass-panel" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+              <h2 style="font-size: 16px; font-weight: 700; font-family: var(--font-display);">Telegram Remote Companion Setup</h2>
+              <p style="font-size: 13px; color: var(--text-2); line-height: 1.6;">
+                Link Meg with your Telegram chat to receive workspace notifications, diagnostic failure alarms, and trigger agent tasks remotely from your mobile device.
+              </p>
+              
+              <div class="tg-input-group">
+                <label>Telegram API Bot Token</label>
+                <input type="password" class="tg-input-field" placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ" id="tg-token-input" value="7382019482:AAHq_pLz9x_v8uB9X2p2">
+              </div>
+              <div class="tg-input-group">
+                <label>User / Chat ID</label>
+                <input type="text" class="tg-input-field" placeholder="8901849" id="tg-chatid-input" value="549102948">
+              </div>
+              
+              <button class="btn-tg-link" onclick="triggerTelegramValidation()">Verify & Establish Connection</button>
+            </div>
+
+            <div class="glass-panel" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+              <h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-3); letter-spacing: 0.05em;">Capabilities via Telegram</h3>
+              <ul style="font-size: 12.5px; color: var(--text-2); line-height: 1.7; padding-left: 20px;">
+                <li>Get notifications on completed Background Agent runs.</li>
+                <li>Approve or Reject staged file mutations and commands on the fly.</li>
+                <li>Initiate Workspace reviews by writing <code style="color:var(--accent); font-family:var(--font-mono);">/review</code>.</li>
+                <li>Trigger pre-configured automations via custom keyword mappings.</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Smartphone Live Simulator Preview -->
+          <div style="display: flex; justify-content: center; align-items: center;">
+            <div class="phone-mockup">
+              <div class="phone-screen">
+                <div class="phone-header">
+                  <span>9:41</span>
+                  <span class="phone-chat-title" id="phone-chat-title-display">Meg Assistant</span>
+                  <span>LTE 🔋</span>
+                </div>
+                <div class="phone-messages" id="phone-messages-list">
+                  <div class="phone-bubble inbound">✦ Meg: Connection Established! ✦<br/>I am now linked to your local system.</div>
+                  <div class="phone-bubble outbound">/status</div>
+                  <div class="phone-bubble inbound">Current session status: Active<br/>Active Model: qwen3.5-9b<br/>1 background agent running.</div>
+                </div>
+                <div class="phone-input">
+                  <input type="text" class="phone-input-field" placeholder="Send bot command..." id="phone-input-field" onkeydown="handlePhoneInputKeydown(event, this)">
+                  <button style="background: transparent; border: none; color: #0088cc; font-weight: 600; font-size: 12px; cursor: pointer;" onclick="submitPhoneMessage()">Send</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════
+           VIEW: SYSTEM SETTINGS
+           ══════════════════════════════════════════════════════ -->
+      <div id="view-settings" class="view-container">
+        <div class="settings-layout">
+          <!-- Settings Sidebar Navigation -->
+          <div class="settings-sidebar">
+            <button class="settings-section-btn active" onclick="switchSettingsSection(this, 's-model')">Model Provider</button>
+            <button class="settings-section-btn" onclick="switchSettingsSection(this, 's-permissions')">Permissions Matrix</button>
+            <button class="settings-section-btn" onclick="switchSettingsSection(this, 's-memory')">Memory Settings</button>
+            <button class="settings-section-btn" onclick="switchSettingsSection(this, 's-diagnostics')">Process Diagnostics</button>
+          </div>
+
+          <!-- Settings Main Scroll Body -->
+          <div class="settings-body">
+            
+            <!-- Section: Model Provider -->
+            <div class="settings-section-view active" id="s-model">
+              <h2 style="font-size: 15px; font-weight: 700; color: var(--text);">AI Model Orchestration</h2>
+              <p style="font-size: 12px; color: var(--text-3); margin-top: -8px;">Configure local paths or cloud models provider keys.</p>
+              
+              <div class="settings-form-row">
+                <label>LM Studio Local Host API URL</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" class="tg-input-field" value="http://127.0.0.1:1234" id="setting-lm-url">
+                  <button class="btn-update" style="padding: 0 16px;" onclick="showToast('Connection Refreshed! Found local models.')">Ping Server</button>
+                </div>
+              </div>
+
+              <div class="settings-form-row" style="margin-top: 10px;">
+                <label>API Key Credentials</label>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-hover);">
+                    <span style="font-size: 12.5px;">Anthropic Claude</span>
+                    <input type="password" class="tg-input-field" value="sk-ant-mocked-token-for-dev" style="width: 200px; padding: 4px 8px;">
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-hover);">
+                    <span style="font-size: 12.5px;">Google Gemini API</span>
+                    <input type="password" class="tg-input-field" value="AIzaSyMockedGoogleApiKeyVal" style="width: 200px; padding: 4px 8px;">
+                  </div>
+                  <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-hover);">
+                    <span style="font-size: 12.5px;">DeepSeek Cloud</span>
+                    <input type="password" class="tg-input-field" value="sk-mocked-deepseek-api-key" style="width: 200px; padding: 4px 8px;">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Permissions Matrix -->
+            <div class="settings-section-view" id="s-permissions">
+              <h2 style="font-size: 15px; font-weight: 700; color: var(--text);">Tool Permissions Matrix</h2>
+              <p style="font-size: 12px; color: var(--text-3); margin-top: -8px;">Protect your local filesystem and restrict execution actions.</p>
+              
+              <div class="perms-grid">
+                <div class="perm-card">
+                  <div class="perm-info">
+                    <span class="perm-name">File System Reads</span>
+                    <span class="perm-desc">Allow agent to check project codes.</span>
+                  </div>
+                  <label class="switch-toggle"><input type="checkbox" checked><span class="slider-toggle"></span></label>
+                </div>
+                <div class="perm-card">
+                  <div class="perm-info">
+                    <span class="perm-name">File System Writes</span>
+                    <span class="perm-desc">Create or edit project code files.</span>
+                  </div>
+                  <label class="switch-toggle"><input type="checkbox" checked><span class="slider-toggle"></span></label>
+                </div>
+                <div class="perm-card">
+                  <div class="perm-info">
+                    <span class="perm-name">Write Approvals Required</span>
+                    <span class="perm-desc">Ask for confirmation before writing.</span>
+                  </div>
+                  <label class="switch-toggle"><input type="checkbox" checked><span class="slider-toggle"></span></label>
+                </div>
+                <div class="perm-card">
+                  <div class="perm-info">
+                    <span class="perm-name">Terminal Commands</span>
+                    <span class="perm-desc">Run build scripts or git parameters.</span>
+                  </div>
+                  <label class="switch-toggle"><input type="checkbox" checked><span class="slider-toggle"></span></label>
+                </div>
+                <div class="perm-card">
+                  <div class="perm-info">
+                    <span class="perm-name">Command Approvals Required</span>
+                    <span class="perm-desc">Bypass prompt dialogs for executions.</span>
+                  </div>
+                  <label class="switch-toggle"><input type="checkbox"><span class="slider-toggle"></span></label>
+                </div>
+                <div class="perm-card">
+                  <div class="perm-info">
+                    <span class="perm-name">Web Search Access</span>
+                    <span class="perm-desc">Resolve queries via online engines.</span>
+                  </div>
+                  <label class="switch-toggle"><input type="checkbox" checked><span class="slider-toggle"></span></label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section: Memory Settings -->
+            <div class="settings-section-view" id="s-memory">
+              <h2 style="font-size: 15px; font-weight: 700; color: var(--text);">Project Memory Buffer</h2>
+              <p style="font-size: 12px; color: var(--text-3); margin-top: -8px;">Review facts and context parameters remembered from previous prompts.</p>
+              
+              <div style="display: flex; flex-direction: column; gap: 8px;" id="memory-items-list">
+                <!-- Javascript populated memory slots -->
+              </div>
+            </div>
+
+            <!-- Section: Process Diagnostics -->
+            <div class="settings-section-view" id="s-diagnostics">
+              <h2 style="font-size: 15px; font-weight: 700; color: var(--text);">Process Diagnostics Stream</h2>
+              <p style="font-size: 12px; color: var(--text-3); margin-top: -8px;">Monitor system startup checks, processes, and updater events.</p>
+              
+              <div class="agent-console-box" style="height: 250px;" id="diagnostics-logs">
+                <!-- Populated via script -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FLOATING INTERACTIVE TWEAKS SYSTEM -->
+  <div class="tweaks-console" id="tweaks-console">
+    <div class="tweaks-header">
+      <span class="tweaks-title">🎨 UI Style Customizer</span>
+      <button class="btn-tweaks-close" onclick="toggleTweaksConsole()">✕</button>
+    </div>
+    <div class="tweaks-body">
+      <div class="tweak-control-row">
+        <span class="tweak-section-label">Accent Highlight</span>
+        <div class="tweak-colors-grid">
+          <div class="tweak-color-dot active" style="background:#7c3aed;" onclick="setAccentHue(260, this)"></div>
+          <div class="tweak-color-dot" style="background:#06b6d4;" onclick="setAccentHue(190, this)"></div>
+          <div class="tweak-color-dot" style="background:#10b981;" onclick="setAccentHue(150, this)"></div>
+          <div class="tweak-color-dot" style="background:#ec4899;" onclick="setAccentHue(330, this)"></div>
+          <div class="tweak-color-dot" style="background:#f59e0b;" onclick="setAccentHue(38, this)"></div>
+        </div>
+      </div>
+      
+      <div class="tweak-control-row horizontal">
+        <span class="tweak-control-label">Light Theme Override</span>
+        <label class="switch-toggle"><input type="checkbox" id="tweak-light-mode" onchange="toggleLightMode(this.checked)"><span class="slider-toggle"></span></label>
+      </div>
+
+      <div class="tweak-control-row">
+        <span class="tweak-section-label">Panel Transparency</span>
+        <input type="range" min="40" max="95" value="75" style="width: 100%; cursor: pointer;" oninput="setPanelOpacity(this.value)">
+      </div>
+      
+      <div class="tweak-control-row horizontal">
+        <span class="tweak-control-label">Show Model Settings</span>
+        <button class="btn-update" style="padding: 4px 10px;" onclick="openSettingsSection('model')">Configure</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Toast Alerts -->
+  <div class="toast-overlay" id="toast">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    <span id="toast-text">Alert text placeholder</span>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       INTERACTIVE CLIENT-SIDE JAVASCRIPT SYSTEM
+       ══════════════════════════════════════════════════════ -->
+  <script>
+    /* Mock Database Data Models */
+    const MOCK_FILES = [
+      { name: 'App.jsx', size: '102 KB', path: 'src/renderer/App.jsx', modified: '2 hours ago', ext: 'jsx' },
+      { name: 'styles.css', size: '8 KB', path: 'src/renderer/styles.css', modified: '1 day ago', ext: 'css' },
+      { name: 'AutomationsView.jsx', size: '34 KB', path: 'src/renderer/views/AutomationsView.jsx', modified: '4 hours ago', ext: 'jsx' },
+      { name: 'automationScheduler.js', size: '12 KB', path: 'src/main/automationScheduler.js', modified: '3 days ago', ext: 'js' },
+      { name: 'lmstudio.js', size: '18 KB', path: 'src/main/lmstudio.js', modified: '1 week ago', ext: 'js' },
+      { name: 'README.md', size: '10 KB', path: 'README.md', modified: '2 days ago', ext: 'md' },
+      { name: 'package.json', size: '2 KB', path: 'package.json', modified: '3 days ago', ext: 'json' },
+      { name: 'ipc.js', size: '19 KB', path: 'src/main/ipc.js', modified: '4 hours ago', ext: 'js' }
+    ];
+
+    const MOCK_AGENTS = [
+      { id: 'run-17180491', task: 'Code review workspace changes', status: 'Running', duration: '00:02:44', ratio: '2 / 3', steps: [
+        { label: 'Checking uncommitted file layout', status: 'done' },
+        { label: 'Comparing diff updates across files', status: 'done' },
+        { label: 'Evaluating security logic changes', status: 'active' }
+      ], logs: [
+        { level: 'info', msg: 'Started review agent session context.' },
+        { level: 'info', msg: 'Found 3 modified files in branch main.' },
+        { level: 'warn', msg: 'Potential unhandled rejection in App.jsx line 242.' }
+      ]},
+      { id: 'run-17180204', task: 'Auto-schedule release diagnostics', status: 'Done', duration: '00:01:12', ratio: '3 / 3', steps: [
+        { label: 'Check updates bundle repository', status: 'done' },
+        { label: 'Execute smoke checks locally', status: 'done' },
+        { label: 'Push verification stats output', status: 'done' }
+      ], logs: [
+        { level: 'info', msg: 'Triggered scheduled automation job.' },
+        { level: 'info', msg: 'Test suites passed: 42 tests OK.' },
+        { level: 'info', msg: 'Session logs pushed to telemetry diagnostic hub.' }
+      ]}
+    ];
+
+    const MOCK_AUTOMATIONS = [
+      { id: 'auto-pr-reviewer', name: 'PR Review Automator', trigger: 'Repository Event (PR opened)', enabled: true, actions: ['Run Code Review Agent', 'Send Notification via Telegram'] },
+      { id: 'auto-weekly-report', name: 'Weekly System Analytics', trigger: 'Scheduled Time (Every Friday 5pm)', enabled: false, actions: ['Run Statistics Diagnostic', 'Write summary reports/weekly.md'] },
+      { id: 'auto-deploy-on-merge', name: 'Automatic Test Trigger', trigger: 'Repository Event (Merge to main)', enabled: true, actions: ['Run command: npm test', 'Alert owner via Telegram status'] }
+    ];
+
+    const MOCK_MEMORIES = [
+      { text: "Developer prefers dark theme by default.", category: "Appearance" },
+      { text: "Bypass verification requests for read-only filesystem check operations.", category: "Permissions" },
+      { text: "Connected Telegram bot link points to admin channel workspace.", category: "Integrations" }
+    ];
+
+    const MOCK_DIAGNOSTICS = [
+      { type: 'startup:init', msg: 'Initializing Main Process Electron Services...', time: '10:14:02' },
+      { type: 'lmstudio:ping', msg: 'Connection established to local server at 127.0.0.1:1234', time: '10:14:04' },
+      { type: 'updater:idle', msg: 'Checking client channel update tags... Up-to-date.', time: '10:14:05' },
+      { type: 'workspace:sync', msg: 'Successfully mapped workspace files inventory count: 83 files.', time: '10:14:06' },
+      { type: 'telegram:poll', msg: 'Starting secure bot Telegram network socket handshake.', time: '10:14:08' }
+    ];
+
+    /* Dynamic Auto-complete options */
+    const AUTOCOMPLETE_SLASH_COMMANDS = [
+      { term: '/review', desc: 'Trigger code analysis review agent' },
+      { term: '/status', desc: 'Query active background agent tasks status' },
+      { term: '/clear', desc: 'Clear conversation threads buffer logs' },
+      { term: '/tweak', desc: 'Open custom UI aesthetics slider control' }
+    ];
+
+    const AUTOCOMPLETE_MENTIONS = [
+      { term: '@App.jsx', desc: 'src/renderer/App.jsx' },
+      { term: '@package.json', desc: 'Project configuration package' },
+      { term: '@clipboard', desc: 'Load text context from operating clipboard' },
+      { term: '@memory', desc: 'Link custom project workspace memory cards' }
+    ];
+
+    let activeAgentId = MOCK_AGENTS[0].id;
+
+    /* Initialize UI Views */
+    window.addEventListener('DOMContentLoaded', () => {
+      populateFiles();
+      populateAgents();
+      populateAutomations();
+      populateMemories();
+      populateDiagnostics();
+      
+      // Select default agent
+      selectAgent(activeAgentId);
+    });
+
+    /* Switch Sidebar Navigation */
+    function switchNav(btnElement, viewId) {
+      // Manage active nav buttons
+      document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+
+      // Manage visible containers
+      document.querySelectorAll('.view-container').forEach(view => view.classList.remove('active'));
+      const activeView = document.getElementById('view-' + viewId);
+      if (activeView) {
+        activeView.classList.add('active');
+      }
+
+      // Hide popover if open
+      document.getElementById('autocomplete-list').style.display = 'none';
+    }
+
+    /* Helper tab switch from inner actions */
+    function showTab(viewId) {
+      const targetBtn = Array.from(document.querySelectorAll('.nav-btn')).find(btn => btn.getAttribute('onclick').includes(viewId));
+      if (targetBtn) {
+        switchNav(targetBtn, viewId);
+      }
+    }
+
+    /* Autocomplete Mentions & Commands Engine */
+    function handleInputAutocomplete(input) {
+      const text = input.value;
+      const cursorPosition = input.selectionStart;
+      const lastChar = text.charAt(cursorPosition - 1);
+      const popover = document.getElementById('autocomplete-list');
+
+      if (lastChar === '/' || lastChar === '@') {
+        popover.style.display = 'flex';
+        popover.innerHTML = '';
+        
+        const header = document.createElement('div');
+        header.className = 'popover-header';
+        header.id = 'popover-title';
+        header.textContent = lastChar === '/' ? 'System Chat Commands' : 'Workspace Mentions';
+        popover.appendChild(header);
+
+        const dataset = lastChar === '/' ? AUTOCOMPLETE_SLASH_COMMANDS : AUTOCOMPLETE_MENTIONS;
+        
+        dataset.forEach((item, index) => {
+          const btn = document.createElement('button');
+          btn.className = `popover-item ${index === 0 ? 'active' : ''}`;
+          btn.innerHTML = `<strong style="color:var(--accent);">${item.term}</strong> <span style="font-size:10.5px;color:var(--text-3);margin-left:auto;">${item.desc}</span>`;
+          btn.onclick = () => selectAutocompleteTerm(item.term);
+          popover.appendChild(btn);
+        });
+      } else if (!text.includes('/') && !text.includes('@')) {
+        popover.style.display = 'none';
+      }
+    }
+
+    function handleInputKeydown(event, input) {
+      const popover = document.getElementById('autocomplete-list');
+      if (popover.style.display === 'flex') {
+        const items = popover.querySelectorAll('.popover-item');
+        let activeIndex = Array.from(items).findIndex(item => item.classList.contains('active'));
+        
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          items[activeIndex].classList.remove('active');
+          activeIndex = (activeIndex + 1) % items.length;
+          items[activeIndex].classList.add('active');
+        } else if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          items[activeIndex].classList.remove('active');
+          activeIndex = (activeIndex - 1 + items.length) % items.length;
+          items[activeIndex].classList.add('active');
+        } else if (event.key === 'Enter') {
+          event.preventDefault();
+          const activeTerm = items[activeIndex].querySelector('strong').textContent;
+          selectAutocompleteTerm(activeTerm);
+        } else if (event.key === 'Escape') {
+          popover.style.display = 'none';
+        }
+      }
+    }
+
+    function selectAutocompleteTerm(term) {
+      const input = document.getElementById('chat-input');
+      const text = input.value;
+      const lastIndex = Math.max(text.lastIndexOf('/'), text.lastIndexOf('@'));
+      if (lastIndex !== -1) {
+        input.value = text.substring(0, lastIndex) + term + ' ';
+      } else {
+        input.value += term + ' ';
+      }
+      document.getElementById('autocomplete-list').style.display = 'none';
+      input.focus();
+    }
+
+    /* Submit Chat Message Simulation */
+    function submitChatMessage() {
+      const input = document.getElementById('chat-input');
+      const messageText = input.value.trim();
+      if (!messageText) return;
+
+      // Append User message
+      const messagesContainer = document.getElementById('chat-messages');
+      const userMsg = document.createElement('div');
+      userMsg.className = 'message user';
+      userMsg.innerHTML = `
+        <div class="msg-avatar">U</div>
+        <div class="msg-bubble">
+          <div class="msg-bubble-content">${messageText}</div>
+        </div>
+      `;
+      messagesContainer.appendChild(userMsg);
+      input.value = '';
+
+      // Scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Handle Slash Command redirects
+      if (messageText.startsWith('/tweak')) {
+        setTimeout(() => {
+          toggleTweaksConsole(true);
+          simulateAssistantReply("Opened UI customizer console control floating drawer panel.");
+        }, 600);
+        return;
+      }
+
+      // Simulate Thinking and Assistant Reply loop
+      simulateAssistantWork(messageText);
+    }
+
+    function simulateAssistantWork(userQuery) {
+      const messagesContainer = document.getElementById('chat-messages');
+      const assistantMsg = document.createElement('div');
+      assistantMsg.className = 'message assistant';
+      
+      const thinkingId = 'thinking-' + Date.now();
+      const toolId = 'tool-' + Date.now();
+      const contentId = 'content-' + Date.now();
+
+      assistantMsg.innerHTML = `
+        <div class="msg-avatar">M</div>
+        <div class="msg-bubble">
+          <div class="thinking-box">
+            <div class="thinking-header" onclick="toggleThinkingBody(this)">
+              <span style="display:flex; align-items:center; gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent); animation: spin 2s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                Thinking Process...
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+            </div>
+            <div class="thinking-body" id="${thinkingId}">
+              - Received prompt query: "${userQuery}"<br/>
+              - Mapping workspace variables...
+            </div>
+          </div>
+          <div id="${toolId}"></div>
+          <div class="msg-bubble-content" id="${contentId}" style="display:none;"></div>
+        </div>
+      `;
+      
+      messagesContainer.appendChild(assistantMsg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Update thinking logs step-by-step
+      setTimeout(() => {
+        const thinkingLog = document.getElementById(thinkingId);
+        if (thinkingLog) thinkingLog.innerHTML += `<br/>- Checking tool permissions...`;
+      }, 1000);
+
+      setTimeout(() => {
+        const thinkingLog = document.getElementById(thinkingId);
+        if (thinkingLog) thinkingLog.innerHTML += `<br/>- Initiating automated tool run sequence...`;
+
+        // Render mock tool call needing confirmation
+        const toolBox = document.getElementById(toolId);
+        if (toolBox) {
+          toolBox.innerHTML = `
+            <div class="tool-card" style="animation: messageIn 0.3s var(--ease-smooth);">
+              <div class="tool-header" style="color: var(--accent);">
+                <div class="tool-icon terminal">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                </div>
+                <span>Staged Tool Confirmation Requested</span>
+                <span class="badge accent" style="margin-left: auto;">Requires User Approval</span>
+              </div>
+              <div class="tool-content">Action: run_command<br/>Args: { "command": "npm run build" }</div>
+              <div class="tool-footer">
+                <span>Production webpack compiler check</span>
+                <div class="tool-actions">
+                  <button class="btn-reject" onclick="handleToolAction(this, 'rejected')">Reject</button>
+                  <button class="btn-approve" onclick="handleToolAction(this, 'approved')">Approve</button>
+                </div>
+              </div>
+            </div>
+          `;
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }, 2200);
+    }
+
+    function simulateAssistantReply(replyText) {
+      const messagesContainer = document.getElementById('chat-messages');
+      const assistantMsg = document.createElement('div');
+      assistantMsg.className = 'message assistant';
+      assistantMsg.innerHTML = `
+        <div class="msg-avatar">M</div>
+        <div class="msg-bubble">
+          <div class="msg-bubble-content">${replyText}</div>
+        </div>
+      `;
+      messagesContainer.appendChild(assistantMsg);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    function handleToolAction(button, status) {
+      const footer = button.parentElement.parentElement;
+      const card = button.parentElement.parentElement.parentElement;
+      
+      if (status === 'approved') {
+        footer.innerHTML = `<span style="color: var(--green); font-weight:600;">✓ Approved & Executed</span>`;
+        card.style.borderColor = 'var(--green-border)';
+        card.style.background = 'var(--green-bg)';
+        
+        showToast("Action approved! Command 'npm run build' executed successfully.");
+        
+        // Push background agent state update
+        const countBadge = document.getElementById('agents-count-badge');
+        countBadge.textContent = parseInt(countBadge.textContent) + 1;
+        
+        // Add new running agent
+        const newRun = {
+          id: 'run-' + Date.now().toString().slice(-8),
+          task: 'npm run build execution compiler',
+          status: 'Running',
+          duration: '00:00:03',
+          ratio: '0 / 2',
+          steps: [{ label: 'Init build task', status: 'done' }, { label: 'Compile files layout assets', status: 'active' }],
+          logs: [{ level: 'info', msg: 'Started compiler build.' }]
+        };
+        MOCK_AGENTS.unshift(newRun);
+        populateAgents();
+
+        setTimeout(() => {
+          simulateAssistantReply("The compiler checks verified 100% build assets correctly packaged inside the distribution folder. Zero diagnostic exceptions returned.");
+        }, 2000);
+
+      } else {
+        footer.innerHTML = `<span style="color: var(--red); font-weight:600;">✗ Action Denied</span>`;
+        card.style.borderColor = 'var(--red-border)';
+        card.style.background = 'var(--red-bg)';
+        showToast("Action rejected. Staged execution command cancelled.");
+      }
+    }
+
+    /* Populators */
+    function populateFiles() {
+      const list = document.getElementById('ws-file-list');
+      list.innerHTML = '';
+      MOCK_FILES.forEach(file => {
+        const extColor = file.ext === 'jsx' ? '#5a84ff' : file.ext === 'css' ? '#e07a30' : file.ext === 'md' ? '#10a37f' : '#f5c542';
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.innerHTML = `
+          <div class="file-name-cell">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${extColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>${file.name}</span>
+          </div>
+          <div class="file-size-cell">${file.size}</div>
+          <div class="file-time-cell">${file.modified}</div>
+        `;
+        row.onclick = () => showToast(`Opening project file: ${file.path}`);
+        list.appendChild(row);
+      });
+    }
+
+    function filterMockFiles(query) {
+      const filtered = MOCK_FILES.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+      const list = document.getElementById('ws-file-list');
+      list.innerHTML = '';
+      filtered.forEach(file => {
+        const extColor = file.ext === 'jsx' ? '#5a84ff' : file.ext === 'css' ? '#e07a30' : file.ext === 'md' ? '#10a37f' : '#f5c542';
+        const row = document.createElement('div');
+        row.className = 'file-row';
+        row.innerHTML = `
+          <div class="file-name-cell">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${extColor}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>${file.name}</span>
+          </div>
+          <div class="file-size-cell">${file.size}</div>
+          <div class="file-time-cell">${file.modified}</div>
+        `;
+        row.onclick = () => showToast(`Opening project file: ${file.path}`);
+        list.appendChild(row);
+      });
+    }
+
+    function populateAgents() {
+      const sidebar = document.getElementById('agents-sidebar-list');
+      sidebar.innerHTML = '';
+      MOCK_AGENTS.forEach(agent => {
+        const activeClass = agent.id === activeAgentId ? 'active' : '';
+        const statusBadgeColor = agent.status === 'Running' ? 'badge accent' : 'badge green';
+        const progressFillStyle = agent.status === 'Done' ? 'agent-progress-fill done' : 'agent-progress-fill';
+        const percent = agent.status === 'Done' ? '100%' : '66%';
+        
+        const card = document.createElement('button');
+        card.className = `agent-list-card ${activeClass}`;
+        card.onclick = () => selectAgent(agent.id);
+        card.innerHTML = `
+          <div class="agent-card-title">
+            <span>${agent.task}</span>
+            <span class="${statusBadgeColor}">${agent.status}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-3);">
+            <span>${agent.id}</span>
+            <span>${agent.duration}</span>
+          </div>
+          <div class="agent-progress-bar">
+            <div class="${progressFillStyle}" style="width: ${percent};"></div>
+          </div>
+        `;
+        sidebar.appendChild(card);
+      });
+    }
+
+    function selectAgent(id) {
+      activeAgentId = id;
+      
+      // Update active state in list
+      document.querySelectorAll('.agent-list-card').forEach(card => {
+        card.classList.remove('active');
+      });
+      populateAgents();
+
+      const agentData = MOCK_AGENTS.find(a => a.id === id);
+      if (!agentData) return;
+
+      document.getElementById('agent-detail-title').textContent = agentData.task;
+      document.getElementById('agent-detail-status').textContent = agentData.status;
+      document.getElementById('agent-detail-status').className = agentData.status === 'Running' ? 'badge accent' : 'badge green';
+      document.getElementById('agent-detail-id').textContent = agentData.id;
+      document.getElementById('agent-detail-duration').textContent = agentData.duration;
+      document.getElementById('agent-detail-steps-ratio').textContent = agentData.ratio;
+
+      // Populate steps
+      const stepsScroll = document.getElementById('agent-detail-steps');
+      stepsScroll.innerHTML = '';
+      agentData.steps.forEach((step, i) => {
+        const stateClass = step.status === 'active' ? 'active' : step.status === 'done' ? 'done' : '';
+        const stateSymbol = step.status === 'done' ? '✓' : step.status === 'active' ? '•' : ' ';
+        stepsScroll.innerHTML += `
+          <div class="agent-step-item">
+            <div class="step-indicator ${stateClass}">${stateSymbol || (i+1)}</div>
+            <div style="flex:1;">
+              <div style="font-size:12.5px; font-weight:500;">${step.label}</div>
+              <div style="font-size:10.5px; color:var(--text-3); text-transform:capitalize;">${step.status}</div>
+            </div>
+          </div>
+        `;
+      });
+
+      // Populate logs
+      const logsConsole = document.getElementById('agent-detail-logs');
+      logsConsole.innerHTML = '';
+      agentData.logs.forEach(log => {
+        const color = log.level === 'warn' ? 'var(--orange)' : 'var(--accent)';
+        logsConsole.innerHTML += `
+          <div style="line-height:1.6;">
+            <span style="color:${color};">[${log.level.toUpperCase()}]</span> ${log.msg}
+          </div>
+        `;
+      });
+    }
+
+    function populateAutomations() {
+      const container = document.getElementById('automations-list-container');
+      container.innerHTML = '';
+      MOCK_AUTOMATIONS.forEach(auto => {
+        const toggleChecked = auto.enabled ? 'checked' : '';
+        const card = document.createElement('div');
+        card.className = 'glass-panel automation-card';
+        card.innerHTML = `
+          <div class="auto-card-top">
+            <span class="auto-title">${auto.name}</span>
+            <label class="switch-toggle">
+              <input type="checkbox" ${toggleChecked} onchange="toggleAutomationState('${auto.id}', this.checked)">
+              <span class="slider-toggle"></span>
+            </label>
+          </div>
+          <div class="auto-trigger-banner">
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            <span>${auto.trigger}</span>
+          </div>
+          <div class="auto-actions-list">
+            <span style="font-size:10px; font-weight:600; text-transform:uppercase; color:var(--text-3); margin-bottom:4px;">Workflow Actions</span>
+            ${auto.actions.map(act => `
+              <div class="auto-action-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="color:var(--green);"><polyline points="20 6 9 17 4 12"/></svg>
+                <span>${act}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function toggleAutomationState(id, state) {
+      const automation = MOCK_AUTOMATIONS.find(a => a.id === id);
+      if (automation) {
+        automation.enabled = state;
+        showToast(`${automation.name} auto-trigger is now ${state ? 'ENABLED' : 'DISABLED'}.`);
+      }
+    }
+
+    function populateMemories() {
+      const list = document.getElementById('memory-items-list');
+      list.innerHTML = '';
+      MOCK_MEMORIES.forEach((mem, index) => {
+        list.innerHTML += `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:12px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--bg-hover);">
+            <div style="display:flex; flex-direction:column; gap:2px; flex:1; padding-right:12px;">
+              <span style="font-size:12px; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">${mem.category}</span>
+              <span style="font-size:13px; color:var(--text-2); line-height:1.5;">${mem.text}</span>
+            </div>
+            <button onclick="deleteMemory(${index})" style="background:transparent; border:none; color:var(--red); font-size:12px; cursor:pointer;" title="Forget memory block">Forget</button>
+          </div>
+        `;
+      });
+    }
+
+    function deleteMemory(index) {
+      MOCK_MEMORIES.splice(index, 1);
+      populateMemories();
+      showToast("Memory block has been forgotten.");
+    }
+
+    function populateDiagnostics() {
+      const logs = document.getElementById('diagnostics-logs');
+      logs.innerHTML = '';
+      MOCK_DIAGNOSTICS.forEach(log => {
+        logs.innerHTML += `
+          <div style="line-height:1.6;">
+            <span style="color:var(--text-3);">${log.time}</span>
+            <span style="color:var(--accent); font-weight:600;">[${log.type}]</span>
+            <span style="color:var(--text-2);">${log.msg}</span>
+          </div>
+        `;
+      });
+    }
+
+    /* Simulate Workspace Actions */
+    function simulateWorkspaceAction(label, cmd) {
+      showToast(`Initiating action: ${label}...`);
+      
+      // Navigate to chat
+      showTab('chat');
+
+      // Append assistant run action notice
+      setTimeout(() => {
+        simulateAssistantReply(`Executing workspace command: <code style="font-family:var(--font-mono); background:var(--bg-hover); padding:2px 6px; border-radius:4px;">${cmd}</code> in target directories. Check the active Background Agents logs tab for execution outputs.`);
+      }, 500);
+    }
+
+    /* Telegram setup interaction */
+    function triggerTelegramValidation() {
+      const token = document.getElementById('tg-token-input').value.trim();
+      const chatId = document.getElementById('tg-chatid-input').value.trim();
+
+      if (!token || !chatId) {
+        showToast("Error: Bot token and chat user identification ID are required.");
+        return;
+      }
+
+      showToast("Validating bot token against Telegram network socket...");
+      
+      setTimeout(() => {
+        document.getElementById('tg-sync-label-display').textContent = 'Linked Bot Companion';
+        document.getElementById('tg-sync-status-display').innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Connected
+        `;
+        document.getElementById('phone-chat-title-display').textContent = 'Meg Link active';
+        
+        // Append welcome message in simulator
+        const phoneLogs = document.getElementById('phone-messages-list');
+        phoneLogs.innerHTML += `
+          <div class="phone-bubble inbound" style="animation: messageIn 0.3s var(--ease-smooth);">✦ Meg Companion: Secure connection established with local machine desktop!</div>
+        `;
+        phoneLogs.scrollTop = phoneLogs.scrollHeight;
+
+        showToast("Telegram Remote Link Sync Completed Successfully!");
+      }, 2000);
+    }
+
+    function handlePhoneInputKeydown(event, input) {
+      if (event.key === 'Enter') {
+        submitPhoneMessage();
+      }
+    }
+
+    function submitPhoneMessage() {
+      const input = document.getElementById('phone-input-field');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const phoneLogs = document.getElementById('phone-messages-list');
+      phoneLogs.innerHTML += `
+        <div class="phone-bubble outbound" style="animation: messageIn 0.3s var(--ease-smooth);">${text}</div>
+      `;
+      input.value = '';
+      phoneLogs.scrollTop = phoneLogs.scrollHeight;
+
+      // Handle phone message response simulation
+      setTimeout(() => {
+        let reply = "Automated reply: Command unrecognized. Type /help to see all remote parameters.";
+        if (text.toLowerCase().includes('status')) {
+          reply = "Meg Status: Running. Active Model: qwen3.5-9b. Workspace folder matches downloads directory.";
+        } else if (text.toLowerCase().includes('review')) {
+          reply = "Review Agent triggered remotely! Check the main window.";
+          // Trigger a review in main chat as well
+          simulateWorkspaceAction('Remote Workspace review', '/review');
+        }
+        phoneLogs.innerHTML += `
+          <div class="phone-bubble inbound" style="animation: messageIn 0.3s var(--ease-smooth);">${reply}</div>
+        `;
+        phoneLogs.scrollTop = phoneLogs.scrollHeight;
+      }, 1200);
+    }
+
+    /* Settings section navigation */
+    function switchSettingsSection(btnElement, sectionId) {
+      document.querySelectorAll('.settings-section-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+
+      document.querySelectorAll('.settings-section-view').forEach(view => view.classList.remove('active'));
+      document.getElementById(sectionId).classList.add('active');
+    }
+
+    function openSettingsSection(sectionName) {
+      showTab('settings');
+      const targetBtn = Array.from(document.querySelectorAll('.settings-section-btn')).find(btn => btn.textContent.toLowerCase().includes(sectionName));
+      if (targetBtn) {
+        targetBtn.click();
+      }
+    }
+
+    /* Floating UI Tweaks actions */
+    function toggleTweaksConsole(forceOpen = false) {
+      const console = document.getElementById('tweaks-console');
+      if (forceOpen) {
+        console.classList.add('visible');
+      } else {
+        console.classList.toggle('visible');
+      }
+    }
+
+    function setAccentHue(hue, element) {
+      document.documentElement.style.setProperty('--accent-hue', hue);
+      document.querySelectorAll('.tweak-color-dot').forEach(dot => dot.classList.remove('active'));
+      element.classList.add('active');
+      showToast(`Accent color updated to hue ${hue}!`);
+    }
+
+    function toggleLightMode(isLight) {
+      if (isLight) {
+        document.documentElement.classList.add('light-theme');
+      } else {
+        document.documentElement.classList.remove('light-theme');
+      }
+      showToast(`Aesthetic mode set to ${isLight ? 'Light Surface' : 'Dark Space'}.`);
+    }
+
+    function setPanelOpacity(val) {
+      const opacity = val / 100;
+      document.documentElement.style.setProperty('--panel-opacity', opacity);
+      document.documentElement.style.setProperty('--bg-panel', `rgba(18, 14, 30, ${opacity})`);
+    }
+
+    /* Global Toast Alert utility */
+    function showToast(text) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      
+      toastText.textContent = text;
+      toast.classList.add('visible');
+      
+      setTimeout(() => {
+        toast.classList.remove('visible');
+      }, 4000);
+    }
+
+    /* Collapsible thinking logs detail */
+    function toggleThinkingBody(header) {
+      const body = header.nextElementSibling;
+      const arrow = header.querySelector('svg:last-child');
+      
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow.style.transform = 'rotate(0deg)';
+      } else {
+        body.style.display = 'none';
+        arrow.style.transform = 'rotate(180deg)';
+      }
+    }
+  </script>
+</body>
+</html>

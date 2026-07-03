@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "Meg Redesigned Mockup UI",
+  "entry": "meg-redesigned-mockup.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "primary": true,
+  "createdAt": "2026-07-02T01:36:45.950Z",
+  "updatedAt": "2026-07-02T01:36:45.961Z",
+  "sourceSkillId": "agent-browser",
+  "metadata": {
+    "identifier": "meg-redesigned-mockup",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}
