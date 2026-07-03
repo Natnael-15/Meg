@@ -12,3 +12,7 @@ convo with meg.txt
 meg-tool-audit.jsonl
 megtest1/
 .od-skills/
+
+# Test artifact: the IPC staged-approval test writes to this Windows-style
+# path to verify the approval queue's write routing. Safe to ignore.
+C:\repo\
