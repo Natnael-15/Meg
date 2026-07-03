@@ -1,0 +1,67 @@
+# CI pipeline for Meg.
+#
+# Runs on every push to master and on every pull request. The job:
+#   1. Installs deps (cached for speed)
+#   2. Lints (ESLint)
+#   3. Runs the Vitest unit test suite
+#   4. Builds the renderer (Vite production bundle)
+#
+# The full electron-builder packaging (.exe / .dmg / .AppImage) is skipped
+# in CI to keep the job fast and avoid needing code-signing certs. Release
+# builds are triggered separately by tagging a release on GitHub.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Lint + Test + Build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true # The codebase predates the lint config — warnings shouldn't block CI yet.
+
+      - name: Test
+        run: npm test
+        env:
+          # Vitest runs in jsdom; make sure it doesn't try to use a real display.
+          CI: 'true'
+
+      - name: Build renderer
+        run: npm run renderer:build
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-node-${{ matrix.node }}
+          path: |
+            dist/
+          retention-days: 7
+          if-no-files-found: ignore

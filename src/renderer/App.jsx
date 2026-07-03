@@ -36,6 +36,8 @@ import { isThinkingModel } from './lib/models.js';
 import { useUpdater } from './hooks/useUpdater.js';
 import { useApprovals } from './hooks/useApprovals.js';
 import { useTelegram } from './hooks/useTelegram.js';
+import { useWorkspaces } from './hooks/useWorkspaces.js';
+import { useChatState } from './hooks/useChatState.js';
 import { FileBrowser } from './views/FileBrowser.jsx';
 import { MobileCompanion } from './views/MobileCompanion.jsx';
 import { AgentBuilder } from './views/AgentBuilder.jsx';
@@ -109,8 +111,7 @@ const App = () => {
     onStagedWrite: handleStagedWrite,
   });
   const [events, setEvents] = useState([]);
-  const [workspaces, setWorkspaces] = useState([]);
-  const [activeWorkspace, setActiveWorkspace] = useState(null);
+  const { workspaces, setWorkspaces, activeWorkspace, setActiveWorkspace, activeWorkspaceRef } = useWorkspaces();
   const [terminalHistory, setTerminalHistory] = useState([]);
 
   const onTerminalHistoryChange = useCallback((updater) => {
@@ -132,8 +133,6 @@ const App = () => {
     }, 3500);
     return () => clearTimeout(timer);
   }, [loading]);
-  const [typing, setTyping] = useState(false);
-  const [redactionNotices, setRedactionNotices] = useState({}); // { [threadId]: { count, provider, ts } }
   const [lmStatus, setLmStatus] = useState(undefined);
   const [activeModel, setActiveModel] = useState('qwen/qwen3.5-9b');
   const [memoryEnabled, setMemoryEnabled] = useState(true);
@@ -176,8 +175,7 @@ const App = () => {
   useEffect(()=>{ activeIdRef.current = activeId; }, [activeId]);
   const activeFileRef = useRef(activeFile);
   useEffect(()=>{ activeFileRef.current = activeFile; }, [activeFile]);
-  const activeWorkspaceRef = useRef(activeWorkspace);
-  useEffect(()=>{ activeWorkspaceRef.current = activeWorkspace; }, [activeWorkspace]);
+  // activeWorkspaceRef is owned by the useWorkspaces hook now.
   const threadsRef = useRef(threads);
   useEffect(()=>{ threadsRef.current = threads; }, [threads]);
 
@@ -193,6 +191,17 @@ const App = () => {
       return normalizeThreadList(next);
     });
   }, []);
+
+  // Chat streaming state + IPC listeners. Placed after updateThreads so it
+  // can close over it. Owns `typing`, `redactionNotices`, and the 7 chat:*
+  // event listeners that update thread messages + agent activity in real time.
+  const { typing, setTyping, redactionNotices, setRedactionNotices } = useChatState({
+    updateThreads,
+    setActiveAgents,
+    activeIdRef,
+    threads,
+    activeModel,
+  });
 
   const thread = threads.find(t=>t.id===activeId);
 
@@ -319,9 +328,7 @@ const App = () => {
     window.electronAPI.listEvents().then(data=>{
       setEvents(normalizeEventList(data));
     });
-    window.electronAPI.listWorkspaces().then(data=>{
-      if(data?.length) setWorkspaces(data);
-    });
+    // Note: workspaces + activeWorkspace are loaded by the useWorkspaces hook.
     // Note: telegramToken, telegramChatId, and telegramMessages are loaded
     // by the useTelegram hook on mount.
     window.electronAPI.getSetting('memoryEnabled').then(value => {
@@ -329,29 +336,6 @@ const App = () => {
     });
     window.electronAPI.getSetting('memories').then(value => {
       if (Array.isArray(value)) setMemories(value);
-    });
-    window.electronAPI.listWorkspaces?.().then(data=>{
-      if(data?.length) setWorkspaces(ws=>[
-        ...data.map(w=>({
-          ...w,
-          branch:'main',
-          dirty:0,
-          ahead:0,
-          lang:w.lang || '',
-          color:w.color || 'var(--accent)',
-          lastActive:w.lastActive || w.lastActiveAt || w.updatedAt || w.createdAt || null,
-          desc:w.path,
-          agents:0,
-          threads:0,
-          files:typeof w.files === 'number' ? w.files : 0,
-          inventory:Array.isArray(w.inventory) ? w.inventory : [],
-          inventoryTruncated:Boolean(w.inventoryTruncated),
-        })),
-        ...ws.filter(w=>!data.some(x=>x.path===w.path))
-      ]);
-    });
-    window.electronAPI.getActiveWorkspace?.().then(w=>{
-      if(w) setActiveWorkspace(w);
     });
     window.electronAPI.listAgentRuns?.().then(runs=>{
       if(runs?.length) setActiveAgents(runs.map(mapAgentRun));
@@ -385,10 +369,7 @@ const App = () => {
     window.electronAPI.saveEvents(events);
   },[events]);
 
-  useEffect(()=>{
-    if(!window.electronAPI||!dbLoaded.current) return;
-    workspaces.forEach(w => window.electronAPI.upsertWorkspace(w));
-  },[workspaces]);
+  // Workspace persistence is handled by the useWorkspaces hook.
 
   useEffect(()=>{
     if(!window.electronAPI||!dbLoaded.current) return;
@@ -491,133 +472,8 @@ const App = () => {
   // Note: Telegram incoming-message handling, polling lifecycle, and
   // initial state load now live in the useTelegram hook (above).
 
-  // ── Streaming IPC listeners (set up once) ────────────────
-  useEffect(()=>{
-    const api = window.electronAPI;
-    if(!api) return;
-
-    api.onChunk(({chunk, threadId})=>{
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        const msgs=[...t.messages];
-        const last=msgs[msgs.length-1];
-        if(last&&last.role==='meg'&&last.streaming){
-          msgs[msgs.length-1]={...last, text:last.text+chunk};
-        }
-        return {...t,messages:msgs, unread: threadId !== activeIdRef.current || t.unread};
-      }));
-    });
-
-    api.onThinking(({chunk, threadId})=>{
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        const msgs=[...t.messages];
-        const last=msgs[msgs.length-1];
-        if(last&&last.role==='meg'&&last.streaming){
-          msgs[msgs.length-1]={...last, thinking:(last.thinking||'')+chunk};
-        }
-        return {...t,messages:msgs, unread: threadId !== activeIdRef.current || t.unread};
-      }));
-    });
-
-    api.onRedacted(({count, provider, threadId})=>{
-      // Store the redaction notice so the chat header can show a badge
-      // ("3 secrets redacted before sending to OpenAI"). Overwrites any
-      // previous notice for this thread — the latest turn wins.
-      setRedactionNotices(prev => ({ ...prev, [threadId]: { count, provider, ts: Date.now() } }));
-    });
-
-    api.onDone(({threadId})=>{
-      setTyping(false);
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        return {...t,messages:t.messages
-          .map(m=>m.streaming?{...m,streaming:false}:m)
-          .filter(m=>!(m.role==='meg' && (!m.text || m.text.trim()==='')))
-          , unread: threadId !== activeIdRef.current || t.unread
-        };
-      }));
-      setActiveAgents(prev => prev.map(a => a.threadId === threadId ? {
-        ...a,
-        status: 'done',
-        doneSteps: a.steps,
-        liveSteps: a.liveSteps.map(s => s.status === 'active' ? { ...s, status: 'done' } : s)
-      } : a));
-    });
-
-    api.onError(({error, threadId})=>{
-      setTyping(false);
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        const msgs=[...t.messages];
-        const last=msgs[msgs.length-1];
-        if(last&&last.role==='meg'&&last.streaming){
-          msgs[msgs.length-1]={...last, text:`Error: ${error}`, streaming:false};
-        }
-        return {...t,messages:msgs, unread: threadId !== activeIdRef.current || t.unread};
-      }));
-    });
-
-    api.onToolCall(({id, name, args, threadId})=>{
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        // Finalize any streaming meg message (drop if empty)
-        const msgs=t.messages
-          .map(m=>m.streaming&&m.role==='meg'?(m.text?{...m,streaming:false}:null):m)
-          .filter(m => m !== null && !(m.role==='meg' && (!m.text || m.text.trim()==='')));
-        return {...t,messages:[...msgs,{id:`tc-${id}`,role:'tool_call',name,args,pending:true}], unread: threadId !== activeIdRef.current || t.unread};
-      }));
-      if(name === 'spawn_subagent') return;
-      setActiveAgents(prev => {
-        const existing = prev.find(a => a.threadId === threadId);
-        const taskName = name + ': ' + (args.command || args.path || '');
-        const step = { label: taskName, status: 'done' };
-        
-        if (existing) {
-          return prev.map(a => a.threadId === threadId ? {
-            ...a,
-            status: 'running',
-            doneSteps: a.doneSteps + 1,
-            steps: a.steps + 1,
-            liveSteps: [...a.liveSteps, step]
-          } : a);
-        } else {
-          const thread = threads.find(t => t.id === threadId);
-          return [...prev, {
-            id: 'ag-' + Date.now(),
-            threadId,
-            task: thread?.title || 'Active Task',
-            status: 'running',
-            thread: thread?.title || 'Chat',
-            model: activeModel,
-            duration: 'just now',
-            doneSteps: 1,
-            steps: 2,
-            liveSteps: [step, { label: 'Thinking…', status: 'active' }],
-            tools: ['terminal','fs']
-          }];
-        }
-      });
-    });
-
-    api.onToolResult(({id, result, threadId})=>{
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        return {...t,updatedAt:new Date().toISOString(),messages:t.messages.map(m=>
-          m.role==='tool_call'&&m.id===`tc-${id}`?{...m,result,pending:false}:m
-        )};
-      }));
-    });
-
-    api.onResume(({threadId})=>{
-      updateThreads(ts=>ts.map(t=>{
-        if(t.id!==threadId) return t;
-        return {...t,updatedAt:new Date().toISOString(),messages:[...t.messages,{id:Date.now(),role:'meg',text:'',streaming:true}], unread: threadId !== activeIdRef.current || t.unread};
-      }));
-    });
-
-    return ()=>api.removeListeners('chat:chunk','chat:done','chat:error','chat:tool_call','chat:tool_result','chat:resume','chat:thinking','chat:redacted');
-  }, []);
+  // Note: streaming IPC listeners (chat:chunk, chat:done, etc.) are owned
+  // by the useChatState hook above.
 
   const addMessage = async (text, opts = {}) => {
     const { images = [] } = opts;

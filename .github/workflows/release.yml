@@ -1,0 +1,68 @@
+# Release build pipeline for Meg.
+#
+# Triggered when a release is published on GitHub (or a v* tag is pushed).
+# Builds the full Electron app for all 3 platforms (Windows, macOS, Linux)
+# and uploads the artifacts to the GitHub release.
+#
+# Code signing is optional — if no signing secrets are configured, the
+# builds are unsigned (users get a "publisher unknown" warning on Windows
+# and will need to right-click → Open on macOS the first time).
+
+name: Release
+
+on:
+  release:
+    types: [published]
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # needed by electron-builder to upload release assets
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact: Meg-Setup.exe
+          - os: macos-latest
+            platform: mac
+            artifact: Meg-*.dmg
+          - os: ubuntu-latest
+            platform: linux
+            artifact: Meg-*.AppImage
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build for ${{ matrix.platform }}
+        run: npm run build:${{ matrix.platform }}
+        env:
+          # macOS code signing (optional — skip if not configured)
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CSC_LINK / CSC_KEY_PASSWORD: macOS developer ID certificate (base64 p12 + password)
+          # APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID: for notarization
+          # Windows: EV cert via CSC_LINK or Azure Trusted Signing (not configured here)
+
+      - name: Upload artifacts to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.artifact }}
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
